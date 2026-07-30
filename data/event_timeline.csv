@@ -1,0 +1,6 @@
+"stage_id","event_date","event_type","event_name","analysis_scope","expected_direction","main_channel","source_url","model_usage","verification_date"
+"E1","2026-02-28","external_conflict","题面所称美伊战争冲击窗口起点：中东地区军事行动开始","Q1/Q2","+","供给中断风险、预防性需求、风险溢价","https://www.iea.org/data-and-statistics/data-tools/middle-east-maritime-chokepoints-shipping-monitor","事件研究起点；构造 war_on dummy","2026-07-29"
+"E2","2026-03-02","shipping_disruption","霍尔木兹海峡事实性关闭","Q1/Q2","+","实物流量受阻、运价与战争保险成本上升","https://www.eia.gov/todayinenergy/detail.php?id=67386","独立阶段 dummy；机制证据","2026-07-29"
+"P1","2026-03-23","domestic_policy","中国对成品油价格采取临时调控措施","Q3","-","降低国际油价向国内汽柴油价格的当期传导","https://www.ndrc.gov.cn/xwdt/xwfb/202603/t20260323_1404296_ext.html","政策 dummy；规则应调幅度与实际调幅度之差","2026-07-29"
+"P2","2026-04-07","domestic_policy","中国继续实施成品油价格调控","Q3","-","继续压低国内成品油价格传导幅度","https://www.ndrc.gov.cn/xwdt/xwfb/202604/t20260407_1404528_ext.html","政策 dummy；第二次调控强度","2026-07-29"
+"E3","2026-06-17","external_easing","美国与伊朗签署涉及恢复霍尔木兹海峡通行的谅解备忘录","Q1/Q2","-","航运恢复预期、供应风险溢价回落","https://www.eia.gov/Todayinenergy/detail.php?id=67865","缓和阶段 dummy；事件窗口终点之一","2026-07-29"
