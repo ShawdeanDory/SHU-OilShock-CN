@@ -1,0 +1,3 @@
+effective_date,gasoline_rule_adjustment_cny_t,gasoline_actual_adjustment_cny_t,gasoline_policy_gap_cny_t,diesel_rule_adjustment_cny_t,diesel_actual_adjustment_cny_t,diesel_policy_gap_cny_t,source_artifact_id
+2026-03-23,2205,1160,1045,2120,1115,1005,ndrc_fuel_control_20260323
+2026-04-07,800,420,380,770,400,370,ndrc_fuel_control_20260407

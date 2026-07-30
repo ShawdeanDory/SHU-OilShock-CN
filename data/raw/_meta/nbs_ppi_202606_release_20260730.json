@@ -1,0 +1,17 @@
+{
+  "artifact_id": "nbs_ppi_202606_release",
+  "source_id": "SRC_NBS_MONTHLY",
+  "status": "DOWNLOADED",
+  "required": false,
+  "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260709_1964083.html",
+  "local_path": "data/raw/nbs_ppi_202606_release_20260730.html",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "text/html",
+  "content_length_header": "",
+  "size_bytes": 248212,
+  "sha256": "d79bccedf36ece3545b1f24483e1939118ad10e6f8aaad165ecc15b897d04dad",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

@@ -1,0 +1,17 @@
+{
+  "artifact_id": "ndrc_fuel_control_20260407",
+  "source_id": "SRC_NDRC_FUEL",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://www.ndrc.gov.cn/xwdt/xwfb/202604/t20260407_1404528_ext.html",
+  "local_path": "data/raw/ndrc_fuel_control_20260407_20260730.html",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "text/html",
+  "content_length_header": "3371",
+  "size_bytes": 3371,
+  "sha256": "4568394052148195d04723bbe49b7f6540f27bb8f082eab918fa6b876f5ecbf7",
+  "etag": "W/\"3371-1775545105000\"",
+  "last_modified": "Tue, 07 Apr 2026 06:58:25 GMT",
+  "error": ""
+}

@@ -1,0 +1,17 @@
+{
+  "artifact_id": "fred_cny_per_usd_daily",
+  "source_id": "SRC_FRED_FX",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXCHUS",
+  "local_path": "data/raw/fred_cny_per_usd_daily_20260730.csv",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/csv",
+  "content_length_header": "210889",
+  "size_bytes": 210889,
+  "sha256": "95a58cd5c2e5f91550e80452c44d7d750df3933d0642993b944cadb195fdd3cd",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "cutoff_date": "2026-06-30",
+  "sources": [
+    {
+      "artifact_id": "fred_brent_daily",
+      "source_id": "SRC_FRED_BRENT",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU",
+      "filename_template": "fred_brent_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DCOILBRENTEU"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_wti_daily",
+      "source_id": "SRC_FRED_WTI",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO",
+      "filename_template": "fred_wti_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DCOILWTICO"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_usd_broad_daily",
+      "source_id": "SRC_FRED_DTWEXBGS",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTWEXBGS",
+      "filename_template": "fred_usd_broad_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DTWEXBGS"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_cny_per_usd_daily",
+      "source_id": "SRC_FRED_FX",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXCHUS",
+      "filename_template": "fred_cny_per_usd_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DEXCHUS"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_jpy_per_usd_daily",
+      "source_id": "SRC_FRED_FX",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXJPUS",
+      "filename_template": "fred_jpy_per_usd_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DEXJPUS"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_krw_per_usd_daily",
+      "source_id": "SRC_FRED_FX",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXKOUS",
+      "filename_template": "fred_krw_per_usd_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DEXKOUS"],
+      "required": true
+    },
+    {
+      "artifact_id": "fred_usd_per_eur_daily",
+      "source_id": "SRC_FRED_FX",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXUSEU",
+      "filename_template": "fred_usd_per_eur_daily_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["observation_date", "DEXUSEU"],
+      "required": true
+    },
+    {
+      "artifact_id": "eia_us_commercial_crude_stock_weekly",
+      "source_id": "SRC_EIA_WCESTUS1",
+      "url": "https://www.eia.gov/dnav/pet/hist_xls/WCESTUS1w.xls",
+      "filename_template": "eia_us_commercial_crude_stock_weekly_{download_date}.xls",
+      "format": "xls",
+      "min_bytes": 10000,
+      "required": true
+    },
+    {
+      "artifact_id": "eia_steo_jul2026",
+      "source_id": "SRC_EIA_STEO",
+      "url": "https://www.eia.gov/outlooks/steo/archives/jul26_base.xlsx",
+      "filename_template": "eia_steo_jul2026_{download_date}.xlsx",
+      "format": "xlsx",
+      "min_bytes": 100000,
+      "required": true
+    },
+    {
+      "artifact_id": "gpr_global_monthly",
+      "source_id": "SRC_GPR",
+      "url": "https://www.matteoiacoviello.com/gpr_files/data_gpr_export.dta",
+      "filename_template": "gpr_global_monthly_{download_date}.dta",
+      "format": "dta",
+      "min_bytes": 100000,
+      "required": true
+    },
+    {
+      "artifact_id": "oecd_g20_cpi_monthly",
+      "source_id": "SRC_OECD_G20_CPI",
+      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.TPS,DSD_G20_PRICES@DF_G20_PRICES,1.0/CHN+DEU+JPN+KOR.M...PA...?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+      "filename_template": "oecd_g20_cpi_monthly_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["REF_AREA", "TIME_PERIOD", "OBS_VALUE"],
+      "required": true
+    },
+    {
+      "artifact_id": "oecd_kei_ip_monthly",
+      "source_id": "SRC_OECD_KEI_IP",
+      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_KEI@DF_KEI,4.0/DEU+JPN+KOR.M.PRVM.IX.BTE..?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+      "filename_template": "oecd_kei_ip_monthly_{download_date}.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["REF_AREA", "TIME_PERIOD", "OBS_VALUE"],
+      "required": true
+    },
+    {
+      "artifact_id": "ec_weekly_oil_bulletin",
+      "source_id": "SRC_EC_WOB",
+      "url": "https://energy.ec.europa.eu/document/download/906e60ca-8b6a-44e7-8589-652854d2fd3f_en?filename=Weekly_Oil_Bulletin_Prices_History_maticni_4web.xlsx",
+      "filename_template": "ec_weekly_oil_bulletin_{download_date}.xlsx",
+      "format": "xlsx",
+      "min_bytes": 100000,
+      "required": true
+    },
+    {
+      "artifact_id": "jp_meti_regular_gasoline_weekly",
+      "source_id": "SRC_JP_METI_FUEL",
+      "url": "https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/xlsx/260729s5.xlsx",
+      "filename_template": "jp_meti_regular_gasoline_weekly_{download_date}.xlsx",
+      "format": "xlsx",
+      "min_bytes": 100000,
+      "referer": "https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36",
+      "required": true
+    },
+    {
+      "artifact_id": "kosis_kr_gasoline_monthly",
+      "source_id": "SRC_KR_KOSIS_FUEL",
+      "url": "https://kosis.kr/statHtml/statHtml.do?orgId=318&tblId=TX_31802_A000&conn_path=I2",
+      "filename_template": "kosis_kr_gasoline_monthly_20260730.csv",
+      "format": "csv",
+      "min_bytes": 1000,
+      "expected_csv_columns": ["period", "regular_gasoline_krw_per_l"],
+      "local_snapshot": true,
+      "required": true
+    },
+    {
+      "artifact_id": "nbs_cpi_202606_release",
+      "source_id": "SRC_NBS_MONTHLY",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260709_1964084.html",
+      "filename_template": "nbs_cpi_202606_release_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": false
+    },
+    {
+      "artifact_id": "nbs_ppi_202606_release",
+      "source_id": "SRC_NBS_MONTHLY",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260709_1964083.html",
+      "filename_template": "nbs_ppi_202606_release_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": false
+    },
+    {
+      "artifact_id": "nbs_iav_202606_release",
+      "source_id": "SRC_NBS_MONTHLY",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964123.html",
+      "filename_template": "nbs_iav_202606_release_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": false
+    },
+    {
+      "artifact_id": "nbs_gdp_2026q2_release",
+      "source_id": "SRC_NBS_GDP",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260716_1964142.html",
+      "filename_template": "nbs_gdp_2026q2_release_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": false
+    },
+    {
+      "artifact_id": "ndrc_fuel_control_20260323",
+      "source_id": "SRC_NDRC_FUEL",
+      "url": "https://www.ndrc.gov.cn/xwdt/xwfb/202603/t20260323_1404296_ext.html",
+      "filename_template": "ndrc_fuel_control_20260323_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": true
+    },
+    {
+      "artifact_id": "ndrc_fuel_control_20260407",
+      "source_id": "SRC_NDRC_FUEL",
+      "url": "https://www.ndrc.gov.cn/xwdt/xwfb/202604/t20260407_1404528_ext.html",
+      "filename_template": "ndrc_fuel_control_20260407_{download_date}.html",
+      "format": "html",
+      "min_bytes": 1000,
+      "required": true
+    }
+  ]
+}

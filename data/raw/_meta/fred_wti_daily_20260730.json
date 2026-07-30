@@ -1,0 +1,17 @@
+{
+  "artifact_id": "fred_wti_daily",
+  "source_id": "SRC_FRED_WTI",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO",
+  "local_path": "data/raw/fred_wti_daily_20260730.csv",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/csv",
+  "content_length_header": "178643",
+  "size_bytes": 178643,
+  "sha256": "cbb2a637c6f9da413922df0bd7953f4d9f972f4b89a26f70a5380550c6edcf57",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

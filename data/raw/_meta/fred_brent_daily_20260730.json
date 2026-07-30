@@ -1,0 +1,17 @@
+{
+  "artifact_id": "fred_brent_daily",
+  "source_id": "SRC_FRED_BRENT",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU",
+  "local_path": "data/raw/fred_brent_daily_20260730.csv",
+  "downloaded_at": "2026-07-30T13:22:02+08:00",
+  "http_status": "200",
+  "content_type": "application/csv",
+  "content_length_header": "173562",
+  "size_bytes": 173562,
+  "sha256": "5ad9de145a3bc1eac9d1ae1bcc2e0a7fab90b3b631f2f43990567390a7a10c9a",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

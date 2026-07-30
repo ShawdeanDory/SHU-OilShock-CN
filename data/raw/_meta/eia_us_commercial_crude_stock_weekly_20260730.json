@@ -1,0 +1,17 @@
+{
+  "artifact_id": "eia_us_commercial_crude_stock_weekly",
+  "source_id": "SRC_EIA_WCESTUS1",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://www.eia.gov/dnav/pet/hist_xls/WCESTUS1w.xls",
+  "local_path": "data/raw/eia_us_commercial_crude_stock_weekly_20260730.xls",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.ms-excel",
+  "content_length_header": "129536",
+  "size_bytes": 129536,
+  "sha256": "9854fb34901bc003e0757802543471a47387b5e838d9253d361748511df42402",
+  "etag": "\"805a36c15c1fdd1:0\"",
+  "last_modified": "Wed, 29 Jul 2026 13:18:33 GMT",
+  "error": ""
+}

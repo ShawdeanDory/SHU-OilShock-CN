@@ -1,0 +1,18 @@
+{
+  "artifact_id": "jp_meti_regular_gasoline_weekly",
+  "source_id": "SRC_JP_METI_FUEL",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/xlsx/260729s5.xlsx",
+  "local_path": "data/raw/jp_meti_regular_gasoline_weekly_20260730.xlsx",
+  "downloaded_at": "2026-07-30T13:44:59+08:00",
+  "checked_at": "2026-07-30T13:44:59+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "content_length_header": "2640844",
+  "size_bytes": 2640844,
+  "sha256": "5510047b7b1a49b5cf143bdf0e7c85139a7216b1a3d71b5c5585a3f1e8a2b95a",
+  "etag": "\"f9be26e9763bbf4cd2ac2e85937b0eea\"",
+  "last_modified": "Wed, 29 Jul 2026 05:00:02 GMT",
+  "error": ""
+}

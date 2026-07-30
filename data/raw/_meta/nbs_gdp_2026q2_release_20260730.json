@@ -1,0 +1,17 @@
+{
+  "artifact_id": "nbs_gdp_2026q2_release",
+  "source_id": "SRC_NBS_GDP",
+  "status": "DOWNLOADED",
+  "required": false,
+  "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260716_1964142.html",
+  "local_path": "data/raw/nbs_gdp_2026q2_release_20260730.html",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "text/html",
+  "content_length_header": "",
+  "size_bytes": 263171,
+  "sha256": "75eed891093dcdc14c3ecd9c9e60f213f283154bb6e5271532c3aa1134473ba6",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

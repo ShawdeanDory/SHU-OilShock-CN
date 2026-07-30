@@ -1,0 +1,17 @@
+{
+  "artifact_id": "fred_usd_broad_daily",
+  "source_id": "SRC_FRED_DTWEXBGS",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTWEXBGS",
+  "local_path": "data/raw/fred_usd_broad_daily_20260730.csv",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/csv",
+  "content_length_header": "103545",
+  "size_bytes": 103545,
+  "sha256": "d9cc6a2f607514cdcf528b36492812ddde37ec1447b3218533a0fc9705049bbb",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

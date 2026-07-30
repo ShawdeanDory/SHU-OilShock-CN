@@ -1,0 +1,17 @@
+{
+  "artifact_id": "gpr_global_monthly",
+  "source_id": "SRC_GPR",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://www.matteoiacoviello.com/gpr_files/data_gpr_export.dta",
+  "local_path": "data/raw/gpr_global_monthly_20260730.dta",
+  "downloaded_at": "2026-07-30T13:28:55+08:00",
+  "http_status": "200",
+  "content_type": "application/octet-stream",
+  "content_length_header": "763721",
+  "size_bytes": 763721,
+  "sha256": "c2aafbf44a18ce0d90f882d98edaf0f4a6e920488da07de950364fe477b006e0",
+  "etag": "\"6a6a6959-ba749\"",
+  "last_modified": "Wed, 29 Jul 2026 20:58:01 GMT",
+  "error": ""
+}

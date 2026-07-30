@@ -1,0 +1,17 @@
+{
+  "artifact_id": "ec_weekly_oil_bulletin",
+  "source_id": "SRC_EC_WOB",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://energy.ec.europa.eu/document/download/906e60ca-8b6a-44e7-8589-652854d2fd3f_en?filename=Weekly_Oil_Bulletin_Prices_History_maticni_4web.xlsx",
+  "local_path": "data/raw/ec_weekly_oil_bulletin_20260730.xlsx",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "content_length_header": "4436105",
+  "size_bytes": 4436105,
+  "sha256": "e34c6d4d824e403523ead99f3c3a1048b082bd500e12bd3bac0a80f8cf3919c6",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

@@ -1,0 +1,17 @@
+{
+  "artifact_id": "fred_krw_per_usd_daily",
+  "source_id": "SRC_FRED_FX",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXKOUS",
+  "local_path": "data/raw/fred_krw_per_usd_daily_20260730.csv",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/csv",
+  "content_length_header": "216313",
+  "size_bytes": 216313,
+  "sha256": "8bbe08b4e380232450cb15d579f9f303ee0fb82efce770ea219dfbe4f0462af8",
+  "etag": "",
+  "last_modified": "",
+  "error": ""
+}

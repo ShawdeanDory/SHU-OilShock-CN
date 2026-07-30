@@ -1,0 +1,17 @@
+{
+  "artifact_id": "eia_steo_jul2026",
+  "source_id": "SRC_EIA_STEO",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://www.eia.gov/outlooks/steo/archives/jul26_base.xlsx",
+  "local_path": "data/raw/eia_steo_jul2026_20260730.xlsx",
+  "downloaded_at": "2026-07-30T13:22:18+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "content_length_header": "1094378",
+  "size_bytes": 1094378,
+  "sha256": "67741610f3bb74e011a55a40d9cb571f5ea9108a96ef7d144e65519abd72f490",
+  "etag": "\"0e9ba215dddd1:0\"",
+  "last_modified": "Mon, 06 Jul 2026 15:35:54 GMT",
+  "error": ""
+}

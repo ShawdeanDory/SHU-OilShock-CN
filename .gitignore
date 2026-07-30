@@ -1,7 +1,6 @@
 # Secrets and local configuration
 .env
 .env.*
-!.env.example
 *.key
 *.pem
 
@@ -42,9 +41,21 @@ paper/**/*.xdv
 *.tmp
 *.temp
 ~$*
+.env
+.env.local
+.env.*.local
 
 # Large downloaded archives and private caches
 data/raw/*.zip
 data/raw/*.7z
 data/raw/*.rar
 data/cache/
+
+# Re-downloadable snapshots whose providers prefer processed subsets or citations
+data/raw/oecd_*.csv
+data/raw/nbs_*_release_*.html
+data/raw/ndrc_fuel_control_*.html
+
+# Manual exports may have redistribution restrictions
+data/raw/manual/*
+!data/raw/manual/README.md

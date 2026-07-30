@@ -1,0 +1,20 @@
+dataset,status,rows,start,end,missing,duplicates,note
+fred_brent_daily,PASS,4303,2010-01-01,2026-06-30,131,0,
+fred_wti_daily,PASS,4303,2010-01-01,2026-06-30,167,0,
+fred_usd_broad_daily,PASS,4303,2010-01-01,2026-06-30,197,0,
+fred_cny_per_usd_daily,PASS,4303,2010-01-01,2026-06-30,178,0,
+fred_jpy_per_usd_daily,PASS,4303,2010-01-01,2026-06-30,178,0,
+fred_krw_per_usd_daily,PASS,4303,2010-01-01,2026-06-30,178,0,
+fred_usd_per_eur_daily,PASS,4303,2010-01-01,2026-06-30,178,0,
+eia_us_commercial_crude_stock_weekly,PASS,861,2010-01-01,2026-06-26,0,0,月度主口径使用每月最后一个已观测周值
+gpr_global_monthly,PASS,198,2010-01-01,2026-06-01,0,0,2026-06 为最新初值，后续可能修订
+p0_monthly_market,PASS,198,2010-01-31,2026-06-30,0,0,2010-01至2026-06主市场面板；未对缺失值做插值
+eia_steo_selected,CONDITIONAL,162,2022-01-01,2026-06-01,0,0,当前单一版本仅覆盖2022年起，且2026-02至06为估计值；不能回填2010年起的实时滚动预测
+oecd_g20_cpi_monthly,PASS,792,2010-01-01,2026-06-01,0,0,CHN/DEU/JPN/KOR 各198期；德国为HICP，其余为国家CPI
+oecd_kei_ip_monthly,PASS,591,2010-01-01,2026-05-01,0,0,DEU/JPN/KOR 各197期；中国活动变量仍需国家统计局
+germany_eurosuper95_weekly,PASS,827,2010-01-04,2026-06-29,0,0,欧盟周报含税Euro-super 95，原单位EUR/1000 litres
+germany_eurosuper95_monthly,PASS,198,2010-01-31,2026-06-30,0,0,自然月内周度观测算术均值
+japan_regular_gasoline_weekly,PASS,839,2010-01-05,2026-06-29,0,0,日本资源能源厅给油所普通汽油现金价，全国，日元/升
+japan_regular_gasoline_monthly,PASS,198,2010-01-31,2026-06-30,0,0,自然月内周度观测算术均值；2004-04以后为含消费税价格
+korea_regular_gasoline_monthly,PASS,198,2010-01-31,2026-06-30,0,0,KOSIS表TX_31802_A000，韩国石油公社普通汽油全国月均价，单位KRW/litre；公开表浏览器读取快照
+cn_fuel_policy_events,PASS,2,2026-03-23,2026-04-07,0,0,由两份国家发展改革委网页快照自动复算政策差额
