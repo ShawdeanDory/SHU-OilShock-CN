@@ -1,0 +1,181 @@
+{
+  "core_results_present": {
+    "q1_event_effects.csv": true,
+    "q1_forecast_metrics.csv": true,
+    "q1_monthly_shocks.csv": true,
+    "q1_robustness.csv": true,
+    "q2_ardl_baseline.csv": true,
+    "q2_gdp_validation.csv": true,
+    "q2_irf.csv": true,
+    "q2_robustness.csv": true,
+    "q3_country_pass_through.csv": true,
+    "q3_panel_irf.csv": true,
+    "q3_policy_counterfactual.csv": true,
+    "q3_robustness.csv": true,
+    "q3_summary.csv": true
+  },
+  "cutoff": "2026-06-30",
+  "figure_pngs": [
+    "data_overview_fuel_panel.png",
+    "data_overview_oil_gpr.png",
+    "q1_forecast_1m.png",
+    "q1_war_counterfactual.png",
+    "q2_irf.png",
+    "q3_panel_irf.png",
+    "q3_pass_through_6m.png",
+    "q3_policy_counterfactual.png"
+  ],
+  "freeze_hash": "e99e0414aed40cefd1e54d3c7eccaccb934bc2b90de88597aef129fb10a02354",
+  "random_seed": 20260730,
+  "status": "EXECUTION_SUMMARY",
+  "warnings": [
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_brent_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_brent_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_cny_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_cny_per_usd_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_jpy_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_jpy_per_usd_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_krw_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_krw_per_usd_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_usd_broad_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_usd_broad_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_usd_per_eur_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_usd_per_eur_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "fred_wti_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/fred_wti_daily_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "raw_hash_mismatch",
+      "message": "kosis_kr_gasoline_monthly SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
+      "path": "data/raw/kosis_kr_gasoline_monthly_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_cpi_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_cpi_202606_release_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_gdp_2026q2_release raw snapshot is absent",
+      "path": "data/raw/nbs_gdp_2026q2_release_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_iav_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_iav_202606_release_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_ppi_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_ppi_202606_release_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "ndrc_fuel_control_20260323 raw snapshot is absent",
+      "path": "data/raw/ndrc_fuel_control_20260323_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "ndrc_fuel_control_20260407 raw snapshot is absent",
+      "path": "data/raw/ndrc_fuel_control_20260407_20260730.html",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "oecd_g20_cpi_monthly raw snapshot is absent",
+      "path": "data/raw/oecd_g20_cpi_monthly_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "oecd_kei_ip_monthly raw snapshot is absent",
+      "path": "data/raw/oecd_kei_ip_monthly_20260730.csv",
+      "source": "data_warnings.json"
+    },
+    {
+      "code": "nbs_gdp_yoy_manual_supplement",
+      "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
+      "source": "data_warnings.json:build_model_panels",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
+      "source": "data_warnings.json:build_model_panels"
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
+      "source": "data_warnings.json:build_model_panels"
+    },
+    {
+      "code": "china_fuel_price_proxy",
+      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.",
+      "source": "data_warnings.json:build_model_panels"
+    },
+    {
+      "code": "q2_outcome_skipped",
+      "message": "China industrial value-added yoy, pct skipped: insufficient usable monthly history.",
+      "source": "q2_summary.json"
+    },
+    {
+      "code": "q2_outcome_skipped",
+      "message": "China PPI yoy, pct skipped: insufficient usable monthly history.",
+      "source": "q2_summary.json"
+    },
+    {
+      "code": "nbs_gdp_yoy_manual_supplement",
+      "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
+      "source": "model_panel_summary.json",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
+      "source": "model_panel_summary.json"
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
+      "source": "model_panel_summary.json"
+    },
+    {
+      "code": "china_fuel_price_proxy",
+      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.",
+      "source": "model_panel_summary.json"
+    }
+  ]
+}

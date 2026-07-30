@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "random_seed": 20260730,
+  "warnings": [],
+  "rows": {
+    "q3_country_pass_through.csv": 12,
+    "q3_panel_irf.csv": 143,
+    "q3_policy_counterfactual.csv": 5,
+    "q3_robustness.csv": 21
+  }
+}

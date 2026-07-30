@@ -1,0 +1,5 @@
+outcome,term,estimate,std_error,lower_95,upper_95,model,specification,sample_start,sample_end,n
+china_cpi_yoy_pct,OilShock_pos,-0.04490390455546961,0.06619638438160563,-0.17464643385018638,0.08483862473924716,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
+china_cpi_yoy_pct,OilShock_neg,0.10601565813704426,0.055809755431877335,-0.0033694524954239607,0.21540076876951247,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
+china_fx_log_change_pct,OilShock_pos,-0.06523366704974964,0.10603455904183887,-0.2730575838883398,0.14259024978884047,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
+china_fx_log_change_pct,OilShock_neg,0.14902732132199717,0.08474301354138931,-0.017065933160515995,0.31512057580451036,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196

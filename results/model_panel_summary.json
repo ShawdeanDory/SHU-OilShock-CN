@@ -1,0 +1,31 @@
+{
+  "status": "WARN",
+  "random_seed": 20260730,
+  "cutoff": "2026-06-30",
+  "outputs": {
+    "model_daily_q1.csv": 4303,
+    "model_monthly_q1.csv": 198,
+    "model_monthly_cn.csv": 198,
+    "model_quarterly_cn.csv": 66,
+    "model_country_monthly.csv": 792
+  },
+  "warnings": [
+    {
+      "code": "nbs_gdp_yoy_manual_supplement",
+      "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules."
+    },
+    {
+      "code": "optional_china_macro_missing",
+      "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules."
+    },
+    {
+      "code": "china_fuel_price_proxy",
+      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series."
+    }
+  ]
+}

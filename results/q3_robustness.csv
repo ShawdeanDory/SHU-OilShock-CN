@@ -1,0 +1,22 @@
+robustness_type,omitted_country,country,horizon,estimate,std_error,model,specification,n
+leave_one_country_panel_fuel_h6,CHN,DEU,6,1.8795099114253315,0.5204506175935042,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,CHN,JPN,6,2.77315770478368,0.5710198504249269,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,CHN,KOR,6,2.6561301609539814,0.5130885955937124,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,DEU,CHN,6,7.445472341365738,1.315658613049848,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,DEU,JPN,6,2.8321811815081204,0.5856673632265365,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,DEU,KOR,6,2.7151536376784215,0.5845382876413978,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,JPN,CHN,6,7.489452818532702,1.3245566766363006,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,JPN,DEU,6,1.9825138653167385,0.5767572706449833,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,JPN,KOR,6,2.759134114845387,0.5813441934965972,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,KOR,CHN,6,7.489203162703612,1.3247340159540497,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,KOR,DEU,6,1.982264209487653,0.5841573273552916,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+leave_one_country_panel_fuel_h6,KOR,JPN,6,2.875912002846001,0.5918210197742458,stacked_panel_LP,fuel h=6 panel LP after omitting one country,570
+usd_brent_fx_ignored_pass_through_h6,,CHN,6,0.5496824769680957,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
+usd_brent_fx_ignored_pass_through_h6,,DEU,6,0.2208385686975795,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
+usd_brent_fx_ignored_pass_through_h6,,JPN,6,0.217426772434765,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
+usd_brent_fx_ignored_pass_through_h6,,KOR,6,0.23117436901331506,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
+diesel_policy_layer_gap,,CHN,0,0.0,,policy_price_layer,cumulative diesel policy gap through 2026-02,1
+diesel_policy_layer_gap,,CHN,0,1005.0,,policy_price_layer,cumulative diesel policy gap through 2026-03,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-04,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-05,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-06,1

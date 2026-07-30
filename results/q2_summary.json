@@ -1,0 +1,25 @@
+{
+  "status": "WARN",
+  "random_seed": 20260730,
+  "outcomes": [
+    "china_cpi_yoy_pct",
+    "china_fx_log_change_pct"
+  ],
+  "warnings": [
+    {
+      "code": "q2_outcome_skipped",
+      "message": "China industrial value-added yoy, pct skipped: insufficient usable monthly history."
+    },
+    {
+      "code": "q2_outcome_skipped",
+      "message": "China PPI yoy, pct skipped: insufficient usable monthly history."
+    }
+  ],
+  "rows": {
+    "q2_ardl_baseline.csv": 6,
+    "q2_irf.csv": 26,
+    "q2_gdp_validation.csv": 1,
+    "q2_asymmetry.csv": 4,
+    "q2_robustness.csv": 12
+  }
+}
