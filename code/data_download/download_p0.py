@@ -233,13 +233,26 @@ def read_manifest() -> dict[str, dict[str, Any]]:
 
 
 def write_manifest(rows_by_id: dict[str, dict[str, Any]]) -> None:
-    rows = [rows_by_id[key] for key in sorted(rows_by_id)]
-    MANIFEST_JSON.write_text(
-        json.dumps(rows, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    rows: list[dict[str, Any]] = []
+    for key in sorted(rows_by_id):
+        row = dict(rows_by_id[key])
+        if row.get("status") in {"DOWNLOADED", "CACHED"}:
+            local_path = row.get("local_path", "")
+            if not local_path or not (REPO_ROOT / local_path).exists():
+                row.update(
+                    {
+                        "status": "REMOTE_ONLY",
+                        "local_path": "",
+                        "size_bytes": "",
+                        "sha256": "",
+                        "error": "manifest local snapshot is absent; rerun download or provide a browser-extracted snapshot before marking CACHED",
+                    }
+                )
+        rows.append(row)
+    with MANIFEST_JSON.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(rows, ensure_ascii=False, indent=2) + "\n")
     with MANIFEST_CSV.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows({key: row.get(key, "") for key in MANIFEST_FIELDS} for row in rows)
 
@@ -290,6 +303,11 @@ def download_one(
 ) -> dict[str, Any]:
     filename = source.filename_template.format(download_date=download_date)
     target = RAW_DIR / filename
+    if not target.exists() and not refresh and "{download_date}" in source.filename_template:
+        pattern = source.filename_template.replace("{download_date}", "*")
+        prior_snapshots = sorted(RAW_DIR.glob(pattern))
+        if prior_snapshots:
+            target = prior_snapshots[-1]
     partial = target.with_suffix(target.suffix + ".part")
 
     if source.requires_env and not os.getenv(source.requires_env):

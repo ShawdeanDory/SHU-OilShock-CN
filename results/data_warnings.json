@@ -4,8 +4,8 @@
   "checks": [
     "p0_monthly_market rows=198",
     "p0_daily_market rows=4303",
-    "oecd_g20_cpi_monthly rows=792",
-    "oecd_kei_ip_monthly rows=591",
+    "oecd_g20_cpi_monthly rows=1188",
+    "oecd_kei_ip_monthly rows=1181",
     "germany_eurosuper95_monthly.csv rows=198",
     "japan_regular_gasoline_monthly.csv rows=198",
     "korea_regular_gasoline_monthly.csv rows=198",

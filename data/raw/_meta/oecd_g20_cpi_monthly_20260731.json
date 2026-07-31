@@ -1,0 +1,18 @@
+{
+  "artifact_id": "oecd_g20_cpi_monthly",
+  "source_id": "SRC_OECD_G20_CPI",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.TPS,DSD_G20_PRICES@DF_G20_PRICES,1.0/CHN+DEU+ESP+FRA+ITA+JPN+KOR.M...PA...?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+  "local_path": "data/raw/oecd_g20_cpi_monthly_20260731.csv",
+  "downloaded_at": "2026-07-31T12:46:16+08:00",
+  "checked_at": "2026-07-31T12:46:16+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.sdmx.data+csv; charset=utf-8",
+  "content_length_header": "",
+  "size_bytes": 110997,
+  "sha256": "050244ccf715e9b754a58f1ff15e2152d951c403294017953889ff66536e15c6",
+  "etag": "",
+  "last_modified": "Fri, 31 Jul 2026 04:22:58 GMT",
+  "error": ""
+}

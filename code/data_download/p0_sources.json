@@ -102,7 +102,7 @@
     {
       "artifact_id": "oecd_g20_cpi_monthly",
       "source_id": "SRC_OECD_G20_CPI",
-      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.TPS,DSD_G20_PRICES@DF_G20_PRICES,1.0/CHN+DEU+JPN+KOR.M...PA...?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.TPS,DSD_G20_PRICES@DF_G20_PRICES,1.0/CHN+DEU+ESP+FRA+ITA+JPN+KOR.M...PA...?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
       "filename_template": "oecd_g20_cpi_monthly_{download_date}.csv",
       "format": "csv",
       "min_bytes": 1000,
@@ -112,7 +112,7 @@
     {
       "artifact_id": "oecd_kei_ip_monthly",
       "source_id": "SRC_OECD_KEI_IP",
-      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_KEI@DF_KEI,4.0/DEU+JPN+KOR.M.PRVM.IX.BTE..?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+      "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_KEI@DF_KEI,4.0/DEU+ESP+FRA+ITA+JPN+KOR.M.PRVM.IX.BTE..?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
       "filename_template": "oecd_kei_ip_monthly_{download_date}.csv",
       "format": "csv",
       "min_bytes": 1000,

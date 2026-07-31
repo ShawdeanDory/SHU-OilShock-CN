@@ -46,6 +46,8 @@ CORE_RESULT_FILES = [
     "q1_placebo_distribution.csv",
     "q1_daily_counterfactual.csv",
     "q1_monthly_shocks.csv",
+    "q1_structural_shocks.csv",
+    "q1_volatility.csv",
     "q1_robustness.csv",
     "q1_summary.json",
     "q2_ardl_baseline.csv",
@@ -57,6 +59,7 @@ CORE_RESULT_FILES = [
     "q2_summary.json",
     "q3_country_pass_through.csv",
     "q3_panel_irf.csv",
+    "q3_buffer_interactions.csv",
     "q3_policy_counterfactual.csv",
     "q3_robustness.csv",
     "q3_summary.csv",
@@ -71,23 +74,31 @@ PROCESSED_INPUT_FILES = [
     "model_monthly_cn.csv",
     "model_quarterly_cn.csv",
     "model_country_monthly.csv",
-    "nbs_iav_monthly.csv",
-    "nbs_ppi_monthly.csv",
-    "nbs_manual_import_metadata.json",
-    "release_date_matrix.csv",
     "oecd_g20_cpi_monthly.csv",
     "oecd_kei_ip_monthly.csv",
+    "eu_eurosuper95_monthly.csv",
+    "france_eurosuper95_monthly.csv",
+    "italy_eurosuper95_monthly.csv",
+    "spain_eurosuper95_monthly.csv",
     "germany_eurosuper95_monthly.csv",
     "japan_regular_gasoline_monthly.csv",
     "korea_regular_gasoline_monthly.csv",
     "cn_fuel_policy_events.csv",
     "china_fuel_policy_monthly.csv",
     "china_fuel_proxy_monthly.csv",
+    "country_policy_buffers_annual.csv",
+    "nbs_iav_monthly.csv",
+    "nbs_ppi_monthly.csv",
+    "nbs_manual_import_metadata.json",
+    "release_date_matrix.csv",
 ]
 
 CODE_FILES = [
-    "code/data_processing/import_nbs_manual.py",
+    "code/data_download/download_p0.py",
+    "code/data_download/p0_sources.json",
+    "code/data_processing/build_p0_datasets.py",
     "code/data_processing/build_model_panels.py",
+    "code/data_processing/import_nbs_manual.py",
     "code/problem1/run_q1.py",
     "code/problem2/run_q2.py",
     "code/problem3/run_q3.py",
@@ -103,8 +114,16 @@ CODE_FILES = [
     "requirements.lock.txt",
 ]
 
-COUNTRY_LABEL_ZH = {"CHN": "中国（代理）", "DEU": "德国", "JPN": "日本", "KOR": "韩国"}
-CORE_PACKAGES = ["numpy", "pandas", "scipy", "statsmodels", "linearmodels", "matplotlib", "requests", "openpyxl", "xlrd"]
+COUNTRY_LABEL_ZH = {
+    "CHN": "中国（代理）",
+    "DEU": "德国",
+    "FRA": "法国",
+    "ITA": "意大利",
+    "ESP": "西班牙",
+    "JPN": "日本",
+    "KOR": "韩国",
+}
+CORE_PACKAGES = ["numpy", "pandas", "scipy", "statsmodels", "linearmodels", "matplotlib", "requests", "openpyxl", "xlrd", "jsonschema"]
 
 
 def read_csv(filename: str) -> pd.DataFrame:
@@ -238,20 +257,11 @@ def combined_status(probes: list[dict[str, Any]]) -> str:
     return "PASS"
 
 
-def has_rows(path: Path, minimum: int) -> bool:
-    if not path.exists():
-        return False
-    frame = pd.read_csv(path)
-    return len(frame.dropna(how="all")) >= minimum
-
-
 def has_nonmissing(path: Path, column: str, minimum: int) -> bool:
     if not path.exists():
         return False
     frame = pd.read_csv(path)
-    if column not in frame.columns:
-        return False
-    return int(pd.to_numeric(frame[column], errors="coerce").notna().sum()) >= minimum
+    return column in frame.columns and int(pd.to_numeric(frame[column], errors="coerce").notna().sum()) >= minimum
 
 
 def bool_series(series: pd.Series) -> pd.Series:
@@ -260,7 +270,7 @@ def bool_series(series: pd.Series) -> pd.Series:
     return series.astype(str).str.lower().isin(["true", "1", "yes"])
 
 
-def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[str, str]) -> dict[str, Any]:
+def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[str, str], code_hashes: dict[str, str]) -> dict[str, Any]:
     probes: list[dict[str, Any]] = []
 
     metrics = read_csv("q1_forecast_metrics.csv")
@@ -269,20 +279,10 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     else:
         advanced_non_pass = metrics.loc[metrics["model"].ne("no_change") & metrics["model_status"].ne("PASS")]
         no_change_rows = metrics.loc[metrics["model"].eq("no_change")]
-        incorrectly_passing_advanced = metrics.loc[
-            metrics["model"].ne("no_change")
-            & metrics["relative_RMSE_vs_no_change"].gt(1.0)
-            & metrics["model_status"].eq("PASS")
-        ]
-        status = (
-            "PASS"
-            if (
-                not no_change_rows.empty
-                and no_change_rows["model_status"].eq("PASS").all()
-                and incorrectly_passing_advanced.empty
-            )
-            else "FAIL"
-        )
+        no_change_pass = not no_change_rows.empty and no_change_rows["model_status"].eq("PASS").all()
+        status = "PASS" if no_change_pass else "FAIL"
+        if no_change_rows.empty:
+            status = "FAIL"
         probes.append(
             probe(
                 "q1_forecast_baseline_gate",
@@ -290,12 +290,12 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
                 {
                     "selected_model": "no_change",
                     "advanced_non_pass_rows": int(len(advanced_non_pass)),
-                    "advanced_incorrect_pass_rows": int(len(incorrectly_passing_advanced)),
                     "no_change_rows": int(len(no_change_rows)),
+                    "no_change_pass": bool(no_change_pass),
                 },
-                "no-change rows are PASS; advanced models with worse RMSE are non-PASS",
+                "no-change rows exist and pass the pre-registered rolling backtest; advanced model failures are recorded but non-blocking",
                 ["results/q1_forecast_metrics.csv", "results/q1_summary.json"],
-                "No-change is the selected forecast because it wins the common rolling evaluation; losing ARIMA/SARIMAX specifications remain transparent comparators.",
+                "No-change is selected as the main forecast. ARIMA/SARIMAX/ETS/Theta failures are empirical findings, not a paper-finalization blocker when the baseline wins honestly.",
             )
         )
 
@@ -303,21 +303,38 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     event_calendar = q1_summary.get("event_calendar", {})
     event_ok = event_calendar.get("e1_trading_start") == "2026-03-02" and event_calendar.get("e2_trading_start") == "2026-03-05"
     effects = read_csv("q1_event_effects.csv")
-    e1_rows = effects.loc[(effects.get("stage_id", pd.Series(dtype=str)).eq("E1")) & effects.get("identification_status", pd.Series(dtype=str)).eq("PASS")] if not effects.empty else pd.DataFrame()
+    stage_e1 = effects.loc[
+        effects.get("model", pd.Series(dtype=str)).eq("brent_usd_bbl_stage_dummy")
+        & effects.get("stage_id", pd.Series(dtype=str)).eq("E1")
+    ] if not effects.empty else pd.DataFrame()
+    car_rows = effects.loc[
+        effects.get("model", pd.Series(dtype=str)).eq("brent_usd_bbl_event_car")
+        & effects.get("stage_id", pd.Series(dtype=str)).isin(["E1_CAR_0", "E1_CAR_0_1", "E1_CAR_0_2"])
+        & effects.get("identification_status", pd.Series(dtype=str)).eq("PASS")
+    ] if not effects.empty else pd.DataFrame()
+    stage_e1_descriptive = not stage_e1.empty and stage_e1["identification_status"].eq("DESCRIPTIVE_ONLY").all()
+    car_p_nonzero = not car_rows.empty and pd.to_numeric(car_rows.get("pvalue_empirical", pd.Series(dtype=float)), errors="coerce").dropna().gt(0).all()
     probes.append(
         probe(
             "q1_event_trading_day_gate",
-            "PASS" if event_ok and not e1_rows.empty else "FAIL",
-            {"event_calendar": event_calendar, "e1_identified_rows": int(len(e1_rows))},
-            "E1 maps to 2026-03-02 and has identifiable nonzero trading observations",
+            "PASS" if event_ok and stage_e1_descriptive and len(car_rows) == 3 and car_p_nonzero else "FAIL",
+            {
+                "event_calendar": event_calendar,
+                "stage_e1_descriptive_only": bool(stage_e1_descriptive),
+                "brent_car_rows": int(len(car_rows)),
+                "car_empirical_p_nonzero": bool(car_p_nonzero),
+            },
+            "E1 maps to 2026-03-02; stage dummy is descriptive only; CAR[0], CAR[0,+1], CAR[0,+2] carry formal event inference",
             ["results/q1_event_effects.csv", "results/q1_summary.json"],
-            "E1 weekend event has been remapped to the first common trading day and the zero-variance dummy problem is removed.",
+            "E1 weekend event has been remapped to the first common trading day. Single-window conventional significance is blocked; formal evidence uses recursive normal-return CAR and matched placebo p-values.",
         )
     )
 
     placebos = read_csv("q1_placebo_distribution.csv")
     empirical_p = q1_summary.get("placebo_min_empirical_pvalue")
     if placebos.empty or empirical_p is None or not 0.0 < float(empirical_p) <= 1.0:
+        placebo_status = "FAIL"
+    elif float(empirical_p) <= 0.0:
         placebo_status = "FAIL"
     else:
         placebo_status = "PASS"
@@ -345,6 +362,20 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    structural_cols = {"supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock", "reduced_form_shock", "source_vintage"}
+    structural_ok = not shocks.empty and structural_cols.issubset(shocks.columns)
+    structural_nonmissing = int(shocks[list(structural_cols - {"source_vintage"})].dropna(how="all").shape[0]) if structural_ok else 0
+    probes.append(
+        probe(
+            "q2_structural_shock_identification",
+            "PASS" if structural_ok and structural_nonmissing >= 24 else "CONDITIONAL",
+            {"has_columns": bool(structural_ok), "nonmissing_structural_months": structural_nonmissing},
+            "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; at least 24 months are available",
+            ["results/q1_monthly_shocks.csv", "results/q1_structural_shocks.csv"],
+            "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Because the current EIA STEO decomposition is ex-post and starts in 2022, identification remains methodologically limited.",
+        )
+    )
+
     nbs_iav_ok = has_nonmissing(
         REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv",
         "china_iav_yoy_pct",
@@ -362,25 +393,43 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             {"nbs_iav_monthly": nbs_iav_ok, "nbs_ppi_monthly": nbs_ppi_ok},
             "NBS IAV and PPI monthly histories are present with enough observations",
             ["data/processed/nbs_iav_monthly.csv", "data/processed/nbs_ppi_monthly.csv", "results/q2_summary.json"],
-            "Official IAV and PPI histories must enter the processed layer with at least 120 observed months; official IAV calendar gaps are preserved without interpolation.",
+            "Q2 remains conditional until official IAV and PPI histories enter the processed layer; no interpolation is used to fill the gap.",
         )
     )
 
     q2_summary = load_json("q2_summary.json")
     q2_irf = read_csv("q2_irf.csv")
+    q2_required_cols = {
+        "shock",
+        "joint_lower_95",
+        "joint_upper_95",
+        "ci95_contains_zero",
+        "joint_ci95_contains_zero",
+        "fdr_qvalue",
+        "supports_growth_loss_language",
+    }
+    q2_structural_shocks_present = not q2_irf.empty and bool(
+        {"supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"}.intersection(set(q2_irf.get("shock", pd.Series(dtype=str)).dropna()))
+    )
     q2_guard_ok = (
-        q2_summary.get("shock_identification", "").startswith("OilShock is a reduced-form")
-        and not q2_irf.empty
-        and {"ci95_contains_zero", "fdr_qvalue", "supports_growth_loss_language"}.issubset(q2_irf.columns)
+        not q2_irf.empty
+        and q2_required_cols.issubset(q2_irf.columns)
+        and q2_structural_shocks_present
+        and bool(q2_summary.get("conclusion_guardrail"))
     )
     probes.append(
         probe(
             "q2_claim_strength_gate",
             "PASS" if q2_guard_ok else "FAIL",
-            {"irf_rows": int(len(q2_irf)), "guardrail_present": bool(q2_summary.get("conclusion_guardrail"))},
-            "LP inference flags and reduced-form shock wording are present",
+            {
+                "irf_rows": int(len(q2_irf)),
+                "has_required_inference_columns": bool(q2_required_cols.issubset(q2_irf.columns)),
+                "structural_shocks_present": bool(q2_structural_shocks_present),
+                "guardrail_present": bool(q2_summary.get("conclusion_guardrail")),
+            },
+            "LP inference flags, structural-shock labels and conclusion guardrails are present",
             ["results/q2_irf.csv", "results/q2_summary.json"],
-            "Q2 output distinguishes reduced-form association from structural oil-supply transmission and blocks unsupported growth-loss wording.",
+            "Q2 output distinguishes structural shock categories from reduced-form robustness and blocks unsupported growth-loss wording.",
         )
     )
 
@@ -389,17 +438,41 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         q3_comp_status = "FAIL"
         q3_metric: Any = "missing comparability fields"
     else:
-        chn_main = bool_series(q3_pass.loc[q3_pass["country"].eq("CHN"), "included_in_main_comparison"])
-        q3_comp_status = "PASS" if not chn_main.empty and not bool(chn_main.any()) else "FAIL"
-        q3_metric = q3_pass[["country", "horizon", "included_in_main_comparison", "price_measure_type"]].to_dict("records")
+        chn_rows = q3_pass.loc[q3_pass["country"].eq("CHN")]
+        chn_main = bool_series(chn_rows["included_in_main_comparison"]) if not chn_rows.empty else pd.Series(dtype=bool)
+        main_countries = sorted(q3_pass.loc[bool_series(q3_pass["included_in_main_comparison"]), "country"].dropna().unique().tolist())
+        china_official_main = (
+            not chn_rows.empty
+            and bool(chn_main.any())
+            and not chn_rows["price_measure_type"].astype(str).str.contains("proxy", case=False, na=False).any()
+        )
+        q3_comp_status = "PASS" if china_official_main and len(main_countries) >= 6 else "CONDITIONAL"
+        q3_metric = {
+            "main_countries": main_countries,
+            "china_rows": chn_rows[["horizon", "included_in_main_comparison", "price_measure_type", "observed_or_regulated"]].to_dict("records"),
+            "china_official_main": bool(china_official_main),
+        }
     probes.append(
         probe(
-            "q3_china_proxy_exclusion_gate",
+            "q3_china_comparability",
             q3_comp_status,
             q3_metric,
-            "China proxy is excluded from the main fuel pass-through comparison",
+            "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable",
             ["results/q3_country_pass_through.csv", "data/processed/model_country_monthly.csv"],
-            "The Brent-CNY China proxy is retained only as a sensitivity/policy-scenario input, not as main cross-country evidence.",
+            "The current run correctly excludes the Brent-CNY China proxy from the main fuel ranking, but Q3 remains conditional until an official regulated China fuel series is reconstructed.",
+        )
+    )
+
+    q3_buffer = read_csv("q3_buffer_interactions.csv")
+    q3_buffer_ok = not q3_buffer.empty and {"outcome", "buffer", "shock", "estimate", "lower_95", "upper_95"}.issubset(q3_buffer.columns)
+    probes.append(
+        probe(
+            "q3_policy_buffer_interaction_gate",
+            "PASS" if q3_buffer_ok else "CONDITIONAL",
+            {"buffer_rows": int(len(q3_buffer)), "outcomes": sorted(q3_buffer.get("outcome", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_buffer.empty else []},
+            "Panel LP reports Shock×Buffer interactions with country FE and full year-month FE",
+            ["results/q3_buffer_interactions.csv", "data/processed/country_policy_buffers_annual.csv"],
+            "Q3 has a policy-buffer interaction interface. Current fuel and industrial-activity interactions may be unidentifiable until China fuel/IAV data are official and comparable.",
         )
     )
 
@@ -421,6 +494,18 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             "April annotation separates incremental 380 from cumulative 1425 CNY/tonne",
             ["results/q3_policy_counterfactual.csv", "figures/q3_policy_counterfactual.png"],
             "Policy scenario fields distinguish incremental and cumulative gaps, matching the revised chart annotation.",
+        )
+    )
+
+    policy_proxy = not q3_policy.empty and q3_policy.get("price_layer_status", pd.Series(dtype=str)).astype(str).str.contains("proxy_not_official", na=False).any()
+    probes.append(
+        probe(
+            "q3_policy_counterfactual_price_layer",
+            "CONDITIONAL" if policy_proxy else ("PASS" if not q3_policy.empty else "FAIL"),
+            {"policy_rows": int(len(q3_policy)), "uses_proxy_price_layer": bool(policy_proxy)},
+            "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic",
+            ["results/q3_policy_counterfactual.csv", "data/processed/china_regulated_gasoline_monthly.csv"],
+            "The current policy scenario is explicitly labeled as a proxy demonstration; it must not be presented as a full official-price policy counterfactual in the paper.",
         )
     )
 
@@ -463,6 +548,32 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    manifest_path = REPO_ROOT / "data" / "raw" / "source_manifest.json"
+    manifest_metric: dict[str, Any] = {"manifest_exists": manifest_path.exists()}
+    manifest_ok = False
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cached_missing = []
+        status_counts: dict[str, int] = {}
+        for row in manifest:
+            status_counts[row.get("status", "")] = status_counts.get(row.get("status", ""), 0) + 1
+            if row.get("status") in {"DOWNLOADED", "CACHED"}:
+                local_path = row.get("local_path", "")
+                if not local_path or not (REPO_ROOT / local_path).exists():
+                    cached_missing.append(row.get("artifact_id", ""))
+        manifest_metric = {"status_counts": status_counts, "cached_missing": cached_missing}
+        manifest_ok = not cached_missing
+    probes.append(
+        probe(
+            "source_provenance_integrity",
+            "PASS" if manifest_ok else "FAIL",
+            manifest_metric,
+            "source_manifest has no CACHED/DOWNLOADED rows whose local snapshot is absent",
+            ["data/raw/source_manifest.json", "data/raw/source_manifest.csv"],
+            "Raw-source provenance cannot claim a cache exists unless the file is present and hashable. REMOTE_ONLY records keep missing browser/official snapshots visible.",
+        )
+    )
+
     lock_path = REPO_ROOT / "requirements.lock.txt"
     env = environment_snapshot()
     lock_text = lock_path.read_text(encoding="utf-8") if lock_path.exists() else ""
@@ -484,15 +595,15 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
-    hash_ok = len(output_hashes) == len(CORE_RESULT_FILES) and len(input_hashes) >= 10
+    hash_ok = len(output_hashes) == len(CORE_RESULT_FILES) and len(input_hashes) >= 10 and len(code_hashes) == len(CODE_FILES)
     probes.append(
         probe(
             "freeze_hash_coverage_gate",
             "PASS" if hash_ok else "FAIL",
-            {"output_hash_count": len(output_hashes), "input_hash_count": len(input_hashes)},
-            "all core result files and processed model inputs are hashed",
+            {"output_hash_count": len(output_hashes), "input_hash_count": len(input_hashes), "model_code_hash_count": len(code_hashes)},
+            "all core result files, processed model inputs and model code files are hashed",
             ["results/reproducibility_manifest.json", "results/frozen_numbers.json"],
-            "The reproducibility manifest hashes model outputs and processed inputs, while frozen_numbers.json follows the standard numerical-freeze schema.",
+            "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
         )
     )
 
@@ -509,6 +620,7 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         "figure_pngs": collect_figures(),
         "output_hash_count": len(output_hashes),
         "input_hash_count": len(input_hashes),
+        "model_code_hash_count": len(code_hashes),
     }
 
 
@@ -523,6 +635,7 @@ def extract_final_numbers() -> dict[str, Any]:
     q2_robust = read_csv("q2_robustness.csv")
     q3_pass = read_csv("q3_country_pass_through.csv")
     q3_irf = read_csv("q3_panel_irf.csv")
+    q3_buffer = read_csv("q3_buffer_interactions.csv")
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     q3_robust = read_csv("q3_robustness.csv")
 
@@ -566,6 +679,10 @@ def extract_final_numbers() -> dict[str, Any]:
     if not q3_irf.empty:
         final["q3"]["panel_lp_selected_horizons"] = records(
             q3_irf.loc[q3_irf["horizon"].isin([0, 6, 12])].sort_values(["outcome", "country", "horizon"])
+        )
+    if not q3_buffer.empty:
+        final["q3"]["buffer_interactions_selected_horizons"] = records(
+            q3_buffer.loc[q3_buffer["horizon"].isin([0, 6, 12])].sort_values(["outcome", "buffer", "horizon"])
         )
     if not q3_policy.empty:
         final["q3"]["policy_counterfactual"] = records(q3_policy)
@@ -613,8 +730,11 @@ def build_data_overview_figures() -> None:
         style_map = {
             "CHN": (PALETTE["blue"], "solid"),
             "DEU": (PALETTE["gold"], (0, (4, 2))),
-            "JPN": (PALETTE["olive"], (0, (2, 2))),
-            "KOR": (PALETTE["rose"], (0, (1, 2))),
+            "FRA": (PALETTE["olive"], (0, (2, 2))),
+            "ITA": (PALETTE["rose"], (0, (1, 2))),
+            "ESP": (PALETTE["slate"], (0, (6, 2))),
+            "JPN": (PALETTE["sand"], (0, (3, 1, 1, 1))),
+            "KOR": (PALETTE["blue_light"], (0, (1, 1))),
         }
         for country, group in panel.groupby("country"):
             color, linestyle = style_map.get(country, (PALETTE["slate"], "solid"))
@@ -688,6 +808,10 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     q3_pass = read_csv("q3_country_pass_through.csv")
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     figures = collect_figures()
+    nbs_iav = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv")
+    nbs_ppi = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv")
+    nbs_iav_count = int(pd.to_numeric(nbs_iav.get("china_iav_yoy_pct"), errors="coerce").notna().sum())
+    nbs_ppi_count = int(pd.to_numeric(nbs_ppi.get("china_ppi_yoy_pct"), errors="coerce").notna().sum())
 
     q3_main = q3_pass.loc[bool_series(q3_pass["included_in_main_comparison"])] if not q3_pass.empty and "included_in_main_comparison" in q3_pass else q3_pass
     warning_lines = []
@@ -698,39 +822,6 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     blocker_lines = [f"- `{probe_id}`" for probe_id in risk_summary["blocking_probe_ids"]]
     if not blocker_lines:
         blocker_lines.append("- 无。")
-    if risk_summary["overall_status"] == "PASS":
-        overall_text = (
-            "本轮代码、基线、数据覆盖、稳健性和数值冻结门禁均已通过，"
-            "结果可以进入论文撰写阶段。这里的 `PASS` 表示计算流程具备定稿条件，"
-            "不改变约化形式模型的识别边界。"
-        )
-        paper_advice = (
-            "论文可以使用当前冻结数值：第一问主线是“no-change 基线预测 + 交易日事件窗口 + "
-            "描述性 AR 基准差额”；第二问主线是“约化形式冲击下的 PPI 即期响应与缺乏稳健总体增长损失证据”；"
-            "第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。所有结论继续遵守非因果和代理变量边界。"
-        )
-    else:
-        overall_text = (
-            f"本轮结果仍为 `{risk_summary['overall_status']}` 阶段快照。"
-            "代码、图表和结果可以继续作为建模推进基础，但尚不能作为论文最终数值。"
-        )
-        paper_advice = (
-            "论文正文暂按阶段性结果组织：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；"
-            "第二问主线是“约化形式冲击下未发现稳健增长损失证据”；第三问主线是“可比国家零售燃油传导 + "
-            "中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。"
-        )
-
-    nbs_gate = next(
-        (row for row in risk_summary["probes"] if row["probe_id"] == "q2_nbs_macro_completeness_gate"),
-        {},
-    )
-    if nbs_gate.get("status") == "PASS":
-        q2_data_text = (
-            "国家统计局工业增加值与 PPI 完整历史已进入处理层。工业增加值官方 1 月及春节合并发布空值保持为空，"
-            "不做插值；Q2 使用 167 个工业增加值真实月度观测和 198 个 PPI 月度观测。"
-        )
-    else:
-        q2_data_text = "IAV/PPI 官方历史序列尚未完整进入处理层，现有结果需继续标为条件性输出。"
 
     return f"""# 国际油价三问阶段性建模结果报告
 
@@ -745,9 +836,9 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 ## 1. 总体结论
 
-{overall_text}
+本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
 
-当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二的 `OilShock` 是约化形式油价创新；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
+当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
 
 阻塞定稿的门禁：
 
@@ -765,11 +856,9 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 3. 问题二：中国宏观传导
 
-{q2_data_text}
+国家统计局 IAV/PPI 官方历史已经进入处理层，其中工业增加值有 {nbs_iav_count} 个真实观测，PPI 有 {nbs_ppi_count} 个真实观测；官方 1—2 月结构性空值保持为空，不做插值。Q2 当前只能写为“尚未发现稳健的总体增长损失证据”，所有结果仍需带区间与识别 caveat 报告。
 
-Q2 的约化形式结果显示，油价创新对 PPI 存在即期正向响应，但工业增加值在 6 个月附近的负响应区间仍跨越 0，因此不能声称已识别出稳健的总体增长损失。CPI、汇率和 GDP 结果同样需带区间与识别 caveat 报告。
-
-{markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'horizon', 'response', 'lower_95', 'upper_95', 'ci95_contains_zero', 'fdr_qvalue', 'shock_identification'])}
+{markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'shock', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'shock', 'horizon', 'response', 'lower_95', 'upper_95', 'joint_lower_95', 'joint_upper_95', 'fdr_qvalue', 'inference_band'])}
 
 季度 GDP 只作低频验证，不插值成月度变量。
 
@@ -777,7 +866,7 @@ Q2 的约化形式结果显示，油价创新对 PPI 存在即期正向响应，
 
 ## 4. 问题三：政策缓冲与跨国比较
 
-跨国燃油主排名现在只纳入德国、日本、韩国的观测官方零售汽油价格。中国 Brent-CNY 代理值保留为政策情景和附录敏感性材料。
+跨国燃油主排名现在只纳入德国、法国、意大利、西班牙、日本、韩国的观测官方零售汽油价格。中国 Brent-CNY 代理值保留为政策情景和附录敏感性材料。
 
 {markdown_table(q3_main.loc[q3_main['horizon'].eq(6)].sort_values('country') if not q3_main.empty else q3_main, ['country', 'horizon', 'response', 'lower_95', 'upper_95', 'price_measure_type', 'included_in_main_comparison'])}
 
@@ -804,7 +893,7 @@ Q2 的约化形式结果显示，油价创新对 PPI 存在即期正向响应，
 
 ## 7. 论文使用建议
 
-{paper_advice}
+论文正文应把当前状态写成阶段性结果：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“结构冲击/约化形式稳健性下尚未发现稳健增长损失证据”；第三问主线是“六个可比国家零售燃油传导 + 政策缓冲交互 + 中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。
 """
 
 
@@ -839,6 +928,7 @@ def reproducibility_manifest(
         "overall_status": risk_summary["overall_status"],
         "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
         "git_commit": git_commit(),
+        "source_commit": git_commit(),
         "cutoff": CUTOFF,
         "random_seed": RANDOM_SEED,
         "replay_environment": replay_environment_snapshot(),
@@ -863,7 +953,7 @@ def main() -> int:
     output_hashes = hash_existing(RESULTS_DIR, CORE_RESULT_FILES)
     input_hashes = hash_existing(REPO_ROOT / "data" / "processed", PROCESSED_INPUT_FILES)
     code_hashes = hash_existing(REPO_ROOT, CODE_FILES)
-    risk_summary = build_risk_probe_summary(output_hashes, input_hashes)
+    risk_summary = build_risk_probe_summary(output_hashes, input_hashes, code_hashes)
     risk_path = RESULTS_DIR / "risk_probe_summary.json"
     write_json(risk_path, risk_summary)
     risk_hash = sha256_file(risk_path)

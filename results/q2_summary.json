@@ -1,5 +1,7 @@
 {
   "status": "PASS",
+  "execution_status": "PASS",
+  "evidence_status": "INCONCLUSIVE",
   "random_seed": 20260730,
   "outcomes": [
     "china_iav_yoy_pct",
@@ -7,14 +9,39 @@
     "china_cpi_yoy_pct",
     "china_fx_log_change_pct"
   ],
-  "shock_identification": "OilShock is a reduced-form ARX oil-price innovation, not a Kilian structural supply shock.",
+  "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the EIA STEO ex-post decomposition when available; OilShock remains a reduced-form robustness shock.",
   "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
-  "warnings": [],
+  "warnings": [
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_iav_yoy_pct lag=6 exclude_covid=True: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_iav_yoy_pct lag=12 exclude_covid=False: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_iav_yoy_pct lag=12 exclude_covid=True: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_ppi_yoy_pct lag=12 exclude_covid=True: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_cpi_yoy_pct lag=12 exclude_covid=True: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_fx_log_change_pct lag=12 exclude_covid=True: too few observations."
+    }
+  ],
   "rows": {
     "q2_ardl_baseline.csv": 12,
-    "q2_irf.csv": 52,
+    "q2_irf.csv": 181,
     "q2_gdp_validation.csv": 1,
     "q2_asymmetry.csv": 8,
-    "q2_robustness.csv": 24
+    "q2_robustness.csv": 18
   }
 }

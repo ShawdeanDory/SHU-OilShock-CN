@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from linearmodels.panel import PanelOLS
+from linearmodels.panel.utility import AbsorbingEffectWarning
 from scipy.stats import norm
 
 
@@ -36,8 +38,17 @@ FIGURES_DIR = REPO_ROOT / "figures"
 RANDOM_SEED = 20260730
 
 
-COUNTRY_ORDER = ["CHN", "DEU", "JPN", "KOR"]
-COUNTRY_LABEL_ZH = {"CHN": "中国", "DEU": "德国", "JPN": "日本", "KOR": "韩国"}
+COUNTRY_ORDER = ["CHN", "DEU", "FRA", "ITA", "ESP", "JPN", "KOR"]
+MAIN_CONTROL_COUNTRIES = ["DEU", "FRA", "ITA", "ESP", "JPN", "KOR"]
+COUNTRY_LABEL_ZH = {
+    "CHN": "中国",
+    "DEU": "德国",
+    "FRA": "法国",
+    "ITA": "意大利",
+    "ESP": "西班牙",
+    "JPN": "日本",
+    "KOR": "韩国",
+}
 OUTCOME_LABELS = {
     "fuel": "燃油价格累计对数变化，百分点",
     "cpi": "CPI同比，百分点",
@@ -80,6 +91,13 @@ def bool_series(series: pd.Series) -> pd.Series:
     if pd.api.types.is_bool_dtype(series):
         return series
     return series.astype(str).str.lower().isin(["true", "1", "yes"])
+
+
+def shock_column(frame: pd.DataFrame) -> str:
+    for column in ["oil_specific_risk_shock", "supply_shock", "aggregate_demand_shock", "OilShock"]:
+        if column in frame.columns and pd.to_numeric(frame[column], errors="coerce").notna().sum() >= 24:
+            return column
+    raise ValueError("Q3 panel lacks an auditable oil shock column.")
 
 
 def fit_country_pass_through(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
@@ -133,33 +151,61 @@ def fit_country_pass_through(panel: pd.DataFrame, warnings_log: list[dict[str, A
     return result
 
 
-def panel_design(frame: pd.DataFrame, outcome: str, horizon: int) -> tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
+def panel_design(frame: pd.DataFrame, outcome: str, horizon: int) -> tuple[pd.Series, pd.DataFrame, pd.DataFrame, str]:
     data = frame.copy()
-    data["month"] = pd.to_datetime(data["period"] + "-01").dt.month
+    shock = shock_column(data)
+    data["shock"] = pd.to_numeric(data[shock], errors="coerce")
     if outcome == "fuel":
         data["target"] = data.groupby("country")["fuel_log"].shift(-horizon) - data.groupby("country")["fuel_log"].shift(1)
         data["target"] = data["target"] * 100.0
-        needed = ["target", "OilShock", "fuel_log"]
+        needed = ["target", "shock", "fuel_log"]
     elif outcome == "cpi":
         data["target"] = data.groupby("country")["cpi_yoy_pct"].shift(-horizon)
-        needed = ["target", "OilShock", "cpi_yoy_pct"]
+        needed = ["target", "shock", "cpi_yoy_pct"]
     else:
-        data["target"] = data.groupby("country")["ip_yoy_log_change_pct"].shift(-horizon)
-        needed = ["target", "OilShock", "ip_yoy_log_change_pct"]
+        activity_col = "industrial_activity_yoy_pct" if "industrial_activity_yoy_pct" in data.columns else "ip_yoy_log_change_pct"
+        data["target"] = data.groupby("country")[activity_col].shift(-horizon)
+        needed = ["target", "shock", activity_col]
     data["trend"] = data.groupby("country").cumcount()
     for country in COUNTRY_ORDER:
-        data[f"oil_{country}"] = np.where(data["country"].eq(country), data["OilShock"], 0.0)
+        data[f"oil_{country}"] = np.where(data["country"].eq(country), data["shock"], 0.0)
         data[f"trend_{country}"] = np.where(data["country"].eq(country), data["trend"], 0.0)
-    month_dummies = pd.get_dummies(data["month"], prefix="month", drop_first=True, dtype=float)
-    data = pd.concat([data, month_dummies], axis=1)
     needed += [f"oil_{country}" for country in COUNTRY_ORDER]
-    x_cols = [f"oil_{country}" for country in COUNTRY_ORDER] + [f"trend_{country}" for country in COUNTRY_ORDER] + list(month_dummies.columns) + ["GPR"]
-    usable = data.dropna(subset=needed + ["GPR"]).copy()
+    x_cols = [f"oil_{country}" for country in COUNTRY_ORDER] + [f"trend_{country}" for country in COUNTRY_ORDER]
+    usable = data.dropna(subset=needed).copy()
     usable["month_index"] = pd.PeriodIndex(usable["period"], freq="M").to_timestamp()
     usable = usable.set_index(["country", "month_index"]).sort_index()
     y = usable["target"].astype(float)
     x = usable[x_cols].astype(float)
-    return y, x, usable.reset_index()
+    return y, x, usable.reset_index(), shock
+
+
+def buffer_design(frame: pd.DataFrame, outcome: str, horizon: int) -> tuple[pd.Series, pd.DataFrame, pd.DataFrame, str]:
+    data = frame.copy()
+    shock = shock_column(data)
+    data["shock"] = pd.to_numeric(data[shock], errors="coerce")
+    if "fuel_price_regulation" not in data.columns:
+        raise ValueError("country_policy_buffers_annual.csv has not been merged into Q3 panel.")
+    data["fuel_price_regulation"] = pd.to_numeric(data["fuel_price_regulation"], errors="coerce")
+    if outcome == "fuel":
+        data["target"] = data.groupby("country")["fuel_log"].shift(-horizon) - data.groupby("country")["fuel_log"].shift(1)
+        data["target"] = data["target"] * 100.0
+        needed = ["target", "shock", "fuel_log", "fuel_price_regulation"]
+    elif outcome == "cpi":
+        data["target"] = data.groupby("country")["cpi_yoy_pct"].shift(-horizon)
+        needed = ["target", "shock", "cpi_yoy_pct", "fuel_price_regulation"]
+    else:
+        activity_col = "industrial_activity_yoy_pct" if "industrial_activity_yoy_pct" in data.columns else "ip_yoy_log_change_pct"
+        data["target"] = data.groupby("country")[activity_col].shift(-horizon)
+        needed = ["target", "shock", activity_col, "fuel_price_regulation"]
+    data["shock_x_fuel_price_regulation"] = data["shock"] * data["fuel_price_regulation"]
+    usable = data.dropna(subset=needed + ["shock_x_fuel_price_regulation"]).copy()
+    usable = usable.loc[usable["shock_x_fuel_price_regulation"].notna()].copy()
+    usable["month_index"] = pd.PeriodIndex(usable["period"], freq="M").to_timestamp()
+    usable = usable.set_index(["country", "month_index"]).sort_index()
+    y = usable["target"].astype(float)
+    x = usable[["shock_x_fuel_price_regulation"]].astype(float)
+    return y, x, usable.reset_index(), shock
 
 
 def fit_panel_lp(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
@@ -169,45 +215,92 @@ def fit_panel_lp(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.
     for outcome in ["fuel", "cpi", "ip"]:
         outcome_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if outcome == "fuel" and "included_in_main_comparison" in panel else panel.copy()
         for horizon in range(13):
-            try:
-                y, x, usable = panel_design(outcome_panel, outcome, horizon)
-                if len(y) < x.shape[1] + 20 or y.index.get_level_values(0).nunique() < 3:
-                    warnings_log.append({"code": "q3_panel_lp_skipped", "message": f"{outcome} h={horizon}: insufficient panel support."})
+            y, x, usable, shock = panel_design(outcome_panel, outcome, horizon)
+            if len(y) < x.shape[1] + 20 or y.index.get_level_values(0).nunique() < 3:
+                warnings_log.append({"code": "q3_panel_lp_skipped", "message": f"{outcome} h={horizon}: insufficient panel support."})
+                continue
+            fit = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True, check_rank=False).fit(
+                cov_type="kernel",
+                kernel="bartlett",
+                bandwidth=max(1, horizon + 1),
+            )
+            for country in COUNTRY_ORDER:
+                term = f"oil_{country}"
+                if term not in fit.params.index:
                     continue
-                fit = PanelOLS(y, x, entity_effects=True, drop_absorbed=True, check_rank=False).fit(
-                    cov_type="kernel",
-                    kernel="bartlett",
-                    bandwidth=max(1, horizon + 1),
+                estimate = float(fit.params[term])
+                se = float(fit.std_errors[term])
+                rows.append(
+                    {
+                        "outcome": outcome,
+                        "country": country,
+                        "horizon": horizon,
+                        "response": estimate,
+                        "std_error": se,
+                        "lower_80": estimate - norm.ppf(0.90) * se,
+                        "upper_80": estimate + norm.ppf(0.90) * se,
+                        "lower_95": estimate - norm.ppf(0.975) * se,
+                        "upper_95": estimate + norm.ppf(0.975) * se,
+                        "pvalue": float(fit.pvalues[term]),
+                        "shock": shock,
+                        "model": "stacked_panel_LP_time_FE",
+                        "response_type": "country-specific deviation from common oil-shock movement absorbed by year-month FE",
+                        "specification": "country FE, full year-month FE, country trends, shock x country, Driscoll-Kraay covariance",
+                        "sample_start": usable["period"].min(),
+                        "sample_end": usable["period"].max(),
+                        "n": int(len(usable)),
+                    }
                 )
-                for country in COUNTRY_ORDER:
-                    term = f"oil_{country}"
-                    if term not in fit.params.index:
-                        continue
-                    estimate = float(fit.params[term])
-                    se = float(fit.std_errors[term])
-                    rows.append(
-                        {
-                            "outcome": outcome,
-                            "country": country,
-                            "horizon": horizon,
-                            "response": estimate,
-                            "std_error": se,
-                            "lower_80": estimate - norm.ppf(0.90) * se,
-                            "upper_80": estimate + norm.ppf(0.90) * se,
-                            "lower_95": estimate - norm.ppf(0.975) * se,
-                            "upper_95": estimate + norm.ppf(0.975) * se,
-                            "pvalue": float(fit.pvalues[term]),
-                            "model": "stacked_panel_LP",
-                            "specification": "country FE, month seasonality, country trends, OilShock x country, Driscoll-Kraay covariance",
-                            "sample_start": usable["period"].min(),
-                            "sample_end": usable["period"].max(),
-                            "n": int(len(usable)),
-                        }
-                    )
-            except Exception as exc:
-                warnings_log.append({"code": "q3_panel_lp_failed", "message": f"{outcome} h={horizon}: {exc}"})
     result = pd.DataFrame(rows)
     save_csv(result, "q3_panel_irf.csv")
+    return result
+
+
+def fit_buffer_interactions(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for outcome in ["fuel", "cpi", "ip"]:
+        outcome_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if outcome == "fuel" and "included_in_main_comparison" in panel else panel.copy()
+        for horizon in range(13):
+            y, x, usable, shock = buffer_design(outcome_panel, outcome, horizon)
+            country_count = y.index.get_level_values(0).nunique()
+            term = "shock_x_fuel_price_regulation"
+            if len(y) < 48 or country_count < 3 or float(x[term].var()) <= 1e-12:
+                warnings_log.append({"code": "q3_buffer_lp_skipped", "message": f"{outcome} h={horizon}: buffer interaction is not identifiable with current comparable data."})
+                continue
+            fit = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True, check_rank=False).fit(
+                cov_type="kernel",
+                kernel="bartlett",
+                bandwidth=max(1, horizon + 1),
+            )
+            if term not in fit.params.index:
+                warnings_log.append({"code": "q3_buffer_lp_absorbed", "message": f"{outcome} h={horizon}: fuel regulation interaction was absorbed."})
+                continue
+            estimate = float(fit.params[term])
+            se = float(fit.std_errors[term])
+            rows.append(
+                {
+                    "outcome": outcome,
+                    "buffer": "fuel_price_regulation",
+                    "horizon": horizon,
+                    "estimate": estimate,
+                    "std_error": se,
+                    "lower_80": estimate - norm.ppf(0.90) * se,
+                    "upper_80": estimate + norm.ppf(0.90) * se,
+                    "lower_95": estimate - norm.ppf(0.975) * se,
+                    "upper_95": estimate + norm.ppf(0.975) * se,
+                    "pvalue": float(fit.pvalues[term]),
+                    "shock": shock,
+                    "model": "buffer_interaction_panel_LP_time_FE",
+                    "specification": "country FE, full year-month FE, shock x lagged/annual policy buffer; common shock level absorbed by time FE",
+                    "sample_start": usable["period"].min(),
+                    "sample_end": usable["period"].max(),
+                    "countries": int(country_count),
+                    "n": int(len(usable)),
+                    "identification_note": "Interprets whether the buffer weakens or amplifies oil-shock responses relative to countries without the buffer; it is not a standalone China ranking.",
+                }
+            )
+    result = pd.DataFrame(rows)
+    save_csv(result, "q3_buffer_interactions.csv")
     return result
 
 
@@ -257,6 +350,8 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
     frame["model"] = "China_policy_counterfactual"
     frame["horizon"] = 6
     frame["specification"] = "add cumulative NDRC gasoline policy gap back to Brent-CNY proxy; CPI propagation via China proxy fuel ARDL; descriptive proxy scenario only"
+    frame["evidence_status"] = "CONDITIONAL"
+    frame["price_layer_status"] = "proxy_not_official_regulated_fuel_series"
     frame["sample_start"] = "2010-01"
     frame["sample_end"] = "2026-06"
     result = frame[
@@ -279,6 +374,8 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
             "model",
             "horizon",
             "specification",
+            "evidence_status",
+            "price_layer_status",
             "sample_start",
             "sample_end",
         ]
@@ -295,32 +392,32 @@ def robustness_checks(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -
     main_countries = [country for country in COUNTRY_ORDER if country in set(main_panel["country"])]
     for omitted in main_countries:
         subset = main_panel.loc[main_panel["country"].ne(omitted)].copy()
-        try:
-            y, x, usable = panel_design(subset, "fuel", 6)
-            if len(y) >= x.shape[1] + 20:
-                fit = PanelOLS(y, x, entity_effects=True, drop_absorbed=True, check_rank=False).fit(
-                    cov_type="kernel",
-                    kernel="bartlett",
-                    bandwidth=7,
+        y, x, usable, shock = panel_design(subset, "fuel", 6)
+        if len(y) < x.shape[1] + 20 or y.index.get_level_values(0).nunique() < 3:
+            warnings_log.append({"code": "q3_leave_one_skipped", "message": f"omit {omitted}: insufficient panel support."})
+            continue
+        fit = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True, check_rank=False).fit(
+            cov_type="kernel",
+            kernel="bartlett",
+            bandwidth=7,
+        )
+        for country in COUNTRY_ORDER:
+            term = f"oil_{country}"
+            if term in fit.params.index:
+                rows.append(
+                    {
+                        "robustness_type": "leave_one_country_panel_fuel_h6",
+                        "omitted_country": omitted,
+                        "country": country,
+                        "horizon": 6,
+                        "estimate": float(fit.params[term]),
+                        "std_error": float(fit.std_errors[term]),
+                        "model": "stacked_panel_LP_time_FE",
+                        "specification": "fuel h=6 panel LP with country FE and full year-month FE after omitting one country",
+                        "shock": shock,
+                        "n": int(len(usable)),
+                    }
                 )
-                for country in COUNTRY_ORDER:
-                    term = f"oil_{country}"
-                    if term in fit.params.index:
-                        rows.append(
-                            {
-                                "robustness_type": "leave_one_country_panel_fuel_h6",
-                                "omitted_country": omitted,
-                                "country": country,
-                                "horizon": 6,
-                                "estimate": float(fit.params[term]),
-                                "std_error": float(fit.std_errors[term]),
-                                "model": "stacked_panel_LP",
-                                "specification": "fuel h=6 panel LP after omitting one country",
-                                "n": int(len(usable)),
-                            }
-                        )
-        except Exception as exc:
-            warnings_log.append({"code": "q3_leave_one_failed", "message": f"omit {omitted}: {exc}"})
 
     monthly = pd.read_csv(PROCESSED_DIR / "model_monthly_q1.csv")
     usd_panel = main_panel.merge(monthly[["period", "brent_usd_bbl_log_return"]], on="period", how="left")
@@ -382,12 +479,13 @@ def plot_pass_through(pass_through: pd.DataFrame) -> None:
     frame["country_label"] = frame["country"].map(COUNTRY_LABEL_ZH).fillna(frame["country"])
     frame["err_low"] = frame["response"] - frame["lower_95"]
     frame["err_high"] = frame["upper_95"] - frame["response"]
-    colors = [PALETTE["gold"], PALETTE["olive"], PALETTE["rose"]]
+    color_cycle = [PALETTE["gold"], PALETTE["olive"], PALETTE["rose"], PALETTE["slate"], PALETTE["sand"], PALETTE["blue_light"]]
+    colors = [color_cycle[idx % len(color_cycle)] for idx in range(len(frame))]
     fig, ax = plt.subplots(figsize=(7.6, 4.8))
     ax.bar(
         frame["country_label"],
         frame["response"],
-        color=colors[: len(frame)],
+        color=colors,
         edgecolor="white",
         linewidth=0.8,
         width=0.62,
@@ -417,14 +515,17 @@ def plot_panel_irf(panel_irf: pd.DataFrame) -> None:
     style_map = {
         "CHN": (PALETTE["blue"], "solid", "o"),
         "DEU": (PALETTE["gold"], (0, (4, 2)), "s"),
-        "JPN": (PALETTE["olive"], (0, (2, 2)), "^"),
-        "KOR": (PALETTE["rose"], (0, (1, 2)), "D"),
+        "FRA": (PALETTE["olive"], (0, (2, 2)), "^"),
+        "ITA": (PALETTE["rose"], (0, (1, 2)), "D"),
+        "ESP": (PALETTE["slate"], (0, (6, 2)), "v"),
+        "JPN": (PALETTE["sand"], (0, (3, 1, 1, 1)), "P"),
+        "KOR": (PALETTE["blue_light"], (0, (1, 1)), "X"),
     }
     for country in COUNTRY_ORDER:
         sub = frame.loc[frame["country"].eq(country)].sort_values("horizon")
         if sub.empty:
             continue
-        color, linestyle, marker = style_map[country]
+        color, linestyle, marker = style_map.get(country, (PALETTE["muted"], "solid", "o"))
         ax.plot(sub["horizon"], sub["response"], color=color, linestyle=linestyle, marker=marker, label=COUNTRY_LABEL_ZH.get(country, country))
     ax.axhline(0, color=PALETTE["muted"], linewidth=0.8)
     style_axis(ax, xlabel="油价冲击后月份", ylabel="响应")
@@ -432,7 +533,7 @@ def plot_panel_irf(panel_irf: pd.DataFrame) -> None:
     finish_figure(
         fig,
         title="问题三：跨国面板 LP 响应",
-        subtitle="燃油价格对问题一约化形式 OilShock 的响应；燃油主图剔除中国代理值，标准误为 Driscoll-Kraay。",
+        subtitle="完整年月固定效应吸收共同冲击，因此曲线表示国家相对响应差异；燃油主图剔除中国代理值。",
         source="来源：model_country_monthly.csv 与 q1_monthly_shocks.csv；由 code/problem3/run_q3.py 生成。",
     )
     save_figure(fig, FIGURES_DIR / "q3_panel_irf")
@@ -495,6 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     py_warnings.filterwarnings("ignore", category=AbsorbingEffectWarning)
     pass_through = fit_country_pass_through(panel, warnings_log)
     panel_irf = fit_panel_lp(panel, warnings_log)
+    buffer_irf = fit_buffer_interactions(panel, warnings_log)
     counterfactual = policy_counterfactual(panel, warnings_log)
     robustness = robustness_checks(panel, warnings_log)
     plot_pass_through(pass_through)
@@ -513,13 +615,19 @@ def main(argv: list[str] | None = None) -> int:
                 "component": "PanelLP",
                 "rows": len(panel_irf),
                 "status": "CONDITIONAL" if len(panel_irf) else "WARN",
-                "note": "fuel LP excludes China proxy from main comparison; country FE, month seasonality, country trend",
+                "note": "fuel LP excludes China proxy from main comparison; country FE and full year-month FE absorb common shocks",
+            },
+            {
+                "component": "BufferInteractions",
+                "rows": len(buffer_irf),
+                "status": "CONDITIONAL" if len(buffer_irf) else "WARN",
+                "note": "Shock×fuel_price_regulation with country FE and full year-month FE; interprets buffer differences, not absolute China ranking",
             },
             {
                 "component": "ChinaPolicyCounterfactual",
                 "rows": len(counterfactual),
-                "status": "PASS" if len(counterfactual) else "WARN",
-                "note": "price layer always reported; CPI propagation uses proxy fuel ARDL",
+                "status": "CONDITIONAL" if len(counterfactual) else "WARN",
+                "note": "descriptive proxy scenario; official regulated fuel price series is still required before paper-ready policy counterfactual",
             },
             {
                 "component": "Robustness",
@@ -533,11 +641,12 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "status": "CONDITIONAL",
         "random_seed": RANDOM_SEED,
-        "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; it remains a policy-scenario sensitivity input.",
+        "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; policy counterfactual remains a descriptive proxy until official regulated fuel prices are reconstructed.",
         "warnings": warnings_log,
         "rows": {
             "q3_country_pass_through.csv": int(len(pass_through)),
             "q3_panel_irf.csv": int(len(panel_irf)),
+            "q3_buffer_interactions.csv": int(len(buffer_irf)),
             "q3_policy_counterfactual.csv": int(len(counterfactual)),
             "q3_robustness.csv": int(len(robustness)),
         },

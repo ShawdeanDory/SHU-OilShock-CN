@@ -7,16 +7,19 @@ import hashlib
 import importlib.metadata
 import json
 import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from jsonschema import Draft202012Validator
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = REPO_ROOT / "results"
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
+SCHEMA_DIR = REPO_ROOT / "code" / "schemas"
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -34,6 +37,7 @@ MANIFEST_REQUIRED = [
     "overall_status",
     "paper_finalize_allowed",
     "git_commit",
+    "source_commit",
     "cutoff",
     "random_seed",
     "replay_environment",
@@ -58,6 +62,7 @@ RISK_REQUIRED = [
     "figure_pngs",
     "output_hash_count",
     "input_hash_count",
+    "model_code_hash_count",
 ]
 
 
@@ -81,6 +86,35 @@ def require_keys(payload: dict[str, Any], keys: list[str], label: str, errors: l
     missing = [key for key in keys if key not in payload]
     if missing:
         errors.append(f"{label} missing required keys: {missing}")
+
+
+def validate_schema(payload: dict[str, Any], schema_filename: str, label: str, errors: list[str]) -> None:
+    schema_path = SCHEMA_DIR / schema_filename
+    if not schema_path.exists():
+        errors.append(f"{label} schema missing: {schema_filename}")
+        return
+    schema = load_json(schema_path)
+    validator = Draft202012Validator(schema)
+    schema_errors = sorted(validator.iter_errors(payload), key=lambda err: list(err.path))
+    for error in schema_errors:
+        location = ".".join(str(part) for part in error.path) or "<root>"
+        errors.append(f"{label} schema error at {location}: {error.message}")
+
+
+def verify_source_commit_lineage(frozen: dict[str, Any], errors: list[str]) -> None:
+    source_commit = frozen.get("source_commit")
+    if not source_commit or source_commit == "UNKNOWN":
+        errors.append("frozen source_commit is missing or UNKNOWN")
+        return
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", source_commit, "HEAD"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        errors.append(f"current HEAD does not contain frozen source_commit {source_commit}")
 
 
 def verify_hashes(base_dir: Path, hashes: dict[str, str], label: str, errors: list[str]) -> None:
@@ -142,6 +176,11 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         if chn.any():
             errors.append("China proxy is included in the main Q3 fuel comparison")
 
+    q3_buffer = pd.read_csv(RESULTS_DIR / "q3_buffer_interactions.csv")
+    required_buffer = {"outcome", "buffer", "shock", "estimate", "lower_95", "upper_95", "specification"}
+    if not required_buffer.issubset(q3_buffer.columns):
+        errors.append("q3_buffer_interactions.csv lacks policy-buffer interaction columns")
+
     policy = pd.read_csv(RESULTS_DIR / "q3_policy_counterfactual.csv")
     april = policy.loc[policy["period"].eq("2026-04")]
     if april.empty:
@@ -151,6 +190,8 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         cumulative = float(april["cumulative_gasoline_gap_cny_t"].iloc[0])
         if abs(incremental - 380.0) > 1e-6 or abs(cumulative - 1425.0) > 1e-6:
             errors.append("Q3 April policy gap no longer matches incremental 380 and cumulative 1425")
+    if "price_layer_status" not in policy.columns:
+        errors.append("q3_policy_counterfactual.csv lacks price_layer_status")
 
 
 def main() -> int:
@@ -174,6 +215,9 @@ def main() -> int:
     require_keys(frozen, STANDARD_FROZEN_REQUIRED, "frozen_numbers.json", errors)
     require_keys(manifest, MANIFEST_REQUIRED, "reproducibility_manifest.json", errors)
     require_keys(risk, RISK_REQUIRED, "risk_probe_summary.json", errors)
+    validate_schema(frozen, "frozen_numbers.schema.json", "frozen_numbers.json", errors)
+    validate_schema(manifest, "reproducibility_manifest.schema.json", "reproducibility_manifest.json", errors)
+    validate_schema(risk, "risk_probe_summary.schema.json", "risk_probe_summary.json", errors)
 
     expected_source_hash = sha256_json(final_numbers)
     if frozen.get("schema_version") != 1:
@@ -197,6 +241,7 @@ def main() -> int:
     verify_hashes(PROCESSED_DIR, manifest.get("processed_input_hashes", {}), "processed input", errors)
     verify_hashes(REPO_ROOT, manifest.get("code_hashes", {}), "code", errors)
     verify_environment(manifest, errors if args.strict_environment else environment_messages)
+    verify_source_commit_lineage(manifest, errors)
     verify_key_result_shapes(errors)
 
     if risk.get("paper_finalize_allowed") != (risk.get("overall_status") == "PASS"):

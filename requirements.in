@@ -7,3 +7,4 @@ scipy>=1.13,<2
 statsmodels>=0.14,<1
 linearmodels>=6,<7
 matplotlib>=3.9,<4
+jsonschema>=4.25,<5

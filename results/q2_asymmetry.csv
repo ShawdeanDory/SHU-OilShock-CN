@@ -1,9 +1,9 @@
-outcome,term,estimate,std_error,lower_95,upper_95,model,specification,sample_start,sample_end,n
-china_iav_yoy_pct,OilShock_pos,0.40328907194478797,0.22178064191797964,-0.03139299868262635,0.8379711425722023,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,150
-china_iav_yoy_pct,OilShock_neg,-0.43148042304593043,0.2208620001147507,-0.8643619888243231,0.0014011427324622794,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,150
-china_ppi_yoy_pct,OilShock_pos,0.13618602390461335,0.18450719191582,-0.22544142713901363,0.49781347494824035,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
-china_ppi_yoy_pct,OilShock_neg,0.2803914745449938,0.1242445703382207,0.036876591407427745,0.5239063576825599,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
-china_cpi_yoy_pct,OilShock_pos,-0.04490390455546969,0.0661963843816056,-0.1746464338501864,0.08483862473924703,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
-china_cpi_yoy_pct,OilShock_neg,0.10601565813704371,0.05580975543187693,-0.003369452495423725,0.21540076876951114,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
-china_fx_log_change_pct,OilShock_pos,-0.06523366704974987,0.10603455904183888,-0.27305758388834,0.14259024978884027,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
-china_fx_log_change_pct,OilShock_neg,0.14902732132199137,0.0847430135413896,-0.01706593316052235,0.3151205758045051,NARDL_proxy,positive and negative OilShock split,2010-03,2026-06,196
+outcome,term,shock,estimate,std_error,lower_95,upper_95,model,specification,sample_start,sample_end,n
+china_iav_yoy_pct,shock_pos,oil_specific_risk_shock,-0.5562355877139024,0.6232764560418845,-1.7778349939677582,0.6653638185399534,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-04,2026-06,39
+china_iav_yoy_pct,shock_neg,oil_specific_risk_shock,0.9944102272753939,0.6089271570305522,-0.19906506971285443,2.187885524263642,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-04,2026-06,39
+china_ppi_yoy_pct,shock_pos,oil_specific_risk_shock,0.4199027320589591,0.22277362274321666,-0.016725545223258587,0.8565310093411769,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52
+china_ppi_yoy_pct,shock_neg,oil_specific_risk_shock,-0.18979675177046063,0.15542690268661408,-0.494427883264836,0.11483437972391475,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52
+china_cpi_yoy_pct,shock_pos,oil_specific_risk_shock,0.2826559515153225,0.13879375286483944,0.010625194621084244,0.5546867084095608,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52
+china_cpi_yoy_pct,shock_neg,oil_specific_risk_shock,-0.22928474532313337,0.07775317154680675,-0.38167816123863907,-0.07689132940762766,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52
+china_fx_log_change_pct,shock_pos,oil_specific_risk_shock,-0.4116914299160559,0.2009478973716366,-0.8055420715335146,-0.0178407882985972,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52
+china_fx_log_change_pct,shock_neg,oil_specific_risk_shock,0.5903660401698458,0.16013049225973805,0.27651604251408934,0.9042160378256023,sign_asymmetry_DL,positive and negative oil_specific_risk_shock split; not a full NARDL/ECM,2022-03,2026-06,52

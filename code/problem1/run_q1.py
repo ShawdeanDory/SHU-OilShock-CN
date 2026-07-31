@@ -18,8 +18,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from scipy.optimize import minimize
 from scipy.stats import norm
 from statsmodels.tools.sm_exceptions import ValueWarning
+from statsmodels.tsa.forecasting.theta import ThetaModel
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
@@ -135,11 +138,11 @@ def assign_event_stages(daily: pd.DataFrame, e1_start: pd.Timestamp | None = Non
 
     date = frame["date"]
     frame["war_stage"] = "prewar"
-    frame.loc[date.eq(e1_start), "war_stage"] = "E1_first_trading_day"
+    frame.loc[date.between(e1_start, e1_car_end), "war_stage"] = "E1_immediate_window"
     frame.loc[date.between(e2_start, e3_start - pd.Timedelta(days=1)), "war_stage"] = "E2_disruption"
     frame.loc[date >= e3_start, "war_stage"] = "E3_easing"
     frame["war_on"] = (date >= e1_start).astype(int)
-    frame["stage_E1"] = date.eq(e1_start).astype(int)
+    frame["stage_E1"] = date.between(e1_start, e1_car_end).astype(int)
     frame["stage_E2"] = frame["war_stage"].eq("E2_disruption").astype(int)
     frame["stage_E3"] = frame["war_stage"].eq("E3_easing").astype(int)
     event_meta = {
@@ -201,14 +204,14 @@ def select_orders(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> 
                 rows.append({"model": "ARIMA", "order": str(order), "aic": float(result.aic)})
                 if result.aic < best_arima[1]:
                     best_arima = (order, float(result.aic))
-            except Exception as exc:
+            except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
                 rows.append({"model": "ARIMA", "order": str(order), "aic": np.nan, "error": str(exc)})
             try:
                 result = fit_sarimax(train_full["log_brent"], order, train_exog.loc[train_full.index])
                 rows.append({"model": "SARIMAX", "order": str(order), "aic": float(result.aic)})
                 if result.aic < best_sarimax[1]:
                     best_sarimax = (order, float(result.aic))
-            except Exception as exc:
+            except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
                 rows.append({"model": "SARIMAX", "order": str(order), "aic": np.nan, "error": str(exc)})
     if not np.isfinite(best_arima[1]):
         warnings_log.append({"code": "arima_order_grid_failed", "message": "ARIMA grid failed; using (1,1,1)."})
@@ -256,11 +259,16 @@ def monthly_forecasts(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]])
             lower_95, upper_95 = forecast_interval(no_change, sigma, horizon, 0.05)
             rows.append(
                 {
+                    "origin_period": str(origin["period"]),
+                    "origin_price": float(origin["brent_usd_bbl"]),
+                    "origin_log_price": float(origin["log_brent"]),
                     "period": target_period,
                     "horizon": horizon,
                     "model": "no_change",
                     "actual": float(target["log_brent"]),
                     "prediction": no_change,
+                    "actual_change": float(target["log_brent"] - origin["log_brent"]),
+                    "predicted_change": float(no_change - origin["log_brent"]),
                     "lower_80": lower_80,
                     "upper_80": upper_80,
                     "lower_95": lower_95,
@@ -292,11 +300,16 @@ def monthly_forecasts(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]])
                     ci95 = forecast.conf_int(alpha=0.05).iloc[-1].to_numpy(dtype=float)
                     rows.append(
                         {
+                            "origin_period": str(origin["period"]),
+                            "origin_price": float(origin["brent_usd_bbl"]),
+                            "origin_log_price": float(origin["log_brent"]),
                             "period": target_period,
                             "horizon": horizon,
                             "model": model_name,
                             "actual": float(target["log_brent"]),
                             "prediction": mean,
+                            "actual_change": float(target["log_brent"] - origin["log_brent"]),
+                            "predicted_change": float(mean - origin["log_brent"]),
                             "lower_80": float(ci80[0]),
                             "upper_80": float(ci80[1]),
                             "lower_95": float(ci95[0]),
@@ -308,7 +321,59 @@ def monthly_forecasts(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]])
                             "specification": f"order={order}; future exog held at origin" if use_exog else f"order={order}",
                         }
                     )
-                except Exception as exc:
+                except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
+                    warnings_log.append(
+                        {
+                            "code": "monthly_forecast_model_failed",
+                            "message": f"{model_name} h={horizon} target={target_period}: {exc}",
+                        }
+                    )
+            fit_train = train.dropna(subset=["log_brent"]).copy()
+            fit_series = pd.Series(
+                fit_train["log_brent"].to_numpy(dtype=float),
+                index=pd.PeriodIndex(fit_train["period"], freq="M").to_timestamp(),
+            ).asfreq("MS")
+            for model_name in ["ETS", "Theta"]:
+                try:
+                    if model_name == "ETS":
+                        fitted = ExponentialSmoothing(
+                            fit_series,
+                            trend="add",
+                            damped_trend=True,
+                            seasonal=None,
+                            initialization_method="estimated",
+                        ).fit(optimized=True)
+                        pred_values = fitted.forecast(horizon)
+                    else:
+                        fitted = ThetaModel(fit_series, period=12, deseasonalize=False).fit()
+                        pred_values = fitted.forecast(horizon)
+                    mean = float(pred_values.iloc[-1])
+                    lower_80, upper_80 = forecast_interval(mean, sigma, horizon, 0.20)
+                    lower_95, upper_95 = forecast_interval(mean, sigma, horizon, 0.05)
+                    rows.append(
+                        {
+                            "origin_period": str(origin["period"]),
+                            "origin_price": float(origin["brent_usd_bbl"]),
+                            "origin_log_price": float(origin["log_brent"]),
+                            "period": target_period,
+                            "horizon": horizon,
+                            "model": model_name,
+                            "actual": float(target["log_brent"]),
+                            "prediction": mean,
+                            "actual_change": float(target["log_brent"] - origin["log_brent"]),
+                            "predicted_change": float(mean - origin["log_brent"]),
+                            "lower_80": lower_80,
+                            "upper_80": upper_80,
+                            "lower_95": lower_95,
+                            "upper_95": upper_95,
+                            "actual_price": float(target["brent_usd_bbl"]),
+                            "prediction_price": float(np.exp(mean)),
+                            "sample_start": sample_start,
+                            "sample_end": sample_end,
+                            "specification": "Holt damped ETS" if model_name == "ETS" else "ThetaModel period=12",
+                        }
+                    )
+                except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
                     warnings_log.append(
                         {
                             "code": "monthly_forecast_model_failed",
@@ -317,10 +382,39 @@ def monthly_forecasts(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]])
                     )
 
     forecasts = pd.DataFrame(rows)
+    forecasts = add_equal_weight_combination(forecasts)
     save_csv(forecasts, "q1_forecasts.csv")
     metrics = forecast_metrics(forecasts)
     save_csv(metrics, "q1_forecast_metrics.csv")
     return forecasts, metrics
+
+
+def add_equal_weight_combination(forecasts: pd.DataFrame) -> pd.DataFrame:
+    if forecasts.empty:
+        return forecasts
+    members = ["no_change", "ARIMA", "SARIMAX", "ETS", "Theta"]
+    rows: list[dict[str, Any]] = []
+    for (_, _), group in forecasts.groupby(["period", "horizon"]):
+        available = group.loc[group["model"].isin(members)].copy()
+        if len(available) < 2:
+            continue
+        template = available.iloc[0].to_dict()
+        prediction = float(available["prediction"].mean())
+        for column in ["lower_80", "upper_80", "lower_95", "upper_95"]:
+            template[column] = float(available[column].mean())
+        template.update(
+            {
+                "model": "EqualWeight",
+                "prediction": prediction,
+                "prediction_price": float(np.exp(prediction)),
+                "predicted_change": prediction - float(template["origin_log_price"]),
+                "specification": "equal-weight average of available no_change/ARIMA/SARIMAX/ETS/Theta forecasts",
+            }
+        )
+        rows.append(template)
+    if not rows:
+        return forecasts
+    return pd.concat([forecasts, pd.DataFrame(rows)], ignore_index=True, sort=False)
 
 
 def forecast_metrics(forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -348,9 +442,17 @@ def forecast_metrics(forecasts: pd.DataFrame) -> pd.DataFrame:
         rel_rmse = rmse / benchmark_rmse if np.isfinite(benchmark_rmse) and benchmark_rmse > 0 else np.nan
         dm_rmse_stat, dm_rmse_pvalue = dm_hln_test(paired["squared_error"], paired["benchmark_squared_error"], int(horizon))
         dm_mae_stat, dm_mae_pvalue = dm_hln_test(paired["abs_error"], paired["benchmark_abs_error"], int(horizon))
-        actual_dir = np.sign(group["actual"].diff())
-        pred_dir = np.sign(group["prediction"].diff())
-        direction_accuracy = float((actual_dir.eq(pred_dir)).iloc[1:].mean()) if len(group) > 2 else np.nan
+        if {"actual_change", "predicted_change"}.issubset(group.columns):
+            directional = group[["actual_change", "predicted_change"]].dropna()
+            direction_accuracy = (
+                float(np.sign(directional["actual_change"]).eq(np.sign(directional["predicted_change"])).mean())
+                if not directional.empty
+                else np.nan
+            )
+        else:
+            actual_dir = np.sign(group["actual"].diff())
+            pred_dir = np.sign(group["prediction"].diff())
+            direction_accuracy = float((actual_dir.eq(pred_dir)).iloc[1:].mean()) if len(group) > 2 else np.nan
         status = classify_forecast_model(str(model), rel_rmse, dm_rmse_stat, dm_rmse_pvalue)
         rows.append(
             {
@@ -414,23 +516,24 @@ def stage_effect_regression(daily: pd.DataFrame, price_prefix: str, specificatio
     for term in ["stage_E1", "stage_E2", "stage_E3"]:
         estimate = float(fit.params.get(term, np.nan))
         se = float(fit.bse.get(term, np.nan))
+        descriptive_only = term == "stage_E1"
         rows.append(
             {
                 "stage_id": term.replace("stage_", ""),
                 "model": f"{price_prefix}_stage_dummy",
                 "specification": specification,
                 "estimate_log_return": estimate,
-                "std_error": se,
-                "lower_80": estimate - norm.ppf(0.90) * se,
-                "upper_80": estimate + norm.ppf(0.90) * se,
-                "lower_95": estimate - norm.ppf(0.975) * se,
-                "upper_95": estimate + norm.ppf(0.975) * se,
-                "pvalue": float(fit.pvalues.get(term, np.nan)),
+                "std_error": np.nan if descriptive_only else se,
+                "lower_80": np.nan if descriptive_only else estimate - norm.ppf(0.90) * se,
+                "upper_80": np.nan if descriptive_only else estimate + norm.ppf(0.90) * se,
+                "lower_95": np.nan if descriptive_only else estimate - norm.ppf(0.975) * se,
+                "upper_95": np.nan if descriptive_only else estimate + norm.ppf(0.975) * se,
+                "pvalue": np.nan if descriptive_only else float(fit.pvalues.get(term, np.nan)),
                 "sample_start": str(usable["date"].min().date()),
                 "sample_end": str(usable["date"].max().date()),
                 "n": int(len(usable)),
                 "event_observations": int(usable[term].sum()),
-                "identification_status": "PASS",
+                "identification_status": "DESCRIPTIVE_ONLY" if descriptive_only else "PASS",
             }
         )
     return pd.DataFrame(rows)
@@ -461,22 +564,35 @@ def event_car_rows(daily: pd.DataFrame, price_prefix: str, event_start: pd.Times
     rows: list[dict[str, Any]] = []
     cumulative_actual = 0.0
     cumulative_expected = 0.0
+    recursive_lags = [float(train[return_col].iloc[-lag]) for lag in [1, 2, 3]]
+    pre_event_usd = float(train["usd_broad_index_log_return"].iloc[-1])
     for horizon, event_date in enumerate(event_dates):
-        event_row = frame.loc[frame["date"].eq(event_date)].dropna(subset=[return_col] + regressors)
+        event_row = frame.loc[frame["date"].eq(event_date)].dropna(subset=[return_col])
         if event_row.empty:
             continue
-        x = sm.add_constant(event_row[regressors].astype(float), has_constant="add")
+        x = pd.DataFrame(
+            [
+                {
+                    f"{return_col}_lag1": recursive_lags[0],
+                    f"{return_col}_lag2": recursive_lags[1],
+                    f"{return_col}_lag3": recursive_lags[2],
+                    "usd_broad_index_log_return": pre_event_usd,
+                }
+            ]
+        )
+        x = sm.add_constant(x[regressors].astype(float), has_constant="add")
         expected = float(fit.predict(x).iloc[0])
         actual = float(event_row[return_col].iloc[0])
         cumulative_actual += actual
         cumulative_expected += expected
+        recursive_lags = [expected, *recursive_lags[:2]]
         abnormal = cumulative_actual - cumulative_expected
         se = sigma * math.sqrt(horizon + 1)
         rows.append(
             {
                 "stage_id": f"E1_CAR_0_{horizon}" if horizon else "E1_CAR_0",
                 "model": model_label,
-                "specification": "AR(3)+USD expected-return event study; E1 mapped to first common trading day",
+                "specification": "recursive AR(3)+pre-event USD expected-return CAR; E1 mapped to first common trading day",
                 "estimate_log_return": abnormal,
                 "actual_cumulative_log_return": cumulative_actual,
                 "expected_cumulative_log_return": cumulative_expected,
@@ -510,9 +626,16 @@ def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.Da
     frame = daily.copy()
     frame["date"] = pd.to_datetime(frame["date"])
     weekend_calendar = pd.date_range("2024-01-06", "2025-12-28", freq="W-SAT")
+    excluded_event_dates = [
+        pd.Timestamp("2024-04-13"),
+        pd.Timestamp("2024-10-01"),
+        pd.Timestamp("2025-06-13"),
+    ]
     seen_starts: set[pd.Timestamp] = set()
     pieces: list[pd.DataFrame] = []
-    for pseudo_calendar in weekend_calendar:
+    for block_id, pseudo_calendar in enumerate(weekend_calendar):
+        if any(abs((pseudo_calendar - event_date).days) <= 7 for event_date in excluded_event_dates):
+            continue
         start = first_trading_date_on_or_after(frame, pd.Timestamp(pseudo_calendar), "brent_usd_bbl")
         if start in seen_starts:
             continue
@@ -521,6 +644,7 @@ def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.Da
         if car.empty:
             continue
         car["pseudo_calendar_date"] = pseudo_calendar.strftime("%Y-%m-%d")
+        car["placebo_block_id"] = block_id
         pieces.append(car)
     placebo = pd.concat(pieces, ignore_index=True, sort=False) if pieces else pd.DataFrame()
     if placebo.empty or actual_car.empty:
@@ -671,8 +795,149 @@ def daily_counterfactual(daily: pd.DataFrame) -> pd.DataFrame:
     return counterfactual
 
 
+def residualize(series: pd.Series, controls: pd.DataFrame) -> pd.Series:
+    frame = pd.concat([series.rename("target"), controls], axis=1).dropna()
+    result = pd.Series(np.nan, index=series.index, dtype=float)
+    if len(frame) < controls.shape[1] + 12:
+        return result
+    fit = sm.OLS(frame["target"], sm.add_constant(frame.drop(columns=["target"]).astype(float), has_constant="add")).fit()
+    result.loc[frame.index] = fit.resid
+    return result
+
+
+def structural_shock_decomposition(monthly: pd.DataFrame) -> pd.DataFrame:
+    steo_path = PROCESSED_DIR / "eia_steo_selected.csv"
+    base = monthly[["period", "month_end", "brent_usd_bbl_log_return", "GPR_z"]].copy()
+    if not steo_path.exists():
+        result = base[["period"]].copy()
+        for column in ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"]:
+            result[column] = np.nan
+        result["reduced_form_shock"] = np.nan
+        result["source_vintage"] = "EIA_STEO_missing"
+        save_csv(result, "q1_structural_shocks.csv")
+        return result
+    steo = pd.read_csv(steo_path)
+    pivot = steo.pivot_table(index="period", columns="variable_id", values="value", aggfunc="first").reset_index()
+    frame = base.merge(pivot, on="period", how="left").sort_values("period").reset_index(drop=True)
+    frame["supply_growth"] = np.log(frame["world_liquids_supply_mbd"]).diff()
+    frame["demand_growth"] = np.log(frame["world_liquids_demand_mbd"]).diff()
+    frame["inventory_change"] = np.log(frame["oecd_commercial_liquids_stocks_mmbbl"]).diff()
+    controls = pd.DataFrame(
+        {
+            "supply_lag1": frame["supply_growth"].shift(1),
+            "demand_lag1": frame["demand_growth"].shift(1),
+            "inventory_lag1": frame["inventory_change"].shift(1),
+            "price_lag1": frame["brent_usd_bbl_log_return"].shift(1),
+        }
+    )
+    supply_resid = residualize(frame["supply_growth"], controls)
+    demand_resid = residualize(frame["demand_growth"], pd.concat([controls, supply_resid.rename("supply_resid")], axis=1))
+    risk_controls = pd.concat(
+        [
+            controls,
+            supply_resid.rename("supply_resid"),
+            demand_resid.rename("demand_resid"),
+            frame["inventory_change"].rename("inventory_change"),
+            frame["GPR_z"].rename("GPR_z"),
+        ],
+        axis=1,
+    )
+    risk_resid = residualize(frame["brent_usd_bbl_log_return"], risk_controls)
+    result = frame[["period"]].copy()
+    result["supply_shock"] = zscore(-supply_resid)
+    result["aggregate_demand_shock"] = zscore(demand_resid)
+    result["oil_specific_risk_shock"] = zscore(risk_resid)
+    result["reduced_form_shock"] = zscore(frame["brent_usd_bbl_log_return"])
+    result["source_vintage"] = "EIA_STEO_July_2026_ex_post_2022plus"
+    save_csv(result, "q1_structural_shocks.csv")
+    return result
+
+
+def gjr_garch_variance(returns: pd.Series) -> tuple[np.ndarray, dict[str, float]]:
+    y = returns.dropna().to_numpy(dtype=float)
+    y = y - np.mean(y)
+    if len(y) < 80:
+        raise ValueError("GJR-GARCH needs at least 80 daily return observations.")
+    sample_var = float(np.var(y, ddof=1))
+
+    def neg_loglike(params: np.ndarray) -> float:
+        omega, alpha, gamma, beta = params
+        if omega <= 0 or alpha < 0 or gamma < 0 or beta < 0 or alpha + 0.5 * gamma + beta >= 0.999:
+            return 1e12
+        h = np.empty_like(y)
+        h[0] = sample_var
+        for idx in range(1, len(y)):
+            lag_eps = y[idx - 1]
+            h[idx] = omega + alpha * lag_eps**2 + gamma * (lag_eps < 0) * lag_eps**2 + beta * h[idx - 1]
+            if h[idx] <= 0 or not np.isfinite(h[idx]):
+                return 1e12
+        return float(0.5 * np.sum(np.log(2 * np.pi) + np.log(h) + y**2 / h))
+
+    constraints = ({"type": "ineq", "fun": lambda p: 0.999 - p[1] - 0.5 * p[2] - p[3]},)
+    fit = minimize(
+        neg_loglike,
+        x0=np.array([0.02 * sample_var, 0.05, 0.05, 0.88]),
+        bounds=[(1e-9, None), (0.0, 1.0), (0.0, 1.0), (0.0, 0.999)],
+        constraints=constraints,
+        method="SLSQP",
+        options={"maxiter": 500, "ftol": 1e-9},
+    )
+    if not fit.success:
+        raise RuntimeError(f"GJR-GARCH optimization failed: {fit.message}")
+    omega, alpha, gamma, beta = fit.x
+    h = np.empty_like(y)
+    h[0] = sample_var
+    for idx in range(1, len(y)):
+        lag_eps = y[idx - 1]
+        h[idx] = omega + alpha * lag_eps**2 + gamma * (lag_eps < 0) * lag_eps**2 + beta * h[idx - 1]
+    return h, {"omega": float(omega), "alpha": float(alpha), "gamma": float(gamma), "beta": float(beta)}
+
+
+def volatility_module(daily: pd.DataFrame, event_start: pd.Timestamp) -> pd.DataFrame:
+    frame = daily.copy()
+    frame["date"] = pd.to_datetime(frame["date"])
+    frame = frame.loc[frame["date"].between(pd.Timestamp("2024-01-01"), CUTOFF)].sort_values("date").copy()
+    frame["return_pct"] = frame["brent_usd_bbl_log_return"] * 100.0
+    usable = frame.dropna(subset=["return_pct"]).copy()
+    train = usable.loc[usable["date"].lt(event_start)].copy()
+    h_train, params = gjr_garch_variance(train["return_pct"])
+    omega, alpha, gamma, beta = params["omega"], params["alpha"], params["gamma"], params["beta"]
+    y = usable["return_pct"].to_numpy(dtype=float)
+    y = y - float(train["return_pct"].mean())
+    h = np.empty(len(y), dtype=float)
+    h[: len(h_train)] = h_train
+    for idx in range(len(h_train), len(y)):
+        lag_eps = y[idx - 1]
+        h[idx] = omega + alpha * lag_eps**2 + gamma * (lag_eps < 0) * lag_eps**2 + beta * h[idx - 1]
+    usable["conditional_vol_pct"] = np.sqrt(h)
+    pre_median = float(np.nanmedian(usable.loc[usable["date"].lt(event_start), "conditional_vol_pct"]))
+    usable["abnormal_vol_ratio_vs_pre_median"] = usable["conditional_vol_pct"] / pre_median - 1.0
+    usable["model"] = "GJR_GARCH_1_1"
+    usable["specification"] = "normal-likelihood GJR-GARCH(1,1) fitted on pre-E1 Brent daily returns"
+    for key, value in params.items():
+        usable[key] = value
+    output = usable[
+        [
+            "date",
+            "return_pct",
+            "conditional_vol_pct",
+            "abnormal_vol_ratio_vs_pre_median",
+            "model",
+            "specification",
+            "omega",
+            "alpha",
+            "gamma",
+            "beta",
+        ]
+    ]
+    save_csv(output, "q1_volatility.csv")
+    return output
+
+
 def make_q1_shocks(monthly: pd.DataFrame, counterfactual: pd.DataFrame) -> pd.DataFrame:
     shocks = monthly_shock_residuals(monthly)
+    structural = structural_shock_decomposition(monthly)
+    shocks = shocks.merge(structural, on="period", how="left")
     if counterfactual.empty:
         baseline = pd.DataFrame({"period": shocks["period"], "ARBaselineGap": 0.0})
     else:
@@ -868,6 +1133,7 @@ def main(argv: list[str] | None = None) -> int:
     car_effects = add_empirical_pvalues(car_effects_raw, placebos)
     effects = pd.concat([stage_effects, car_effects], ignore_index=True, sort=False)
     save_csv(effects, "q1_event_effects.csv")
+    volatility = volatility_module(daily, event_start)
     counterfactual = daily_counterfactual(daily)
     shocks = make_q1_shocks(monthly, counterfactual)
     robustness = robustness_summary(forecasts, effects, daily, placebos)
@@ -913,6 +1179,7 @@ def main(argv: list[str] | None = None) -> int:
         "event_effect_rows": int(len(effects)),
         "placebo_rows": int(len(placebos)),
         "shock_rows": int(len(shocks)),
+        "volatility_rows": int(len(volatility)),
         "robustness_rows": int(len(robustness)),
         "warnings": warnings_log,
         "main_metric_best_rmse": json_records(metrics.sort_values("RMSE").head(1)) if not metrics.empty else [],

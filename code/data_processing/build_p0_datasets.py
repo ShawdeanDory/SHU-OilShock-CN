@@ -7,6 +7,7 @@ import html
 import json
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,12 @@ DICTIONARY_PATH = REPO_ROOT / "data" / "DATA_DICTIONARY.csv"
 CUTOFF = pd.Timestamp("2026-06-30")
 START_MONTHLY = pd.Timestamp("2010-01-01")
 SUCCESS_STATUSES = {"DOWNLOADED", "CACHED"}
+EU_FUEL_COUNTRIES = {
+    "DEU": ("DE", "Germany", "germany"),
+    "FRA": ("FR", "France", "france"),
+    "ITA": ("IT", "Italy", "italy"),
+    "ESP": ("ES", "Spain", "spain"),
+}
 
 
 @dataclass
@@ -67,6 +74,14 @@ def date_string(value: Any) -> str:
     if pd.isna(value):
         return ""
     return pd.Timestamp(value).strftime("%Y-%m-%d")
+
+
+def parse_excel_date(value: Any) -> pd.Timestamp:
+    if isinstance(value, pd.Timestamp):
+        return value
+    if isinstance(value, (datetime, date)):
+        return pd.Timestamp(value)
+    return pd.to_datetime(value, format="%Y-%m-%d", errors="coerce")
 
 
 def profile(
@@ -371,7 +386,7 @@ def build_oecd_data(
             end=date_string(cpi_dates.max()),
             missing=int(cpi["OBS_VALUE"].isna().sum()),
             duplicates=int(cpi.duplicated(["REF_AREA", "TIME_PERIOD"]).sum()),
-            note="CHN/DEU/JPN/KOR 各198期；德国为HICP，其余为国家CPI",
+            note="CHN/DEU/FRA/ITA/ESP/JPN/KOR 各198期；德国、法国、意大利、西班牙为HICP，其余为国家CPI",
         ),
         QualityRow(
             dataset="oecd_kei_ip_monthly",
@@ -381,10 +396,78 @@ def build_oecd_data(
             end=date_string(ip_dates.max()),
             missing=int(ip["OBS_VALUE"].isna().sum()),
             duplicates=int(ip.duplicated(["REF_AREA", "TIME_PERIOD"]).sum()),
-            note="DEU/JPN/KOR 各197期；中国活动变量使用另行导入的国家统计局序列",
+            note="DEU/FRA/ITA/ESP/JPN/KOR 各197期；中国活动变量仍需国家统计局",
         ),
     ]
     return cpi, ip, quality
+
+
+def build_eu_fuel_data(
+    manifest: dict[str, dict[str, Any]]
+) -> tuple[pd.DataFrame, pd.DataFrame, list[QualityRow]]:
+    path = source_path(manifest, "ec_weekly_oil_bulletin")
+    raw = pd.read_excel(path, sheet_name="Prices with taxes", header=0)
+    date_col = raw.columns[0]
+    weekly_frames: list[pd.DataFrame] = []
+    monthly_frames: list[pd.DataFrame] = []
+    quality: list[QualityRow] = []
+    for country, (ec_code, country_name, slug) in EU_FUEL_COUNTRIES.items():
+        price_col = f"{ec_code}_price_with_tax_euro95"
+        if price_col not in raw.columns:
+            raise ValueError(f"Weekly Oil Bulletin layout lacks {price_col}")
+        weekly = raw[[date_col, price_col]].copy()
+        weekly.columns = ["date", "gasoline_eur_per_1000l"]
+        weekly["date"] = weekly["date"].map(parse_excel_date)
+        weekly["gasoline_eur_per_1000l"] = pd.to_numeric(weekly["gasoline_eur_per_1000l"], errors="coerce")
+        weekly = weekly.dropna(subset=["date", "gasoline_eur_per_1000l"])
+        weekly = weekly[weekly["date"].between(START_MONTHLY, CUTOFF)].copy()
+        weekly["country"] = country
+        weekly["country_name"] = country_name
+        weekly["gasoline_eur_per_l"] = weekly["gasoline_eur_per_1000l"] / 1000.0
+        weekly = weekly[["country", "country_name", "date", "gasoline_eur_per_1000l", "gasoline_eur_per_l"]]
+        weekly = weekly.sort_values("date").reset_index(drop=True)
+        save_csv(weekly, f"{slug}_eurosuper95_weekly.csv")
+        weekly_frames.append(weekly)
+
+        monthly = (
+            weekly.assign(period=weekly["date"].dt.to_period("M").astype(str))
+            .groupby(["country", "country_name", "period"], as_index=False)
+            .agg(
+                gasoline_eur_per_l=("gasoline_eur_per_l", "mean"),
+                weekly_observations=("gasoline_eur_per_l", "count"),
+            )
+        )
+        monthly["month_end"] = pd.to_datetime(monthly["period"]) + pd.offsets.MonthEnd(0)
+        save_csv(monthly, f"{slug}_eurosuper95_monthly.csv")
+        monthly_frames.append(monthly)
+        quality.extend(
+            [
+                profile(
+                    f"{slug}_eurosuper95_weekly",
+                    weekly,
+                    "date",
+                    ["gasoline_eur_per_l"],
+                    note="European Commission Weekly Oil Bulletin, tax-inclusive Euro-super 95, original unit EUR/1000 litres.",
+                ),
+                profile(
+                    f"{slug}_eurosuper95_monthly",
+                    monthly,
+                    "month_end",
+                    ["gasoline_eur_per_l"],
+                    note="Arithmetic monthly average of official weekly observations.",
+                ),
+            ]
+        )
+
+    all_weekly = pd.concat(weekly_frames, ignore_index=True)
+    all_monthly = pd.concat(monthly_frames, ignore_index=True)
+    save_csv(all_weekly, "eu_eurosuper95_weekly.csv")
+    save_csv(all_monthly, "eu_eurosuper95_monthly.csv")
+    germany_weekly = all_weekly.loc[all_weekly["country"].eq("DEU")].copy()
+    germany_monthly = all_monthly.loc[all_monthly["country"].eq("DEU")].copy()
+    save_csv(germany_weekly, "germany_eurosuper95_weekly.csv")
+    save_csv(germany_monthly[["period", "gasoline_eur_per_l", "weekly_observations", "month_end"]], "germany_eurosuper95_monthly.csv")
+    return germany_weekly, germany_monthly, quality
 
 
 def build_germany_fuel_data(
@@ -540,23 +623,36 @@ def build_policy_data(
         ("ndrc_fuel_control_20260407", "2026-04-07"),
     ]
     rows = []
-    for artifact_id, effective_date in definitions:
-        gasoline_rule, diesel_rule, gasoline_actual, diesel_actual = (
-            extract_policy_values(source_path(manifest, artifact_id))
+    try:
+        for artifact_id, effective_date in definitions:
+            gasoline_rule, diesel_rule, gasoline_actual, diesel_actual = (
+                extract_policy_values(source_path(manifest, artifact_id))
+            )
+            rows.append(
+                {
+                    "effective_date": effective_date,
+                    "gasoline_rule_adjustment_cny_t": gasoline_rule,
+                    "gasoline_actual_adjustment_cny_t": gasoline_actual,
+                    "gasoline_policy_gap_cny_t": gasoline_rule - gasoline_actual,
+                    "diesel_rule_adjustment_cny_t": diesel_rule,
+                    "diesel_actual_adjustment_cny_t": diesel_actual,
+                    "diesel_policy_gap_cny_t": diesel_rule - diesel_actual,
+                    "source_artifact_id": artifact_id,
+                }
+            )
+        frame = pd.DataFrame(rows)
+        policy_note = "由两份国家发展改革委网页快照自动复算政策差额"
+        policy_status = "PASS"
+    except (KeyError, RuntimeError, FileNotFoundError, ValueError) as exc:
+        cached_processed = PROCESSED_DIR / "cn_fuel_policy_events.csv"
+        if not cached_processed.exists():
+            raise
+        frame = pd.read_csv(cached_processed)
+        policy_note = (
+            "NDRC网页快照当前不可用，沿用已生成的规范化提取表；"
+            f"需补回官方原始快照后才能解除来源门禁。原因：{type(exc).__name__}: {exc}"
         )
-        rows.append(
-            {
-                "effective_date": effective_date,
-                "gasoline_rule_adjustment_cny_t": gasoline_rule,
-                "gasoline_actual_adjustment_cny_t": gasoline_actual,
-                "gasoline_policy_gap_cny_t": gasoline_rule - gasoline_actual,
-                "diesel_rule_adjustment_cny_t": diesel_rule,
-                "diesel_actual_adjustment_cny_t": diesel_actual,
-                "diesel_policy_gap_cny_t": diesel_rule - diesel_actual,
-                "source_artifact_id": artifact_id,
-            }
-        )
-    frame = pd.DataFrame(rows)
+        policy_status = "CONDITIONAL"
     frame["effective_date"] = pd.to_datetime(frame["effective_date"])
     save_csv(frame, "cn_fuel_policy_events.csv")
     value_columns = [
@@ -572,7 +668,8 @@ def build_policy_data(
         frame,
         "effective_date",
         value_columns,
-        note="由两份国家发展改革委网页快照自动复算政策差额",
+        note=policy_note,
+        status=policy_status,
     )
 
 
@@ -643,7 +740,7 @@ def merge_monthly_market(
 
 
 def load_manual_nbs_quality() -> list[QualityRow]:
-    """Profile already-imported NBS manual exports without rewriting them."""
+    """Profile verified NBS manual exports without rewriting them."""
     ppi_path = PROCESSED_DIR / "nbs_ppi_monthly.csv"
     iav_path = PROCESSED_DIR / "nbs_iav_monthly.csv"
     if not ppi_path.exists() or not iav_path.exists():
@@ -704,7 +801,7 @@ def quality_report(
     )
     nbs_gate = (
         "| 国家统计局工业增加值、PPI 完整月表 | `PASS` | "
-        "已进入 Q2 月度 LP；工业增加值官方结构性空值按缺失处理 |"
+        "已进入 Q2 月度模型；工业增加值官方结构性空值按缺失处理 |"
         if nbs_ready
         else "| 国家统计局工业增加值、PPI 完整月表 | `CONDITIONAL` | "
         "CPI 先用 OECD；IAV/PPI 到位前不运行 Q2 完整 LP |"
@@ -763,7 +860,7 @@ def quality_report(
 
 ## 5. 下一门禁
 
-数据处理后应重新运行 Q1/Q2/Q3 风险探针并更新 `results/risk_probe_summary.json`；有已验证回退且不承担主线任务的条件项不阻塞论文。
+数据处理后应重新运行 Q1/Q2/Q3 风险探针并更新 `results/risk_probe_summary.json`；有已验证回退且不承担主线任务的条件项不阻塞模型运行。
 """
     REPORT_PATH.write_text(report, encoding="utf-8")
 
@@ -814,7 +911,7 @@ def main() -> int:
     quality_rows.append(steo_quality)
     _, _, oecd_quality = build_oecd_data(manifest)
     quality_rows.extend(oecd_quality)
-    _, _, germany_quality = build_germany_fuel_data(manifest)
+    _, _, germany_quality = build_eu_fuel_data(manifest)
     quality_rows.extend(germany_quality)
     _, _, japan_quality = build_japan_fuel_data(manifest)
     quality_rows.extend(japan_quality)

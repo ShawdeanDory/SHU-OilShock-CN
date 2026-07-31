@@ -1,12 +1,66 @@
 {
   "status": "CONDITIONAL",
   "random_seed": 20260730,
-  "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; it remains a policy-scenario sensitivity input.",
-  "warnings": [],
+  "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; policy counterfactual remains a descriptive proxy until official regulated fuel prices are reconstructed.",
+  "warnings": [
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=0: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=1: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=2: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=3: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=4: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=5: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=6: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=7: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=8: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=9: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=10: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=11: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_buffer_lp_skipped",
+      "message": "fuel h=12: buffer interaction is not identifiable with current comparable data."
+    }
+  ],
   "rows": {
-    "q3_country_pass_through.csv": 12,
-    "q3_panel_irf.csv": 130,
+    "q3_country_pass_through.csv": 21,
+    "q3_panel_irf.csv": 208,
+    "q3_buffer_interactions.csv": 26,
     "q3_policy_counterfactual.csv": 5,
-    "q3_robustness.csv": 14
+    "q3_robustness.csv": 35
   }
 }

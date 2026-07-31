@@ -1,15 +1,36 @@
-robustness_type,omitted_country,country,horizon,estimate,std_error,model,specification,n
-leave_one_country_panel_fuel_h6,DEU,JPN,6,2.7293020555312557,0.5655513753907377,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-leave_one_country_panel_fuel_h6,DEU,KOR,6,2.6122745117015573,0.5174032030482716,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-leave_one_country_panel_fuel_h6,JPN,DEU,6,1.9016249779233556,0.5152430183869877,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-leave_one_country_panel_fuel_h6,JPN,KOR,6,2.6782452274520048,0.5168797852042445,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-leave_one_country_panel_fuel_h6,KOR,DEU,6,1.9012504941797277,0.5246764810124668,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-leave_one_country_panel_fuel_h6,KOR,JPN,6,2.794898287538078,0.5768231215609946,stacked_panel_LP,fuel h=6 panel LP after omitting one country,380
-usd_brent_fx_ignored_pass_through_h6,,DEU,6,0.2208385686975795,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
-usd_brent_fx_ignored_pass_through_h6,,JPN,6,0.217426772434765,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
-usd_brent_fx_ignored_pass_through_h6,,KOR,6,0.23117436901331506,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,191
-diesel_policy_layer_gap,,CHN,0,0.0,,policy_price_layer,cumulative diesel policy gap through 2026-02,1
-diesel_policy_layer_gap,,CHN,0,1005.0,,policy_price_layer,cumulative diesel policy gap through 2026-03,1
-diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-04,1
-diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-05,1
-diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-06,1
+robustness_type,omitted_country,country,horizon,estimate,std_error,model,specification,shock,n
+leave_one_country_panel_fuel_h6,DEU,FRA,6,-2.0215575031674353,0.8150482707385281,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,DEU,ITA,6,-1.4495378392702007,0.8353876577214707,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,DEU,ESP,6,0.03634855254140272,0.5422511768591614,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,DEU,JPN,6,-1.845838758958634,0.5715952072492784,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,FRA,DEU,6,-1.7930075462051913,0.9731903788742857,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,FRA,ITA,6,-1.449537839270202,0.8353876577214728,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,FRA,ESP,6,0.03634855254140276,0.54225117685917,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,FRA,JPN,6,-1.8458387589586347,0.5715952072492799,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ITA,DEU,6,-1.793007546205193,0.9731903788742859,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ITA,FRA,6,-2.0215575031674353,0.8150482707385311,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ITA,ESP,6,0.036348552541403144,0.5422511768591731,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ITA,JPN,6,-1.8458387589586354,0.5715952072492813,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ESP,DEU,6,-1.7930075462051909,0.9731903788742856,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ESP,FRA,6,-2.0215575031674353,0.815048270738526,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ESP,ITA,6,-1.4495378392702027,0.8353876577214703,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,ESP,JPN,6,-1.845838758958635,0.5715952072492787,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,JPN,DEU,6,-1.7930075462051913,0.9731903788742866,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,JPN,FRA,6,-2.0215575031674353,0.8150482707385281,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,JPN,ITA,6,-1.449537839270202,0.8353876577214704,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,JPN,ESP,6,0.03634855254140334,0.5422511768591702,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,KOR,DEU,6,0.052831212753442484,0.9052130751355495,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,KOR,FRA,6,-0.17571874420879963,0.7088903124833561,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,KOR,ITA,6,0.39630091968843373,0.7858074061296145,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+leave_one_country_panel_fuel_h6,KOR,ESP,6,1.8821873115000383,0.769322368913638,stacked_panel_LP_time_FE,fuel h=6 panel LP with country FE and full year-month FE after omitting one country,oil_specific_risk_shock,230
+usd_brent_fx_ignored_pass_through_h6,,DEU,6,0.2208385686975795,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+usd_brent_fx_ignored_pass_through_h6,,FRA,6,0.20103461870451883,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+usd_brent_fx_ignored_pass_through_h6,,ITA,6,0.21458051043564416,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+usd_brent_fx_ignored_pass_through_h6,,ESP,6,0.2292377671764256,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+usd_brent_fx_ignored_pass_through_h6,,JPN,6,0.21742677243476494,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+usd_brent_fx_ignored_pass_through_h6,,KOR,6,0.23117436901331487,,distributed_lag_pass_through,uses USD Brent instead of local-currency Brent,,191
+diesel_policy_layer_gap,,CHN,0,0.0,,policy_price_layer,cumulative diesel policy gap through 2026-02,,1
+diesel_policy_layer_gap,,CHN,0,1005.0,,policy_price_layer,cumulative diesel policy gap through 2026-03,,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-04,,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-05,,1
+diesel_policy_layer_gap,,CHN,0,1375.0,,policy_price_layer,cumulative diesel policy gap through 2026-06,,1
