@@ -172,8 +172,10 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     if not required_q3.issubset(q3_pass.columns):
         errors.append("q3_country_pass_through.csv lacks comparability columns")
     else:
-        chn = bool_series(q3_pass.loc[q3_pass["country"].eq("CHN"), "included_in_main_comparison"])
-        if chn.any():
+        chn_rows = q3_pass.loc[q3_pass["country"].eq("CHN")]
+        chn_included = bool_series(chn_rows["included_in_main_comparison"]) if not chn_rows.empty else pd.Series(dtype=bool)
+        chn_proxy = chn_rows["price_measure_type"].astype(str).str.contains("proxy", case=False, na=False) if not chn_rows.empty else pd.Series(dtype=bool)
+        if bool((chn_included & chn_proxy).any()):
             errors.append("China proxy is included in the main Q3 fuel comparison")
 
     q3_buffer = pd.read_csv(RESULTS_DIR / "q3_buffer_interactions.csv")

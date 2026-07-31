@@ -13,12 +13,13 @@
 
 本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
 
-当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
+当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三已改用中国官方受管制零售价接口，但中国是否进入主跨国燃油排名取决于官方历史覆盖是否达标。
 
 阻塞定稿的门禁：
 
+- `q1_structural_shock_coverage_gate`
+- `q2_structural_shock_identification`
 - `q3_china_comparability`
-- `q3_policy_counterfactual_price_layer`
 
 ## 2. 问题一：预测与事件窗口
 
@@ -77,7 +78,7 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 4. 问题三：政策缓冲与跨国比较
 
-跨国燃油主排名现在只纳入德国、法国、意大利、西班牙、日本、韩国的观测官方零售汽油价格。中国 Brent-CNY 代理值保留为政策情景和附录敏感性材料。
+跨国燃油主排名只纳入覆盖充分的观测或官方受管制零售汽油价格。中国 Brent-CNY 代理值只保留为附录敏感性材料；正式政策情景已改用官方零售价层。
 
 | country | horizon | response | lower_95 | upper_95 | price_measure_type | included_in_main_comparison |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -90,13 +91,13 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 中国政策图与数据表已区分新增差额和累计差额，2026-04 的累计差额为 1425 元/吨，4月新增为 380 元/吨。
 
-| period | policy_adjusted_proxy_cny_t | no_temporary_control_proxy_cny_t | incremental_gasoline_gap_cny_t | cumulative_gasoline_gap_cny_t | cpi_counterfactual_gap_pctpt |
-| --- | --- | --- | --- | --- | --- |
-| 2026-02 | 3589.2274 | 3589.2274 | 0.0000 | 0.0000 | 0.0000 |
-| 2026-03 | 4166.2262 | 5211.2262 | 1045.0000 | 1045.0000 | 0.4874 |
-| 2026-04 | 4454.0946 | 5879.0946 | 380.0000 | 1425.0000 | 0.6045 |
-| 2026-05 | 3915.9735 | 5340.9735 | 0.0000 | 1425.0000 | 0.6758 |
-| 2026-06 | 2817.2991 | 4242.2991 | 0.0000 | 1425.0000 | 0.8914 |
+| period | policy_adjusted_official_cny_l | no_temporary_control_official_cny_l | incremental_gasoline_gap_cny_t | cumulative_gasoline_gap_cny_t | cpi_counterfactual_gap_pctpt | price_layer_status |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-02 | 7.6400 | 7.6400 | 0.0000 | 0.0000 |  | official_regulated_finished_fuel_price_layer |
+| 2026-03 | 7.9100 | 8.7478 | 1045.0000 | 1045.0000 |  | official_regulated_finished_fuel_price_layer |
+| 2026-04 | 8.8340 | 9.9581 | 380.0000 | 1425.0000 |  | official_regulated_finished_fuel_price_layer |
+| 2026-05 | 8.9000 | 10.0196 | 0.0000 | 1425.0000 |  | official_regulated_finished_fuel_price_layer |
+| 2026-06 | 8.9000 | 10.0196 | 0.0000 | 1425.0000 |  | official_regulated_finished_fuel_price_layer |
 
 ## 5. 图表与冻结文件
 
@@ -114,13 +115,14 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 ## 6. Warnings
 
 - `nbs_gdp_yoy_manual_supplement`：OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.
-- `china_fuel_price_proxy`：China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.
+- `china_official_fuel_coverage_limited`：China official regulated gasoline series has 5 nonmissing months; at least 48 are required for the main Q3 fuel comparison.
 - `q2_robustness_skipped`：china_iav_yoy_pct lag=6 exclude_covid=True: too few observations.
 - `q2_robustness_skipped`：china_iav_yoy_pct lag=12 exclude_covid=False: too few observations.
 - `q2_robustness_skipped`：china_iav_yoy_pct lag=12 exclude_covid=True: too few observations.
 - `q2_robustness_skipped`：china_ppi_yoy_pct lag=12 exclude_covid=True: too few observations.
 - `q2_robustness_skipped`：china_cpi_yoy_pct lag=12 exclude_covid=True: too few observations.
 - `q2_robustness_skipped`：china_fx_log_change_pct lag=12 exclude_covid=True: too few observations.
+- `q3_pass_through_limited`：CHN: insufficient fuel observations.
 - `q3_buffer_lp_skipped`：fuel h=0: buffer interaction is not identifiable with current comparable data.
 - `q3_buffer_lp_skipped`：fuel h=1: buffer interaction is not identifiable with current comparable data.
 - `q3_buffer_lp_skipped`：fuel h=2: buffer interaction is not identifiable with current comparable data.
@@ -132,7 +134,6 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 - `q3_buffer_lp_skipped`：fuel h=8: buffer interaction is not identifiable with current comparable data.
 - `q3_buffer_lp_skipped`：fuel h=9: buffer interaction is not identifiable with current comparable data.
 - `q3_buffer_lp_skipped`：fuel h=10: buffer interaction is not identifiable with current comparable data.
-- `q3_buffer_lp_skipped`：fuel h=11: buffer interaction is not identifiable with current comparable data.
 
 ## 7. 论文使用建议
 

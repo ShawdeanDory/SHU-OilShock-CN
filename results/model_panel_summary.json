@@ -16,8 +16,8 @@
       "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
     },
     {
-      "code": "china_fuel_price_proxy",
-      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series."
+      "code": "china_official_fuel_coverage_limited",
+      "message": "China official regulated gasoline series has 5 nonmissing months; at least 48 are required for the main Q3 fuel comparison."
     }
   ]
 }

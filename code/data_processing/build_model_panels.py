@@ -25,6 +25,7 @@ CUTOFF = pd.Timestamp("2026-06-30")
 START_MONTH = "2010-01"
 RANDOM_SEED = 20260730
 BARREL_TO_TONNE = 0.1364
+CHINA_MAIN_FUEL_MIN_MONTHS = 48
 EVENT_E1_CALENDAR_START = pd.Timestamp("2026-02-28")
 EVENT_E3_CALENDAR_START = pd.Timestamp("2026-06-17")
 COUNTRY_META = {
@@ -43,6 +44,9 @@ OECD_GDP_URLS = {
     "china_real_gdp_qoq_pct": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......G1.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile",
 }
 NBS_2026_Q2_URL = "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
+NDRC_2026_03_CONTROL_URL = "https://www.ndrc.gov.cn/xwdt/xwfb/202603/t20260323_1404296_ext.html"
+BJ_2026_03_PRICE_URL = "https://fgw.beijing.gov.cn/gzdt/fgzs/mtbdx/bzwlxw/202603/t20260324_4564846.htm"
+BJ_2026_04_PRICE_URL = "https://fgw.beijing.gov.cn/gzdt/fgzs/mtbdx/bzwlxw/202604/t20260408_4577002.htm"
 
 
 def read_processed(filename: str, **kwargs: Any) -> pd.DataFrame:
@@ -430,6 +434,168 @@ def build_china_policy_monthly(monthly_q1: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def load_or_build_china_adjustment_events() -> pd.DataFrame:
+    target = PROCESSED_DIR / "cn_fuel_adjustment_events.csv"
+    if target.exists():
+        events = pd.read_csv(target)
+        if "price_anchor_valid_from" not in events.columns:
+            events["price_anchor_valid_from"] = events["effective_date"]
+        events.loc[events["effective_date"].astype(str).eq("2026-03-23"), "price_anchor_valid_from"] = "2026-02-01"
+    else:
+        policy = read_processed("cn_fuel_policy_events.csv")
+        required = {
+            "effective_date",
+            "gasoline_rule_adjustment_cny_t",
+            "gasoline_actual_adjustment_cny_t",
+            "gasoline_policy_gap_cny_t",
+            "source_artifact_id",
+        }
+        missing = sorted(required - set(policy.columns))
+        if missing:
+            raise ValueError(f"cn_fuel_policy_events.csv lacks required columns: {missing}")
+        price_anchors = {
+            "2026-03-23": {
+                "announcement_date": "2026-03-23",
+                "source_url": BJ_2026_03_PRICE_URL,
+                "beijing_92_price_before_cny_per_l": 7.64,
+                "beijing_92_price_after_cny_per_l": 8.57,
+                "price_anchor_valid_from": "2026-02-01",
+            },
+            "2026-04-07": {
+                "announcement_date": "2026-04-07",
+                "source_url": BJ_2026_04_PRICE_URL,
+                "beijing_92_price_before_cny_per_l": 8.57,
+                "beijing_92_price_after_cny_per_l": 8.90,
+                "price_anchor_valid_from": "2026-04-07",
+            },
+        }
+        rows: list[dict[str, Any]] = []
+        for row in policy.to_dict("records"):
+            effective = pd.Timestamp(row["effective_date"]).strftime("%Y-%m-%d")
+            anchor = price_anchors.get(effective, {})
+            actual = float(row["gasoline_actual_adjustment_cny_t"])
+            before = anchor.get("beijing_92_price_before_cny_per_l", np.nan)
+            after = anchor.get("beijing_92_price_after_cny_per_l", np.nan)
+            litre_change = after - before if np.isfinite(before) and np.isfinite(after) else np.nan
+            litres_per_ton = actual / litre_change if np.isfinite(litre_change) and abs(litre_change) > 1e-12 else np.nan
+            rows.append(
+                {
+                    "announcement_date": anchor.get("announcement_date", effective),
+                    "effective_date": effective,
+                    "product": "gasoline_92_beijing",
+                    "actual_adjustment_cny_per_ton": actual,
+                    "rule_implied_adjustment_cny_per_ton": float(row["gasoline_rule_adjustment_cny_t"]),
+                    "carried_gap_cny_per_ton": float(row["gasoline_policy_gap_cny_t"]),
+                    "beijing_92_price_before_cny_per_l": before,
+                    "beijing_92_price_after_cny_per_l": after,
+                    "price_anchor_valid_from": anchor.get("price_anchor_valid_from", effective),
+                    "observed_litres_per_ton": litres_per_ton,
+                    "policy_type": "temporary_control" if float(row["gasoline_policy_gap_cny_t"]) else "mechanism_adjustment",
+                    "source_url": anchor.get("source_url", NDRC_2026_03_CONTROL_URL),
+                    "source_artifact_id": row["source_artifact_id"],
+                    "verification_status": "official_anchor_verified",
+                    "coverage_note": "Seeded from verified 2026 NDRC/Beijing DRC official price-control notices; append historical official events to unlock main Q3 comparison.",
+                }
+            )
+        events = pd.DataFrame(rows)
+        save_processed(events, "cn_fuel_adjustment_events.csv")
+
+    events["effective_date"] = pd.to_datetime(events["effective_date"])
+    events = events.loc[events["product"].eq("gasoline_92_beijing")].copy()
+    events = events.sort_values("effective_date").reset_index(drop=True)
+    save_processed(events, "cn_fuel_adjustment_events.csv")
+    return events
+
+
+def build_china_regulated_gasoline_monthly(monthly_q1: pd.DataFrame, warnings: list[dict[str, Any]]) -> pd.DataFrame:
+    events = load_or_build_china_adjustment_events()
+    months = monthly_q1[["period"]].copy()
+    months["month_start"] = pd.to_datetime(months["period"] + "-01")
+    months["month_end"] = months["month_start"] + pd.offsets.MonthEnd(0)
+
+    anchored_events = events.dropna(subset=["beijing_92_price_before_cny_per_l", "beijing_92_price_after_cny_per_l"]).copy()
+    if anchored_events.empty:
+        result = months.copy()
+        result["china_regulated_gasoline_cny_per_l"] = np.nan
+        result["no_temporary_control_gasoline_cny_per_l"] = np.nan
+        result["china_regulated_gasoline_index"] = np.nan
+        result["coverage_status"] = "missing_official_price_anchor"
+        result["measure_type"] = "official_regulated_retail_cap"
+        result["source_url"] = ""
+        save_processed(result, "china_regulated_gasoline_monthly.csv")
+        warnings.append(
+            {
+                "code": "china_official_fuel_anchor_missing",
+                "message": "No Beijing 92 official price anchor is available; China cannot enter the main Q3 fuel comparison.",
+            }
+        )
+        return result
+
+    first_event = anchored_events.iloc[0]
+    valid_from = pd.Timestamp(first_event.get("price_anchor_valid_from", pd.NaT))
+    if pd.isna(valid_from):
+        valid_from = pd.Timestamp(first_event["effective_date"]).replace(day=1)
+    calendar = pd.DataFrame({"date": pd.date_range(valid_from, CUTOFF, freq="D")})
+    calendar["china_regulated_gasoline_cny_per_l"] = float(first_event["beijing_92_price_before_cny_per_l"])
+    calendar["observed_litres_per_ton"] = float(first_event["observed_litres_per_ton"])
+    calendar["source_url"] = str(first_event["source_url"])
+    for row in anchored_events.itertuples(index=False):
+        mask = calendar["date"].ge(pd.Timestamp(row.effective_date))
+        calendar.loc[mask, "china_regulated_gasoline_cny_per_l"] = float(row.beijing_92_price_after_cny_per_l)
+        if np.isfinite(float(row.observed_litres_per_ton)):
+            calendar.loc[mask, "observed_litres_per_ton"] = float(row.observed_litres_per_ton)
+        calendar.loc[mask, "source_url"] = str(row.source_url)
+
+    calendar["period"] = calendar["date"].dt.to_period("M").astype(str)
+    monthly_price = (
+        calendar.groupby("period", as_index=False)
+        .agg(
+            china_regulated_gasoline_cny_per_l=("china_regulated_gasoline_cny_per_l", "mean"),
+            observed_litres_per_ton=("observed_litres_per_ton", "mean"),
+            price_observation_days=("china_regulated_gasoline_cny_per_l", "size"),
+            source_url=("source_url", "last"),
+        )
+    )
+
+    policy = build_china_policy_monthly(monthly_q1)
+    result = months.merge(monthly_price, on="period", how="left")
+    result = result.merge(
+        policy[["period", "gasoline_policy_gap_cny_t", "cum_gasoline_policy_gap_cny_t"]],
+        on="period",
+        how="left",
+    )
+    result["gasoline_policy_gap_cny_t"] = result["gasoline_policy_gap_cny_t"].fillna(0.0)
+    result["cum_gasoline_policy_gap_cny_t"] = result["cum_gasoline_policy_gap_cny_t"].fillna(0.0)
+    result["china_regulated_gasoline_cny_per_ton"] = (
+        result["china_regulated_gasoline_cny_per_l"] * result["observed_litres_per_ton"]
+    )
+    result["no_temporary_control_gasoline_cny_per_l"] = result["china_regulated_gasoline_cny_per_l"] + (
+        result["cum_gasoline_policy_gap_cny_t"] / result["observed_litres_per_ton"]
+    )
+    base = result["china_regulated_gasoline_cny_per_l"].dropna()
+    result["china_regulated_gasoline_index"] = (
+        100.0 * result["china_regulated_gasoline_cny_per_l"] / float(base.iloc[0]) if not base.empty else np.nan
+    )
+    nonmissing = int(result["china_regulated_gasoline_cny_per_l"].notna().sum())
+    result["coverage_status"] = np.where(
+        result["china_regulated_gasoline_cny_per_l"].notna(),
+        "official_price_observed",
+        "missing_before_official_anchor",
+    )
+    result["measure_type"] = "official_regulated_retail_cap"
+    result["coverage_months_nonmissing"] = nonmissing
+    result["main_comparison_ready"] = nonmissing >= CHINA_MAIN_FUEL_MIN_MONTHS
+    save_processed(result, "china_regulated_gasoline_monthly.csv")
+    if nonmissing < CHINA_MAIN_FUEL_MIN_MONTHS:
+        warnings.append(
+            {
+                "code": "china_official_fuel_coverage_limited",
+                "message": f"China official regulated gasoline series has {nonmissing} nonmissing months; at least {CHINA_MAIN_FUEL_MIN_MONTHS} are required for the main Q3 fuel comparison.",
+            }
+        )
+    return result
+
+
 def build_policy_buffer_table() -> pd.DataFrame:
     years = range(2010, 2027)
     rows: list[dict[str, Any]] = []
@@ -509,27 +675,51 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
         china_fuel["brent_cny_per_tonne_proxy"] - china_fuel["cum_gasoline_policy_gap_cny_t"]
     ).clip(lower=1.0)
     china_fuel["china_gasoline_rule_proxy_cny_t"] = china_fuel["brent_cny_per_tonne_proxy"].clip(lower=1.0)
-    warnings.append(
-        {
-            "code": "china_fuel_price_proxy",
-            "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.",
-        }
-    )
+    official_china_fuel = build_china_regulated_gasoline_monthly(monthly_q1, warnings)
+    official_months = int(official_china_fuel["china_regulated_gasoline_cny_per_l"].notna().sum())
+    china_official_ready = official_months >= CHINA_MAIN_FUEL_MIN_MONTHS
+    if official_months == 0:
+        china_panel_fuel = china_fuel
+        china_fuel_column = "china_gasoline_proxy_cny_t"
+        china_fuel_unit = "CNY/tonne proxy"
+        china_fuel_source = "Brent-CNY proxy net of NDRC policy gaps"
+        china_price_measure_type = "constructed_brent_cny_policy_proxy"
+        china_observed_or_regulated = "proxy_not_observed"
+        china_included = False
+        china_note = "China fuel price is constructed from Brent-CNY minus cumulative NDRC policy gaps; excluded from the main cross-country fuel-price ranking."
+        warnings.append(
+            {
+                "code": "china_fuel_price_proxy",
+                "message": "China official regulated gasoline series is unavailable; retaining Brent-CNY proxy for appendix sensitivity only.",
+            }
+        )
+    else:
+        china_panel_fuel = official_china_fuel
+        china_fuel_column = "china_regulated_gasoline_cny_per_l"
+        china_fuel_unit = "CNY/litre"
+        china_fuel_source = "Beijing DRC official 92-octane maximum retail price notices"
+        china_price_measure_type = "official_regulated_retail_cap"
+        china_observed_or_regulated = "regulated_official"
+        china_included = china_official_ready
+        china_note = (
+            f"China uses the official Beijing 92-octane regulated retail price path; "
+            f"{official_months} nonmissing months are available and at least {CHINA_MAIN_FUEL_MIN_MONTHS} are required for main ranking."
+        )
 
     rows = [
         make_country_rows(
             "CHN",
             "China",
             monthly_q1,
-            china_fuel,
-            "china_gasoline_proxy_cny_t",
-            "CNY/tonne proxy",
+            china_panel_fuel,
+            china_fuel_column,
+            china_fuel_unit,
             monthly_q1["brent_usd_bbl"] * monthly_q1["cny_per_usd"],
-            "Brent-CNY proxy net of NDRC policy gaps",
-            "constructed_brent_cny_policy_proxy",
-            "proxy_not_observed",
-            False,
-            "China fuel price is constructed from Brent-CNY minus cumulative NDRC policy gaps; excluded from the main cross-country fuel-price ranking.",
+            china_fuel_source,
+            china_price_measure_type,
+            china_observed_or_regulated,
+            china_included,
+            china_note,
         ),
         make_country_rows(
             "DEU",

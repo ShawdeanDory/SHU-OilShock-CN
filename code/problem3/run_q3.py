@@ -311,7 +311,7 @@ def china_fuel_to_cpi_elasticity(country_panel: pd.DataFrame, warnings_log: list
     regressors = [f"fuel_log_return_lag{lag}" for lag in range(7)] + ["cpi_lag1", "GPR"]
     usable = chn.dropna(subset=["cpi_yoy_pct"] + regressors)
     if len(usable) < 48:
-        warnings_log.append({"code": "q3_policy_macro_elasticity_missing", "message": "Too few China proxy fuel observations for CPI propagation."})
+        warnings_log.append({"code": "q3_policy_macro_elasticity_missing", "message": "Too few China official regulated fuel observations for CPI propagation."})
         return {"cpi_cumulative_elasticity": np.nan, "cpi_elasticity_se": np.nan}
     fit = sm.OLS(usable["cpi_yoy_pct"], sm.add_constant(usable[regressors].astype(float), has_constant="add")).fit(
         cov_type="HAC",
@@ -325,9 +325,12 @@ def china_fuel_to_cpi_elasticity(country_panel: pd.DataFrame, warnings_log: list
 
 
 def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
-    china_proxy = pd.read_csv(PROCESSED_DIR / "china_fuel_proxy_monthly.csv")
+    official_path = PROCESSED_DIR / "china_regulated_gasoline_monthly.csv"
+    if not official_path.exists():
+        raise FileNotFoundError("china_regulated_gasoline_monthly.csv is required for the official-price policy counterfactual.")
+    official = pd.read_csv(official_path)
     policy = pd.read_csv(PROCESSED_DIR / "china_fuel_policy_monthly.csv")
-    frame = china_proxy.merge(
+    frame = official.merge(
         policy[["period", "gasoline_policy_gap_cny_t", "diesel_policy_gap_cny_t", "cum_gasoline_policy_gap_cny_t", "cum_diesel_policy_gap_cny_t"]],
         on="period",
         how="left",
@@ -335,12 +338,12 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
     )
     frame = frame.loc[frame["period"].between("2026-02", "2026-06")].copy()
     elasticity = china_fuel_to_cpi_elasticity(country_panel, warnings_log)
-    frame["policy_adjusted_proxy_cny_t"] = frame["china_gasoline_proxy_cny_t"]
-    frame["no_temporary_control_proxy_cny_t"] = frame["china_gasoline_rule_proxy_cny_t"]
+    frame["policy_adjusted_official_cny_l"] = frame["china_regulated_gasoline_cny_per_l"]
+    frame["no_temporary_control_official_cny_l"] = frame["no_temporary_control_gasoline_cny_per_l"]
     frame["incremental_gasoline_gap_cny_t"] = frame["gasoline_policy_gap_cny_t"]
     frame["cumulative_gasoline_gap_cny_t"] = frame["cum_gasoline_policy_gap_cny_t"]
-    frame["actual"] = frame["policy_adjusted_proxy_cny_t"]
-    frame["prediction"] = frame["no_temporary_control_proxy_cny_t"]
+    frame["actual"] = frame["policy_adjusted_official_cny_l"]
+    frame["prediction"] = frame["no_temporary_control_official_cny_l"]
     frame["response"] = frame["cumulative_gasoline_gap_cny_t"]
     frame["fuel_log_gap"] = np.log(frame["prediction"] / frame["actual"])
     frame["cpi_counterfactual_gap_pctpt"] = frame["fuel_log_gap"] * elasticity["cpi_cumulative_elasticity"]
@@ -349,9 +352,9 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
     frame["upper_95"] = frame["cpi_counterfactual_gap_pctpt"] + norm.ppf(0.975) * np.abs(frame["fuel_log_gap"]) * se
     frame["model"] = "China_policy_counterfactual"
     frame["horizon"] = 6
-    frame["specification"] = "add cumulative NDRC gasoline policy gap back to Brent-CNY proxy; CPI propagation via China proxy fuel ARDL; descriptive proxy scenario only"
-    frame["evidence_status"] = "CONDITIONAL"
-    frame["price_layer_status"] = "proxy_not_official_regulated_fuel_series"
+    frame["specification"] = "add cumulative NDRC gasoline policy gap back to the official Beijing 92-octane regulated retail-price path; CPI propagation uses China fuel-price ARDL when coverage is sufficient"
+    frame["evidence_status"] = np.where(frame["policy_adjusted_official_cny_l"].notna(), "PRICE_LAYER_SUPPORTED", "CONDITIONAL_DATA_COVERAGE")
+    frame["price_layer_status"] = "official_regulated_finished_fuel_price_layer"
     frame["sample_start"] = "2010-01"
     frame["sample_end"] = "2026-06"
     result = frame[
@@ -360,8 +363,8 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
             "actual",
             "prediction",
             "response",
-            "policy_adjusted_proxy_cny_t",
-            "no_temporary_control_proxy_cny_t",
+            "policy_adjusted_official_cny_l",
+            "no_temporary_control_official_cny_l",
             "incremental_gasoline_gap_cny_t",
             "cumulative_gasoline_gap_cny_t",
             "fuel_log_gap",
@@ -497,8 +500,8 @@ def plot_pass_through(pass_through: pd.DataFrame) -> None:
     finish_figure(
         fig,
         title="问题三：六个月燃油价格传导率",
-        subtitle="仅纳入可观测官方零售汽油价格；中国 Brent-CNY 代理值不参与主排名。",
-        source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC 与 FRED；由 code/problem3/run_q3.py 生成。",
+        subtitle="仅纳入覆盖充分的可观测或官方受管制零售汽油价格；中国覆盖不足时不参与主排名。",
+        source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC、北京市发改委与 FRED；由 code/problem3/run_q3.py 生成。",
         rect=(0.10, 0.13, 0.98, 0.84),
     )
     save_figure(fig, FIGURES_DIR / "q3_pass_through_6m")
@@ -533,7 +536,7 @@ def plot_panel_irf(panel_irf: pd.DataFrame) -> None:
     finish_figure(
         fig,
         title="问题三：跨国面板 LP 响应",
-        subtitle="完整年月固定效应吸收共同冲击，因此曲线表示国家相对响应差异；燃油主图剔除中国代理值。",
+        subtitle="完整年月固定效应吸收共同冲击，因此曲线表示国家相对响应差异；燃油主图仅纳入覆盖充分国家。",
         source="来源：model_country_monthly.csv 与 q1_monthly_shocks.csv；由 code/problem3/run_q3.py 生成。",
     )
     save_figure(fig, FIGURES_DIR / "q3_panel_irf")
@@ -546,8 +549,8 @@ def plot_policy(counterfactual: pd.DataFrame) -> None:
     frame = counterfactual.copy()
     x = np.arange(len(frame))
     fig, ax = plt.subplots(figsize=(7.8, 4.8))
-    ax.plot(x, frame["actual"], marker="o", color=PALETTE["blue"], label="政策调整后代理路径")
-    ax.plot(x, frame["prediction"], marker="s", color=PALETTE["gold"], linestyle=(0, (4, 2)), label="无临时调控规则代理路径")
+    ax.plot(x, frame["actual"], marker="o", color=PALETTE["blue"], label="政策调整后官方零售价")
+    ax.plot(x, frame["prediction"], marker="s", color=PALETTE["gold"], linestyle=(0, (4, 2)), label="无临时调控规则路径")
     ax.fill_between(x, frame["actual"], frame["prediction"], color=PALETTE["gold_light"], alpha=0.26, linewidth=0)
     ax.set_xticks(x)
     ax.set_xticklabels(frame["period"])
@@ -557,13 +560,13 @@ def plot_policy(counterfactual: pd.DataFrame) -> None:
             if getattr(row, "incremental_gasoline_gap_cny_t") > 0 and row.period == "2026-04":
                 label = f"累计差额 {row.cumulative_gasoline_gap_cny_t:.0f}\n4月新增 {row.incremental_gasoline_gap_cny_t:.0f}"
             ax.text(tick, max(row.actual, row.prediction), label, ha="center", va="bottom", fontsize=8.4, color=PALETTE["muted"])
-    style_axis(ax, ylabel="元/吨代理值")
+    style_axis(ax, ylabel="元/升")
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=2, handlelength=2.6)
     finish_figure(
         fig,
-        title="问题三：中国成品油调控代理情景",
-        subtitle="阴影代表累计政策差额；代理值只用于政策情景，不用于跨国主排名。",
-        source="来源：Brent-CNY 代理值与国家发展改革委调价事件；由 code/problem3/run_q3.py 生成。",
+        title="问题三：中国成品油调控政策情景",
+        subtitle="阴影代表累计政策差额折算到官方零售价；历史覆盖不足时仅作价格层修正后的阶段情景。",
+        source="来源：北京市发改委92号汽油价格公告与国家发展改革委调价事件；由 code/problem3/run_q3.py 生成。",
         rect=(0.10, 0.13, 0.98, 0.94),
     )
     save_figure(fig, FIGURES_DIR / "q3_policy_counterfactual")
@@ -609,13 +612,13 @@ def main(argv: list[str] | None = None) -> int:
                 "component": "CountryPassThrough",
                 "rows": len(pass_through),
                 "status": "CONDITIONAL" if len(pass_through) else "WARN",
-                "note": "main ranking excludes China proxy; distributed lag, 1/3/6 month cumulative response",
+                "note": "main ranking includes China only after the official regulated retail-price series reaches minimum coverage; distributed lag, 1/3/6 month cumulative response",
             },
             {
                 "component": "PanelLP",
                 "rows": len(panel_irf),
                 "status": "CONDITIONAL" if len(panel_irf) else "WARN",
-                "note": "fuel LP excludes China proxy from main comparison; country FE and full year-month FE absorb common shocks",
+                "note": "fuel LP excludes countries without sufficient official/observed retail-price coverage; country FE and full year-month FE absorb common shocks",
             },
             {
                 "component": "BufferInteractions",
@@ -627,7 +630,7 @@ def main(argv: list[str] | None = None) -> int:
                 "component": "ChinaPolicyCounterfactual",
                 "rows": len(counterfactual),
                 "status": "CONDITIONAL" if len(counterfactual) else "WARN",
-                "note": "descriptive proxy scenario; official regulated fuel price series is still required before paper-ready policy counterfactual",
+                "note": "official regulated finished-fuel price layer is used; macro propagation remains conditional until enough official China price history is available",
             },
             {
                 "component": "Robustness",
@@ -641,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "status": "CONDITIONAL",
         "random_seed": RANDOM_SEED,
-        "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; policy counterfactual remains a descriptive proxy until official regulated fuel prices are reconstructed.",
+        "comparability_guardrail": "China uses the official regulated fuel-price layer when available, but it enters the main cross-country fuel ranking only after the official series has sufficient history.",
         "warnings": warnings_log,
         "rows": {
             "q3_country_pass_through.csv": int(len(pass_through)),

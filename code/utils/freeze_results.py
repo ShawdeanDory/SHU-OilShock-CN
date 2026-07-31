@@ -83,9 +83,11 @@ PROCESSED_INPUT_FILES = [
     "germany_eurosuper95_monthly.csv",
     "japan_regular_gasoline_monthly.csv",
     "korea_regular_gasoline_monthly.csv",
+    "cn_fuel_adjustment_events.csv",
     "cn_fuel_policy_events.csv",
     "china_fuel_policy_monthly.csv",
     "china_fuel_proxy_monthly.csv",
+    "china_regulated_gasoline_monthly.csv",
     "country_policy_buffers_annual.csv",
     "nbs_iav_monthly.csv",
     "nbs_ppi_monthly.csv",
@@ -115,7 +117,7 @@ CODE_FILES = [
 ]
 
 COUNTRY_LABEL_ZH = {
-    "CHN": "中国（代理）",
+    "CHN": "中国",
     "DEU": "德国",
     "FRA": "法国",
     "ITA": "意大利",
@@ -364,15 +366,46 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
 
     structural_cols = {"supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock", "reduced_form_shock", "source_vintage"}
     structural_ok = not shocks.empty and structural_cols.issubset(shocks.columns)
-    structural_nonmissing = int(shocks[list(structural_cols - {"source_vintage"})].dropna(how="all").shape[0]) if structural_ok else 0
+    core_structural_cols = ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"]
+    core_structural_counts = (
+        {
+            column: int(pd.to_numeric(shocks[column], errors="coerce").notna().sum())
+            for column in core_structural_cols
+        }
+        if structural_ok
+        else {}
+    )
+    core_structural_months = min(core_structural_counts.values()) if core_structural_counts else 0
+    reduced_form_months = int(pd.to_numeric(shocks.get("reduced_form_shock", pd.Series(dtype=float)), errors="coerce").notna().sum()) if structural_ok else 0
+    probes.append(
+        probe(
+            "q1_structural_shock_coverage_gate",
+            "PASS" if structural_ok and core_structural_months >= 120 else "CONDITIONAL",
+            {
+                "has_columns": bool(structural_ok),
+                "core_structural_months": core_structural_months,
+                "core_structural_counts": core_structural_counts,
+                "reduced_form_months": reduced_form_months,
+                "minimum_core_structural_months": 120,
+            },
+            "supply, aggregate-demand and oil-specific-risk shocks each have at least 120 nonmissing monthly observations",
+            ["results/q1_monthly_shocks.csv", "results/q1_structural_shocks.csv"],
+            "Reduced-form oil returns do not substitute for full structural coverage. Q2/Q3 structural interpretation remains conditional until the three structural shock series cover enough history.",
+        )
+    )
     probes.append(
         probe(
             "q2_structural_shock_identification",
-            "PASS" if structural_ok and structural_nonmissing >= 24 else "CONDITIONAL",
-            {"has_columns": bool(structural_ok), "nonmissing_structural_months": structural_nonmissing},
-            "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; at least 24 months are available",
+            "PASS" if structural_ok and core_structural_months >= 120 else "CONDITIONAL",
+            {
+                "has_columns": bool(structural_ok),
+                "core_structural_months": core_structural_months,
+                "core_structural_counts": core_structural_counts,
+                "reduced_form_months": reduced_form_months,
+            },
+            "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; each core structural shock has at least 120 months",
             ["results/q1_monthly_shocks.csv", "results/q1_structural_shocks.csv"],
-            "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Because the current EIA STEO decomposition is ex-post and starts in 2022, identification remains methodologically limited.",
+            "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Current EIA STEO decomposition is too short for full-history structural claims.",
         )
     )
 
@@ -434,6 +467,18 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     )
 
     q3_pass = read_csv("q3_country_pass_through.csv")
+    china_regulated = REPO_ROOT / "data" / "processed" / "china_regulated_gasoline_monthly.csv"
+    china_official_months = 0
+    if china_regulated.exists():
+        china_regulated_frame = pd.read_csv(china_regulated)
+        china_official_months = int(
+            pd.to_numeric(
+                china_regulated_frame.get("china_regulated_gasoline_cny_per_l", pd.Series(dtype=float)),
+                errors="coerce",
+            )
+            .notna()
+            .sum()
+        )
     if q3_pass.empty or "included_in_main_comparison" not in q3_pass.columns:
         q3_comp_status = "FAIL"
         q3_metric: Any = "missing comparability fields"
@@ -445,12 +490,15 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             not chn_rows.empty
             and bool(chn_main.any())
             and not chn_rows["price_measure_type"].astype(str).str.contains("proxy", case=False, na=False).any()
+            and china_official_months >= 48
         )
         q3_comp_status = "PASS" if china_official_main and len(main_countries) >= 6 else "CONDITIONAL"
         q3_metric = {
             "main_countries": main_countries,
             "china_rows": chn_rows[["horizon", "included_in_main_comparison", "price_measure_type", "observed_or_regulated"]].to_dict("records"),
             "china_official_main": bool(china_official_main),
+            "china_official_price_months": china_official_months,
+            "minimum_official_price_months": 48,
         }
     probes.append(
         probe(
@@ -458,8 +506,8 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             q3_comp_status,
             q3_metric,
             "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable",
-            ["results/q3_country_pass_through.csv", "data/processed/model_country_monthly.csv"],
-            "The current run correctly excludes the Brent-CNY China proxy from the main fuel ranking, but Q3 remains conditional until an official regulated China fuel series is reconstructed.",
+            ["results/q3_country_pass_through.csv", "data/processed/model_country_monthly.csv", "data/processed/china_regulated_gasoline_monthly.csv"],
+            "Q3 remains conditional until China has enough official regulated fuel-price history to enter the main fuel ranking with the six control countries.",
         )
     )
 
@@ -498,14 +546,19 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     )
 
     policy_proxy = not q3_policy.empty and q3_policy.get("price_layer_status", pd.Series(dtype=str)).astype(str).str.contains("proxy_not_official", na=False).any()
+    official_price_layer = not q3_policy.empty and q3_policy.get("price_layer_status", pd.Series(dtype=str)).astype(str).str.contains("official_regulated", na=False).all()
     probes.append(
         probe(
             "q3_policy_counterfactual_price_layer",
-            "CONDITIONAL" if policy_proxy else ("PASS" if not q3_policy.empty else "FAIL"),
-            {"policy_rows": int(len(q3_policy)), "uses_proxy_price_layer": bool(policy_proxy)},
+            "PASS" if official_price_layer and not policy_proxy else ("CONDITIONAL" if policy_proxy else "FAIL"),
+            {
+                "policy_rows": int(len(q3_policy)),
+                "uses_proxy_price_layer": bool(policy_proxy),
+                "official_price_layer": bool(official_price_layer),
+            },
             "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic",
             ["results/q3_policy_counterfactual.csv", "data/processed/china_regulated_gasoline_monthly.csv"],
-            "The current policy scenario is explicitly labeled as a proxy demonstration; it must not be presented as a full official-price policy counterfactual in the paper.",
+            "The policy scenario must be computed on the official regulated finished-fuel price layer, while macro propagation may remain conditional when coverage is short.",
         )
     )
 
@@ -725,7 +778,7 @@ def build_data_overview_figures() -> None:
     if country_path.exists():
         panel = pd.read_csv(country_path, parse_dates=["month_end"])
         panel = panel.dropna(subset=["fuel_price_local"]).copy()
-        panel["fuel_index"] = panel.groupby("country")["fuel_price_local"].transform(lambda s: 100.0 * s / s.iloc[0])
+        panel["fuel_index"] = panel.groupby("country")["fuel_price_local"].transform(lambda s: 100.0 * s / s.dropna().iloc[0])
         fig, ax = plt.subplots(figsize=(9.2, 5.1))
         style_map = {
             "CHN": (PALETTE["blue"], "solid"),
@@ -744,8 +797,8 @@ def build_data_overview_figures() -> None:
         finish_figure(
             fig,
             title="数据概览：燃油价格指数",
-            subtitle="各国燃油价格序列以 2010-01 为100；中国为 Brent-CNY 政策代理值。",
-            source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC 与中国代理值；由 code/utils/freeze_results.py 生成。",
+            subtitle="各国燃油价格序列按各自首个可用月归一；中国使用官方受管制零售价可用片段。",
+            source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC、北京市发改委；由 code/utils/freeze_results.py 生成。",
         )
         save_figure(fig, FIGURES_DIR / "data_overview_fuel_panel")
         plt.close(fig)
@@ -838,7 +891,7 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
 
-当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
+当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三已改用中国官方受管制零售价接口，但中国是否进入主跨国燃油排名取决于官方历史覆盖是否达标。
 
 阻塞定稿的门禁：
 
@@ -866,13 +919,13 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 4. 问题三：政策缓冲与跨国比较
 
-跨国燃油主排名现在只纳入德国、法国、意大利、西班牙、日本、韩国的观测官方零售汽油价格。中国 Brent-CNY 代理值保留为政策情景和附录敏感性材料。
+跨国燃油主排名只纳入覆盖充分的观测或官方受管制零售汽油价格。中国 Brent-CNY 代理值只保留为附录敏感性材料；正式政策情景已改用官方零售价层。
 
 {markdown_table(q3_main.loc[q3_main['horizon'].eq(6)].sort_values('country') if not q3_main.empty else q3_main, ['country', 'horizon', 'response', 'lower_95', 'upper_95', 'price_measure_type', 'included_in_main_comparison'])}
 
 中国政策图与数据表已区分新增差额和累计差额，2026-04 的累计差额为 1425 元/吨，4月新增为 380 元/吨。
 
-{markdown_table(q3_policy, ['period', 'policy_adjusted_proxy_cny_t', 'no_temporary_control_proxy_cny_t', 'incremental_gasoline_gap_cny_t', 'cumulative_gasoline_gap_cny_t', 'cpi_counterfactual_gap_pctpt'])}
+{markdown_table(q3_policy, ['period', 'policy_adjusted_official_cny_l', 'no_temporary_control_official_cny_l', 'incremental_gasoline_gap_cny_t', 'cumulative_gasoline_gap_cny_t', 'cpi_counterfactual_gap_pctpt', 'price_layer_status'])}
 
 ## 5. 图表与冻结文件
 

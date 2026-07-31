@@ -236,7 +236,7 @@
   {
     "artifact_id": "nbs_cpi_202606_release",
     "source_id": "SRC_NBS_MONTHLY",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": false,
     "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260709_1964084.html",
     "local_path": "data/raw/nbs_cpi_202606_release_20260730.html",
@@ -249,12 +249,12 @@
     "sha256": "f25810030985bd3509f8af54a62d54675cd7c85635172f97731b8f1a5f3b42fd",
     "etag": "",
     "last_modified": "",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "nbs_gdp_2026q2_release",
     "source_id": "SRC_NBS_GDP",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": false,
     "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260716_1964142.html",
     "local_path": "data/raw/nbs_gdp_2026q2_release_20260730.html",
@@ -267,12 +267,12 @@
     "sha256": "75eed891093dcdc14c3ecd9c9e60f213f283154bb6e5271532c3aa1134473ba6",
     "etag": "",
     "last_modified": "",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "nbs_iav_202606_release",
     "source_id": "SRC_NBS_MONTHLY",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": false,
     "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964123.html",
     "local_path": "data/raw/nbs_iav_202606_release_20260730.html",
@@ -285,12 +285,12 @@
     "sha256": "d9b25daab9876823eb3f3bf3762cd56d4e8a22f5aede3a20ef595c0adb892e84",
     "etag": "",
     "last_modified": "",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "nbs_ppi_202606_release",
     "source_id": "SRC_NBS_MONTHLY",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": false,
     "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260709_1964083.html",
     "local_path": "data/raw/nbs_ppi_202606_release_20260730.html",
@@ -303,12 +303,12 @@
     "sha256": "d79bccedf36ece3545b1f24483e1939118ad10e6f8aaad165ecc15b897d04dad",
     "etag": "",
     "last_modified": "",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "ndrc_fuel_control_20260323",
     "source_id": "SRC_NDRC_FUEL",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": true,
     "url": "https://www.ndrc.gov.cn/xwdt/xwfb/202603/t20260323_1404296_ext.html",
     "local_path": "data/raw/ndrc_fuel_control_20260323_20260730.html",
@@ -321,12 +321,12 @@
     "sha256": "d7b0775fcaffd7af701575e442bcb21759e0dc98a6390eb13afe523bb6c9bd45",
     "etag": "W/\"3249-1774249183000\"",
     "last_modified": "Mon, 23 Mar 2026 06:59:43 GMT",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "ndrc_fuel_control_20260407",
     "source_id": "SRC_NDRC_FUEL",
-    "status": "CACHED",
+    "status": "REMOTE_ONLY",
     "required": true,
     "url": "https://www.ndrc.gov.cn/xwdt/xwfb/202604/t20260407_1404528_ext.html",
     "local_path": "data/raw/ndrc_fuel_control_20260407_20260730.html",
@@ -339,7 +339,7 @@
     "sha256": "4568394052148195d04723bbe49b7f6540f27bb8f082eab918fa6b876f5ecbf7",
     "etag": "W/\"3371-1775545105000\"",
     "last_modified": "Tue, 07 Apr 2026 06:58:25 GMT",
-    "error": ""
+    "error": "local HTML snapshot not committed; URL, metadata and processed extraction retained"
   },
   {
     "artifact_id": "oecd_g20_cpi_monthly",

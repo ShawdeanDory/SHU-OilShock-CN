@@ -1,8 +1,12 @@
 {
   "status": "CONDITIONAL",
   "random_seed": 20260730,
-  "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; policy counterfactual remains a descriptive proxy until official regulated fuel prices are reconstructed.",
+  "comparability_guardrail": "China uses the official regulated fuel-price layer when available, but it enters the main cross-country fuel ranking only after the official series has sufficient history.",
   "warnings": [
+    {
+      "code": "q3_pass_through_limited",
+      "message": "CHN: insufficient fuel observations."
+    },
     {
       "code": "q3_buffer_lp_skipped",
       "message": "fuel h=0: buffer interaction is not identifiable with current comparable data."
@@ -54,10 +58,14 @@
     {
       "code": "q3_buffer_lp_skipped",
       "message": "fuel h=12: buffer interaction is not identifiable with current comparable data."
+    },
+    {
+      "code": "q3_policy_macro_elasticity_missing",
+      "message": "Too few China official regulated fuel observations for CPI propagation."
     }
   ],
   "rows": {
-    "q3_country_pass_through.csv": 21,
+    "q3_country_pass_through.csv": 18,
     "q3_panel_irf.csv": 208,
     "q3_buffer_interactions.csv": 26,
     "q3_policy_counterfactual.csv": 5,

@@ -1,7 +1,8 @@
 {
   "blocking_probe_ids": [
-    "q3_china_comparability",
-    "q3_policy_counterfactual_price_layer"
+    "q1_structural_shock_coverage_gate",
+    "q2_structural_shock_identification",
+    "q3_china_comparability"
   ],
   "core_results_present": {
     "q1_daily_counterfactual.csv": true,
@@ -39,7 +40,7 @@
     "q3_pass_through_6m.png",
     "q3_policy_counterfactual.png"
   ],
-  "input_hash_count": 24,
+  "input_hash_count": 26,
   "model_code_hash_count": 18,
   "output_hash_count": 23,
   "overall_status": "CONDITIONAL",
@@ -120,15 +121,43 @@
         "results/q1_monthly_shocks.csv",
         "results/q1_structural_shocks.csv"
       ],
-      "message": "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Because the current EIA STEO decomposition is ex-post and starts in 2022, identification remains methodologically limited.",
+      "message": "Reduced-form oil returns do not substitute for full structural coverage. Q2/Q3 structural interpretation remains conditional until the three structural shock series cover enough history.",
       "metric": {
+        "core_structural_counts": {
+          "aggregate_demand_shock": 52,
+          "oil_specific_risk_shock": 52,
+          "supply_shock": 52
+        },
+        "core_structural_months": 52,
         "has_columns": true,
-        "nonmissing_structural_months": 197
+        "minimum_core_structural_months": 120,
+        "reduced_form_months": 197
+      },
+      "probe_id": "q1_structural_shock_coverage_gate",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "supply, aggregate-demand and oil-specific-risk shocks each have at least 120 nonmissing monthly observations"
+    },
+    {
+      "evidence_files": [
+        "results/q1_monthly_shocks.csv",
+        "results/q1_structural_shocks.csv"
+      ],
+      "message": "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Current EIA STEO decomposition is too short for full-history structural claims.",
+      "metric": {
+        "core_structural_counts": {
+          "aggregate_demand_shock": 52,
+          "oil_specific_risk_shock": 52,
+          "supply_shock": 52
+        },
+        "core_structural_months": 52,
+        "has_columns": true,
+        "reduced_form_months": 197
       },
       "probe_id": "q2_structural_shock_identification",
       "severity": "blocking",
-      "status": "PASS",
-      "threshold": "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; at least 24 months are available"
+      "status": "CONDITIONAL",
+      "threshold": "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; each core structural shock has at least 120 months"
     },
     {
       "evidence_files": [
@@ -166,31 +195,14 @@
     {
       "evidence_files": [
         "results/q3_country_pass_through.csv",
-        "data/processed/model_country_monthly.csv"
+        "data/processed/model_country_monthly.csv",
+        "data/processed/china_regulated_gasoline_monthly.csv"
       ],
-      "message": "The current run correctly excludes the Brent-CNY China proxy from the main fuel ranking, but Q3 remains conditional until an official regulated China fuel series is reconstructed.",
+      "message": "Q3 remains conditional until China has enough official regulated fuel-price history to enter the main fuel ranking with the six control countries.",
       "metric": {
         "china_official_main": false,
-        "china_rows": [
-          {
-            "horizon": 1,
-            "included_in_main_comparison": false,
-            "observed_or_regulated": "proxy_not_observed",
-            "price_measure_type": "constructed_brent_cny_policy_proxy"
-          },
-          {
-            "horizon": 3,
-            "included_in_main_comparison": false,
-            "observed_or_regulated": "proxy_not_observed",
-            "price_measure_type": "constructed_brent_cny_policy_proxy"
-          },
-          {
-            "horizon": 6,
-            "included_in_main_comparison": false,
-            "observed_or_regulated": "proxy_not_observed",
-            "price_measure_type": "constructed_brent_cny_policy_proxy"
-          }
-        ],
+        "china_official_price_months": 5,
+        "china_rows": [],
         "main_countries": [
           "DEU",
           "ESP",
@@ -198,7 +210,8 @@
           "ITA",
           "JPN",
           "KOR"
-        ]
+        ],
+        "minimum_official_price_months": 48
       },
       "probe_id": "q3_china_comparability",
       "severity": "blocking",
@@ -244,14 +257,15 @@
         "results/q3_policy_counterfactual.csv",
         "data/processed/china_regulated_gasoline_monthly.csv"
       ],
-      "message": "The current policy scenario is explicitly labeled as a proxy demonstration; it must not be presented as a full official-price policy counterfactual in the paper.",
+      "message": "The policy scenario must be computed on the official regulated finished-fuel price layer, while macro propagation may remain conditional when coverage is short.",
       "metric": {
+        "official_price_layer": true,
         "policy_rows": 5,
-        "uses_proxy_price_layer": true
+        "uses_proxy_price_layer": false
       },
       "probe_id": "q3_policy_counterfactual_price_layer",
       "severity": "blocking",
-      "status": "CONDITIONAL",
+      "status": "PASS",
       "threshold": "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic"
     },
     {
@@ -291,7 +305,8 @@
       "metric": {
         "cached_missing": [],
         "status_counts": {
-          "CACHED": 21
+          "CACHED": 15,
+          "REMOTE_ONLY": 6
         }
       },
       "probe_id": "source_provenance_integrity",
@@ -307,7 +322,7 @@
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
         "exact_package_pins": 41,
-        "generation_python_version": "3.13.9",
+        "generation_python_version": "3.11.9",
         "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },
@@ -323,7 +338,7 @@
       ],
       "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
-        "input_hash_count": 24,
+        "input_hash_count": 26,
         "model_code_hash_count": 18,
         "output_hash_count": 23
       },

@@ -1,6 +1,6 @@
 # 待办事项
 
-> 合并状态（2026-07-31）：队友截至 `0366073` 的模型框架已经合并，国家统计局 IAV/PPI 也已接入并重跑。当前正式状态仍是 `CONDITIONAL`，不是论文定稿状态；剩余阻塞均在 Q3 中国官方成品油价格层。
+> 合并状态（2026-07-31）：队友截至 `0366073` 的模型框架已经合并，国家统计局 IAV/PPI 已接入并重跑；本轮已把 Q3 中国政策反事实从 Brent-CNY 代理层改为官方受管制零售价层。当前正式状态仍是 `CONDITIONAL`，不是论文定稿状态；剩余阻塞是 Q1/Q2 的完整历史结构冲击覆盖不足，以及 Q3 中国官方燃油价格历史覆盖不足。
 
 ## A. 接手优先级与当前状态
 
@@ -17,11 +17,12 @@
 - [x] 图表读者可见英文已中文化，保留 ARIMA、SARIMAX、GPR、CPI、PPI、LP、HAC 等通用缩写。
 - [x] `results/frozen_numbers.json`、`results/reproducibility_manifest.json` 和 `results/risk_probe_summary.json` 已可被 schema 与哈希验证。
 
-### A2. 当前两个定稿阻塞项
+### A2. 当前定稿阻塞项
 
 - [x] **P0 / Q2 数据完整性**：国家统计局 IAV 与 PPI 月度历史已接入，`q2_nbs_macro_completeness_gate=PASS`。
+- [ ] **P0 / Q1/Q2 结构冲击覆盖**：当前 supply / aggregate-demand / oil-specific-risk 三类核心冲击各只有 52 个非空月，需补到不少于 120 个非空月，解决 `q1_structural_shock_coverage_gate` 和 `q2_structural_shock_identification`。
 - [ ] **P0 / Q3 中国可比性**：重建中国官方受管制成品油价格连续序列，使中国能进入 Q3 主燃油传导比较，解决 `q3_china_comparability`。
-- [ ] **P0 / Q3 政策价格层**：把中国政策反事实从 Brent-CNY 代理层改为官方成品油价格层，解决 `q3_policy_counterfactual_price_layer`。
+- [x] **P0 / Q3 政策价格层**：中国政策反事实已改为官方成品油零售价层，`q3_policy_counterfactual_price_layer=PASS`；由于官方价格历史只有 2026-02 至 2026-06 的种子锚点，宏观传播仍只能作为阶段情景。
 
 ### A2.1 NBS IAV/PPI 数据补齐任务包（已完成）
 
@@ -33,25 +34,36 @@
 - [x] `model_monthly_cn.csv` 和 `model_country_monthly.csv` 已出现非空的中国 IAV/PPI 字段。
 - [x] Q2 已重跑；数据完整性门禁通过，证据状态仍为 `INCONCLUSIVE`。
 
+### A2.1b Q1 结构冲击覆盖任务包
+
+- [ ] 补充 2010-01 至 2026-06 的全球液体供应、全球需求/工业活动和库存月度历史，优先官方或可审计来源；EIA API 当前无 key 返回 403，不能依赖匿名 API。
+- [ ] 将 `code/problem1/run_q1.py` 中短样本 STEO 分解替换为完整历史递归 SVAR 或等价的递归结构分解。
+- [ ] 重跑 `results/q1_structural_shocks.csv`，确保 `supply_shock`、`aggregate_demand_shock`、`oil_specific_risk_shock` 各自不少于 120 个非空月。
+- [ ] Q2/Q3 主结果使用完整历史结构冲击；当前 reduced-form `OilShock` 只能作为稳健性。
+
 ### A2.2 NDRC 中国成品油价格任务包
 
 - [ ] 从国家发改委成品油价格公告档案整理 2013 至 2026 年逐次调价、不调价、暂停/延迟/缩小调价公告。
-- [ ] 生成 `data/processed/cn_fuel_adjustment_events.csv`，至少包含：
+- [x] 生成 `data/processed/cn_fuel_adjustment_events.csv` 种子版本，当前包含 2026-03-23 与 2026-04-07 已核验官方政策锚点；后续需继续追加 2013-2026 历史公告。
+- [ ] 将 `data/processed/cn_fuel_adjustment_events.csv` 补成连续历史表，至少包含：
   `announcement_date, effective_date, product, actual_adjustment_cny_per_ton, rule_implied_adjustment_cny_per_ton, carried_gap_cny_per_ton, policy_type, source_url`。
-- [ ] 生成 `data/processed/china_regulated_gasoline_monthly.csv`，至少包含：
+- [x] 生成 `data/processed/china_regulated_gasoline_monthly.csv` 种子版本，当前非空覆盖 2026-02 至 2026-06 共 5 个月。
+- [ ] 将 `data/processed/china_regulated_gasoline_monthly.csv` 补到不少于 48 个非空月，至少包含：
   `period, china_regulated_gasoline_index, china_regulated_gasoline_cny_per_ton, measure_type, source_url`。
-- [ ] 不再用 `Brent-CNY - 政策差额` 当作中国主燃油价格；该代理值只允许保留在附录敏感性分析。
-- [ ] 将 2026 年 3 月、4 月临时调控的 1045 和 380 元/吨作为“机制应调—实际调价”的政策缺口，不从原油成本价格层直接相减。
+- [x] 不再用 `Brent-CNY - 政策差额` 当作中国主燃油价格；该代理值只允许保留在附录敏感性分析。
+- [x] 将 2026 年 3 月、4 月临时调控的 1045 和 380 元/吨作为“机制应调—实际调价”的政策缺口，不从原油成本价格层直接相减。
 - [ ] 重跑 Q3 后检查 `results/q3_country_pass_through.csv`：中国应以 `observed_or_regulated` 官方受管制价格进入主比较，`included_in_main_comparison=true`。
-- [ ] 重跑政策反事实后检查 `results/q3_policy_counterfactual.csv`：4 月应同时保留“新增 380 元/吨”和“累计 1425 元/吨”，并在官方成品油价格层上传播到 CPI/IAV。
+- [x] 重跑政策反事实后检查 `results/q3_policy_counterfactual.csv`：4 月已同时保留“新增 380 元/吨”和“累计 1425 元/吨”，价格路径已在官方成品油零售价层。
+- [ ] 补足官方历史覆盖后，重新估计中国国内燃油价格到 CPI/IAV 的传播参数；当前因只有 5 个官方价格月，`q3_policy_macro_elasticity_missing` 是预期 warning。
 
 ### A3. 接手后建议的最短执行顺序
 
 1. [x] 补齐 NBS 工业增加值与 PPI 月度表并形成可审计的处理后 CSV。
 2. [x] 重跑数据处理、Q2 和冻结校验；Q2 数据门禁已通过，证据状态为 `INCONCLUSIVE`。
-3. [ ] 补 NDRC 成品油调价公告连续序列，构造中国官方受管制汽油/柴油价格指数。
-4. [ ] 重跑数据处理、Q3 和冻结校验，确认中国进入主燃油传导比较。
-5. [ ] 仅在 `overall_status=PASS` 且 `paper_finalize_allowed=true` 后锁定论文正文数值。
+3. [ ] 补完整历史结构冲击输入，重跑 Q1/Q2，确认 `q1_structural_shock_coverage_gate` 和 `q2_structural_shock_identification` 通过。
+4. [ ] 继续补 NDRC/北京市发改委成品油调价公告连续序列，把官方价格非空月扩展到至少 48 个。
+5. [ ] 重跑数据处理、Q3 和冻结校验，确认中国进入主燃油传导比较。
+6. [ ] 仅在 `overall_status=PASS` 且 `paper_finalize_allowed=true` 后锁定论文正文数值。
 
 ### A4. 推荐重跑命令
 
@@ -69,7 +81,7 @@ python code\utils\verify_freeze.py
 python code\utils\verify_freeze.py --require-final
 ```
 
-说明：当前 `--require-final` 应该失败并列出两个 Q3 阻塞项；这属于预设门禁，不是程序错误。
+说明：当前 `--require-final` 应该失败并列出结构冲击覆盖与 Q3 中国可比性阻塞项；这属于预设门禁，不是程序错误。
 
 ### A5. 接手时不要做的事
 
