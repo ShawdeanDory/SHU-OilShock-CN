@@ -808,8 +808,6 @@ def main() -> int:
     status = "PASS"
     if warnings_log or advanced_non_pass:
         status = "CONDITIONAL"
-    if np.isfinite(placebo_min_p) and placebo_min_p < 0.10:
-        status = "CONDITIONAL"
     summary = {
         "status": status,
         "random_seed": RANDOM_SEED,

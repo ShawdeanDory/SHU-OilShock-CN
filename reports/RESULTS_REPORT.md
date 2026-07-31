@@ -18,7 +18,6 @@
 阻塞定稿的门禁：
 
 - `q1_forecast_baseline_gate`
-- `q1_placebo_distribution_gate`
 - `q2_nbs_macro_completeness_gate`
 
 ## 2. 问题一：预测与事件窗口

@@ -1643,9 +1643,9 @@
     "python_version": "3.11.9",
     "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea"
   },
-  "freeze_hash": "a92cb9c1ec7bb3420415fceed9389db92781729110cc276e0ec47121fe7aa90b",
+  "freeze_hash": "5d6bbb1eccc1512682e6ce4fe64123618c10fb17bfe2161e70388177f4bbeff9",
   "freeze_mode": "stage_snapshot_not_paper_final",
-  "git_commit": "e20013f170923a15b734369ef9b5b64c99692802",
+  "git_commit": "ac8b8a0611eab0aa58d5ab0addf60287c3f9ed06",
   "overall_status": "CONDITIONAL",
   "paper_finalize_allowed": false,
   "processed_input_hashes": {
@@ -1666,6 +1666,6 @@
     "p0_monthly_market.csv": "d448502bf2a86ecbc683c48d461edeae68e611f96afe62e83acb610ab3c800c1"
   },
   "random_seed": 20260730,
-  "risk_gate_hash": "8ddf3f4edca63d8385a3e9732438a1fe294868147faad8844a983ebd573f8b0a",
+  "risk_gate_hash": "862696132cc1a2ae52b1f3f77fcb7b79c1867af181b111198243dbb7ef2cd3a8",
   "schema_version": "1.0"
 }
