@@ -1,5 +1,86 @@
 # 待办事项
 
+> 同事接手提示（2026-07-31）：当前仓库代码和远端 `origin/main` 已同步到提交 `5112fe8`。模型框架、图表中文化、风险探针和冻结校验已经完成一轮修复；当前正式状态仍是 `CONDITIONAL`，不是论文定稿状态。不要为了“显著”而改模型，下一步只补真实数据与价格口径，让门禁自然判断是否可定稿。
+
+## A. 接手优先级与当前状态
+
+### A1. 当前可直接复用的阶段成果
+
+- [x] Q1 预测部分已允许 no-change 合法胜出；ARIMA/SARIMAX/ETS/Theta 等高级模型不胜基线只作为实证结果记录，不再错误阻塞。
+- [x] Q1 事件窗口已改为交易日口径：E1 即时窗口从 2026-03-02 开始，正式推断使用 CAR 与经验 placebo 分布。
+- [x] Q1 “无战争反事实”已降级为 `AR基准情景路径 / ARBaselineGap`，不再表述为严格战争净因果贡献。
+- [x] Q1 已新增结构冲击接口与 GJR-GARCH 波动模块。
+- [x] Q2 已改为结构冲击主接口，并输出逐期区间、联合区间、FDR 与 `SUPPORTED / INCONCLUSIVE / UNSUPPORTED` 证据状态。
+- [x] Q2 当前结论是 `INCONCLUSIVE`：可以说“尚未发现稳健总体增长损失证据”，不能说“油价冲击显著造成中国增长损失”。
+- [x] Q3 已扩展为中国、德国、法国、意大利、西班牙、日本、韩国七国面板；中国 Brent-CNY 代理燃油价已退出主燃油排名。
+- [x] Q3 已加入政策缓冲交互项，但中国主比较仍缺官方受管制成品油价格序列。
+- [x] 图表读者可见英文已中文化，保留 ARIMA、SARIMAX、GPR、CPI、PPI、LP、HAC 等通用缩写。
+- [x] `results/frozen_numbers.json`、`results/reproducibility_manifest.json` 和 `results/risk_probe_summary.json` 已可被 schema 与哈希验证。
+
+### A2. 当前三个定稿阻塞项
+
+- [ ] **P0 / Q2 数据完整性**：补齐国家统计局工业增加值 IAV 与 PPI 月度历史，解决 `q2_nbs_macro_completeness_gate`。
+- [ ] **P0 / Q3 中国可比性**：重建中国官方受管制成品油价格连续序列，使中国能进入 Q3 主燃油传导比较，解决 `q3_china_comparability`。
+- [ ] **P0 / Q3 政策价格层**：把中国政策反事实从 Brent-CNY 代理层改为官方成品油价格层，解决 `q3_policy_counterfactual_price_layer`。
+
+### A2.1 NBS IAV/PPI 数据补齐任务包
+
+- [ ] 从国家统计局“国家数据”或可核验官方发布页导出 2010-01 至 2026-06 工业增加值与 PPI 月度历史。
+- [ ] 生成或更新 `data/processed/nbs_iav_monthly.csv`，建议字段：
+  `period, china_iav_yoy_pct, china_iav_mom_sa_pct, period_aggregation, release_date, vintage_date, source_url`。
+- [ ] 生成或更新 `data/processed/nbs_ppi_monthly.csv`，建议字段：
+  `period, china_ppi_yoy_pct, base_note, release_date, vintage_date, source_url`。
+- [ ] 处理 1—2 月合并发布：合并同比值只写入 2 月，`period_aggregation=jan_feb_cumulative`；1 月保留缺失，不插值。
+- [ ] 在 `data/raw/source_manifest.csv` 和 `data/raw/source_manifest.json` 中记录来源 URL、下载/导出日期、SHA-256、缓存状态。
+- [ ] 修改 `code/data_processing/build_model_panels.py` 或相邻处理脚本，使 `model_monthly_cn.csv` 和 `model_country_monthly.csv` 中真正出现非空的中国 IAV/PPI 字段。
+- [ ] 重跑 Q2 后检查 `results/q2_summary.json`：数据完整性阻塞项应消失；即使结果仍不显著，也可以作为正式“不显著/不确定”结果。
+
+### A2.2 NDRC 中国成品油价格任务包
+
+- [ ] 从国家发改委成品油价格公告档案整理 2013 至 2026 年逐次调价、不调价、暂停/延迟/缩小调价公告。
+- [ ] 生成 `data/processed/cn_fuel_adjustment_events.csv`，至少包含：
+  `announcement_date, effective_date, product, actual_adjustment_cny_per_ton, rule_implied_adjustment_cny_per_ton, carried_gap_cny_per_ton, policy_type, source_url`。
+- [ ] 生成 `data/processed/china_regulated_gasoline_monthly.csv`，至少包含：
+  `period, china_regulated_gasoline_index, china_regulated_gasoline_cny_per_ton, measure_type, source_url`。
+- [ ] 不再用 `Brent-CNY - 政策差额` 当作中国主燃油价格；该代理值只允许保留在附录敏感性分析。
+- [ ] 将 2026 年 3 月、4 月临时调控的 1045 和 380 元/吨作为“机制应调—实际调价”的政策缺口，不从原油成本价格层直接相减。
+- [ ] 重跑 Q3 后检查 `results/q3_country_pass_through.csv`：中国应以 `observed_or_regulated` 官方受管制价格进入主比较，`included_in_main_comparison=true`。
+- [ ] 重跑政策反事实后检查 `results/q3_policy_counterfactual.csv`：4 月应同时保留“新增 380 元/吨”和“累计 1425 元/吨”，并在官方成品油价格层上传播到 CPI/IAV。
+
+### A3. 接手后建议的最短执行顺序
+
+1. 先补 NBS 工业增加值与 PPI 月度表，形成可审计的处理后 CSV。
+2. 重跑数据处理、Q2、冻结校验；确认 Q2 至少从“数据缺失型 CONDITIONAL”变为“可回答但可能 INCONCLUSIVE”。
+3. 再补 NDRC 成品油调价公告序列，构造中国官方受管制汽油/柴油价格指数。
+4. 重跑数据处理、Q3、冻结校验；确认中国进入主燃油传导比较，且政策反事实在官方成品油价格层上计算。
+5. 只有 `results/risk_probe_summary.json` 中 `overall_status=PASS` 且 `paper_finalize_allowed=true` 时，才开始锁定论文正文数值。
+
+### A4. 推荐重跑命令
+
+在仓库根目录执行：
+
+```powershell
+python code\data_processing\build_p0_datasets.py
+python code\data_processing\validate_p0.py
+python code\data_processing\build_model_panels.py
+python code\problem1\run_q1.py
+python code\problem2\run_q2.py
+python code\problem3\run_q3.py
+python code\utils\freeze_results.py
+python code\utils\verify_freeze.py
+python code\utils\verify_freeze.py --require-final
+```
+
+说明：当前 `--require-final` 应该失败并列出三个阻塞项；补齐数据前不要把这个失败当成程序错误。
+
+### A5. 接手时不要做的事
+
+- [ ] 不要把高级预测模型调参到强行战胜 no-change；no-change 胜出是允许的数学建模结果。
+- [ ] 不要把 2026-03-02 之后的实际收益放进 Q1 事件期正常收益预测路径。
+- [ ] 不要把 Brent-CNY 代理价格与其他国家观测零售价直接排名。
+- [ ] 不要用插值伪造 NBS 1 月工业增加值或 PPI；1—2 月合并口径必须显式标注。
+- [ ] 不要在风险探针非 `PASS` 时把论文写成定稿口吻。
+
 ## 0. 项目与口径
 
 - [x] 确认项目名称和 GitHub 仓库
