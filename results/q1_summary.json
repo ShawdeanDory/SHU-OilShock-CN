@@ -1,5 +1,5 @@
 {
-  "status": "CONDITIONAL",
+  "status": "PASS",
   "random_seed": 20260730,
   "event_calendar": {
     "e1_calendar_start": "2026-02-28",
@@ -29,6 +29,42 @@
       "model_status": "FAIL"
     },
     {
+      "model": "ETS",
+      "horizon": 1,
+      "relative_RMSE_vs_no_change": 1.1586595504,
+      "model_status": "FAIL"
+    },
+    {
+      "model": "ETS",
+      "horizon": 3,
+      "relative_RMSE_vs_no_change": 1.2148708436,
+      "model_status": "FAIL"
+    },
+    {
+      "model": "ETS",
+      "horizon": 6,
+      "relative_RMSE_vs_no_change": 1.2697060242,
+      "model_status": "FAIL"
+    },
+    {
+      "model": "EqualWeight",
+      "horizon": 1,
+      "relative_RMSE_vs_no_change": 1.0285679769,
+      "model_status": "CONDITIONAL"
+    },
+    {
+      "model": "EqualWeight",
+      "horizon": 3,
+      "relative_RMSE_vs_no_change": 1.0770345218,
+      "model_status": "FAIL"
+    },
+    {
+      "model": "EqualWeight",
+      "horizon": 6,
+      "relative_RMSE_vs_no_change": 1.082625536,
+      "model_status": "FAIL"
+    },
+    {
       "model": "SARIMAX",
       "horizon": 1,
       "relative_RMSE_vs_no_change": 1.024748029,
@@ -45,15 +81,34 @@
       "horizon": 6,
       "relative_RMSE_vs_no_change": 1.1013714942,
       "model_status": "FAIL"
+    },
+    {
+      "model": "Theta",
+      "horizon": 1,
+      "relative_RMSE_vs_no_change": 1.0010070306,
+      "model_status": "CONDITIONAL"
+    },
+    {
+      "model": "Theta",
+      "horizon": 3,
+      "relative_RMSE_vs_no_change": 1.0027619843,
+      "model_status": "CONDITIONAL"
+    },
+    {
+      "model": "Theta",
+      "horizon": 6,
+      "relative_RMSE_vs_no_change": 1.0073675817,
+      "model_status": "CONDITIONAL"
     }
   ],
-  "placebo_min_empirical_pvalue": 0.010752688172043012,
-  "forecast_rows": 702,
-  "metric_rows": 9,
+  "placebo_min_empirical_pvalue": 0.01020408163265306,
+  "forecast_rows": 1404,
+  "metric_rows": 18,
   "event_effect_rows": 12,
-  "placebo_rows": 267,
+  "placebo_rows": 280,
   "shock_rows": 198,
-  "robustness_rows": 30,
+  "volatility_rows": 615,
+  "robustness_rows": 48,
   "warnings": [],
   "main_metric_best_rmse": [
     {
@@ -68,7 +123,7 @@
       "dm_hln_pvalue_rmse_loss": null,
       "dm_hln_stat_mae_loss": null,
       "dm_hln_pvalue_mae_loss": null,
-      "direction_accuracy": 0.5584415584,
+      "direction_accuracy": 0.0,
       "coverage_80": 0.8717948718,
       "coverage_95": 0.9230769231,
       "model_status": "PASS"

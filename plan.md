@@ -40,7 +40,7 @@
         +
 日度多阶段事件研究和 AR 基准情景差额
         ↓
-OilShock、ARBaselineGap
+结构冲击（supply / aggregate-demand / oil-specific-risk）、OilShock 稳健性、ARBaselineGap、VolatilityShock
         ↓
 中国月度 Local Projection / ARDL
         ↓
@@ -90,7 +90,7 @@ ARIMA/SARIMAX 当前未稳定战胜 no-change，不能作为主预测宣称优�
 - 月度增长代理：工业增加值。
 - 传导变量：人民币原油进口成本、PPI、CPI、人民币汇率。
 - 季度实际 GDP：方向和量级验证，不插值成月度 GDP。
-- 冲击输入：问题一生成的约化形式 `OilShock`；`ARBaselineGap` 只作描述性情景证据，不作为结构性供给冲击。
+- 冲击输入：问题一生成的结构冲击为主，`OilShock` 仅作约化形式稳健性；`ARBaselineGap` 只用于描述性价格路径差额，不进入 Q2/Q3 因果解释。
 
 ### 5.2 方法配置
 
@@ -119,8 +119,8 @@ ARIMA/SARIMAX 当前未稳定战胜 no-change，不能作为主预测宣称优�
 
 ### 6.2 国家样本
 
-- 主对照：日本、韩国、德国。
-- 扩展对照：印度，仅在月度零售燃油价格和工业产出口径可统一时加入。
+- 主对照：德国、法国、意大利、西班牙、日本、韩国。
+- 扩展对照：印度，仅在月度零售燃油价格和工业产出口径可统一时加入；当前未进入主比较。
 - 美国不进入主对照，因为其大型产油国身份改变油价冲击的传导机制。
 
 ### 6.3 方法配置

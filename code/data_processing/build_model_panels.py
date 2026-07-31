@@ -27,6 +27,16 @@ RANDOM_SEED = 20260730
 BARREL_TO_TONNE = 0.1364
 EVENT_E1_CALENDAR_START = pd.Timestamp("2026-02-28")
 EVENT_E3_CALENDAR_START = pd.Timestamp("2026-06-17")
+COUNTRY_META = {
+    "CHN": {"name": "China", "fuel_file": "", "fuel_col": "", "unit": "CNY/tonne proxy"},
+    "DEU": {"name": "Germany", "fuel_file": "germany_eurosuper95_monthly.csv", "fuel_col": "gasoline_eur_per_l", "unit": "EUR/litre"},
+    "FRA": {"name": "France", "fuel_file": "france_eurosuper95_monthly.csv", "fuel_col": "gasoline_eur_per_l", "unit": "EUR/litre"},
+    "ITA": {"name": "Italy", "fuel_file": "italy_eurosuper95_monthly.csv", "fuel_col": "gasoline_eur_per_l", "unit": "EUR/litre"},
+    "ESP": {"name": "Spain", "fuel_file": "spain_eurosuper95_monthly.csv", "fuel_col": "gasoline_eur_per_l", "unit": "EUR/litre"},
+    "JPN": {"name": "Japan", "fuel_file": "japan_regular_gasoline_monthly.csv", "fuel_col": "regular_gasoline_jpy_per_l", "unit": "JPY/litre"},
+    "KOR": {"name": "Korea", "fuel_file": "korea_regular_gasoline_monthly.csv", "fuel_col": "regular_gasoline_krw_per_l", "unit": "KRW/litre"},
+}
+CONTROL_COUNTRY_ORDER = ["DEU", "FRA", "ITA", "ESP", "JPN", "KOR"]
 
 OECD_GDP_URLS = {
     "china_real_gdp_yoy_pct": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......GY.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile",
@@ -106,11 +116,11 @@ def add_event_stage(frame: pd.DataFrame) -> pd.DataFrame:
     e3_start = pd.Timestamp(e3_candidates.min())
 
     result["war_stage"] = "prewar"
-    result.loc[date.eq(e1_start), "war_stage"] = "E1_first_trading_day"
+    result.loc[date.between(e1_start, e1_car_end), "war_stage"] = "E1_immediate_window"
     result.loc[date.between(e2_start, e3_start - pd.Timedelta(days=1)), "war_stage"] = "E2_disruption"
     result.loc[date >= e3_start, "war_stage"] = "E3_easing"
     result["war_on"] = (date >= e1_start).astype(int)
-    result["stage_E1"] = date.eq(e1_start).astype(int)
+    result["stage_E1"] = date.between(e1_start, e1_car_end).astype(int)
     result["stage_E2"] = (result["war_stage"].eq("E2_disruption")).astype(int)
     result["stage_E3"] = (result["war_stage"].eq("E3_easing")).astype(int)
     result["event_e1_calendar_start"] = EVENT_E1_CALENDAR_START.strftime("%Y-%m-%d")
@@ -314,15 +324,39 @@ def load_china_macro(monthly_q1: pd.DataFrame, warnings: list[dict[str, Any]]) -
     q1_shocks_path = RESULTS_DIR / "q1_monthly_shocks.csv"
     if q1_shocks_path.exists():
         shocks = pd.read_csv(q1_shocks_path)
-        shock_columns = [column for column in ["period", "OilShock", "ARBaselineGap", "OilShock_source"] if column in shocks.columns]
+        shock_columns = [
+            column
+            for column in [
+                "period",
+                "OilShock",
+                "ARBaselineGap",
+                "OilShock_source",
+                "supply_shock",
+                "aggregate_demand_shock",
+                "oil_specific_risk_shock",
+                "reduced_form_shock",
+                "source_vintage",
+            ]
+            if column in shocks.columns
+        ]
         macro = macro.merge(shocks[shock_columns], on="period", how="left")
         macro["OilShock_source"] = macro.get("OilShock_source", pd.Series(index=macro.index, dtype=object)).fillna("q1_monthly_forecast_residual")
         if "ARBaselineGap" not in macro.columns:
             macro["ARBaselineGap"] = 0.0
+        for column in ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock", "reduced_form_shock"]:
+            if column not in macro.columns:
+                macro[column] = np.nan
+        if "source_vintage" not in macro.columns:
+            macro["source_vintage"] = ""
     else:
         macro["OilShock"] = zscore(macro["brent_usd_bbl_log_return"])
         macro["ARBaselineGap"] = 0.0
         macro["OilShock_source"] = "proxy_brent_log_return_until_q1_runs"
+        macro["supply_shock"] = np.nan
+        macro["aggregate_demand_shock"] = np.nan
+        macro["oil_specific_risk_shock"] = np.nan
+        macro["reduced_form_shock"] = macro["OilShock"]
+        macro["source_vintage"] = "fallback_brent_return"
         warnings.append({"code": "q1_shocks_not_yet_available", "message": "Using standardized Brent monthly log return as temporary OilShock proxy."})
 
     save_processed(macro, "model_monthly_cn.csv")
@@ -338,6 +372,10 @@ def build_quarterly_cn(monthly_cn: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataFr
             quarter_end=("month_end", "max"),
             OilShock_sum=("OilShock", "sum"),
             OilShock_mean=("OilShock", "mean"),
+            supply_shock_sum=("supply_shock", "sum"),
+            aggregate_demand_shock_sum=("aggregate_demand_shock", "sum"),
+            oil_specific_risk_shock_sum=("oil_specific_risk_shock", "sum"),
+            reduced_form_shock_sum=("reduced_form_shock", "sum"),
             ARBaselineGap_mean=("ARBaselineGap", "mean"),
             brent_log_return_sum=("brent_usd_bbl_log_return", "sum"),
             china_cpi_yoy_pct_mean=("china_cpi_yoy_pct", "mean"),
@@ -389,6 +427,28 @@ def build_china_policy_monthly(monthly_q1: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def build_policy_buffer_table() -> pd.DataFrame:
+    years = range(2010, 2027)
+    rows: list[dict[str, Any]] = []
+    for country in COUNTRY_META:
+        for year in years:
+            rows.append(
+                {
+                    "country": country,
+                    "year": year,
+                    "oil_import_dependency": np.nan,
+                    "oil_intensity": np.nan,
+                    "fuel_price_regulation": 1.0 if country == "CHN" else 0.0,
+                    "import_source_hhi": np.nan,
+                    "source_url": "institutional coding from official fuel-price sources; quantitative import buffers require separate annual source table",
+                    "buffer_note": "CHN=regulated domestic product-price mechanism/proxy scenario; controls=observed retail-price pass-through.",
+                }
+            )
+    result = pd.DataFrame(rows)
+    save_processed(result, "country_policy_buffers_annual.csv")
+    return result
+
+
 def make_country_rows(
     country: str,
     country_name: str,
@@ -433,6 +493,9 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
     )
 
     germany = read_processed("germany_eurosuper95_monthly.csv")
+    france = read_processed("france_eurosuper95_monthly.csv")
+    italy = read_processed("italy_eurosuper95_monthly.csv")
+    spain = read_processed("spain_eurosuper95_monthly.csv")
     japan = read_processed("japan_regular_gasoline_monthly.csv")
     korea = read_processed("korea_regular_gasoline_monthly.csv")
 
@@ -508,7 +571,31 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "Observed regular gasoline national monthly average from KOSIS/KNOC.",
         ),
     ]
+    for country, country_name, fuel in [
+        ("FRA", "France", france),
+        ("ITA", "Italy", italy),
+        ("ESP", "Spain", spain),
+    ]:
+        rows.append(
+            make_country_rows(
+                country,
+                country_name,
+                monthly_q1,
+                fuel,
+                "gasoline_eur_per_l",
+                "EUR/litre",
+                monthly_q1["brent_usd_bbl"] * monthly_q1["eur_per_usd"],
+                "European Commission Weekly Oil Bulletin",
+                "observed_retail_gasoline",
+                "observed_retail",
+                True,
+                f"Observed Euro-super 95 retail price for {country_name}, monthly average of official weekly data.",
+            )
+        )
     panel = pd.concat(rows, ignore_index=True)
+    panel["year"] = pd.to_datetime(panel["period"] + "-01").dt.year
+    buffers = build_policy_buffer_table()
+    panel = panel.merge(buffers, on=["country", "year"], how="left")
     panel = panel.merge(cpi, on=["country", "period"], how="left")
     panel = panel.merge(ip, on=["country", "period"], how="left")
     chn_activity = monthly_cn[["period", "china_iav_yoy_pct"]].rename(columns={"china_iav_yoy_pct": "activity_yoy_pct"})
@@ -516,8 +603,22 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
     panel.loc[panel["country"].ne("CHN"), "activity_yoy_pct"] = np.nan
     panel["ip_log"] = log_positive(panel["ip_index"])
     panel["ip_yoy_log_change_pct"] = panel.groupby("country")["ip_log"].diff(12) * 100.0
+    panel["industrial_activity_yoy_pct"] = panel["ip_yoy_log_change_pct"]
+    panel.loc[panel["country"].eq("CHN"), "industrial_activity_yoy_pct"] = panel.loc[panel["country"].eq("CHN"), "activity_yoy_pct"]
     panel = panel.merge(
-        monthly_cn[["period", "OilShock", "ARBaselineGap", "OilShock_source"]],
+        monthly_cn[
+            [
+                "period",
+                "OilShock",
+                "ARBaselineGap",
+                "OilShock_source",
+                "supply_shock",
+                "aggregate_demand_shock",
+                "oil_specific_risk_shock",
+                "reduced_form_shock",
+                "source_vintage",
+            ]
+        ],
         on="period",
         how="left",
     )
@@ -525,6 +626,7 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
         [
             "country",
             "country_name",
+            "year",
             "period",
             "month_end",
             "fuel_price_local",
@@ -534,6 +636,11 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "observed_or_regulated",
             "included_in_main_comparison",
             "comparability_note",
+            "oil_import_dependency",
+            "oil_intensity",
+            "fuel_price_regulation",
+            "import_source_hhi",
+            "buffer_note",
             "fuel_log_return",
             "brent_local_per_bbl",
             "brent_local_log_return",
@@ -541,9 +648,15 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "ip_index",
             "ip_yoy_log_change_pct",
             "activity_yoy_pct",
+            "industrial_activity_yoy_pct",
             "OilShock",
             "ARBaselineGap",
             "OilShock_source",
+            "supply_shock",
+            "aggregate_demand_shock",
+            "oil_specific_risk_shock",
+            "reduced_form_shock",
+            "source_vintage",
             "GPR",
         ]
     ].sort_values(["country", "period"])

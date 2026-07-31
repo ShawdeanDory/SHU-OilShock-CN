@@ -11,7 +11,7 @@
 - [x] 锁定月度主线、日度事件补充和季度 GDP 验证
 - [x] 锁定 Brent 主口径和 1、3、6 个月预测期
 - [x] 锁定 Q3 三个评价指标
-- [x] 锁定日本、韩国、德国为主对照，印度为扩展对照
+- [x] 锁定德国、法国、意大利、西班牙、日本、韩国为主对照；中国代理燃油价不进主排名
 
 ## 1. 赛题分析与建模设计 - `2analysis-modeling`
 
@@ -40,40 +40,40 @@
 - [x] 在下载与处理脚本中区分 EIA STEO 历史、估计与预测区间
 - [x] 保存并校验韩国 KOSIS 2010-01 至 2026-06 普通汽油月度快照
 - [x] 生成 P0 市场月度面板和日度市场数据
-- [x] 合并现有宏观数据和事件阶段，生成阶段性建模面板（IAV/PPI 缺口单独保留为阻塞项）
+- [x] 合并现有公开宏观数据和事件阶段，生成阶段性建模面板（六个对照国燃油价格已完成；NBS IAV/PPI 待补）
 - [x] 输出数据质量报告并通过独立校验
 
 ### 风险探针
 
-- [x] 运行 Q1 ARIMA/SARIMAX、no-change 基线和事件模型探针
-- [x] 运行 Q2 LP、ARDL 探针
-- [x] 运行 Q3 跨国可比性、面板和规则反事实探针
+- [x] 运行 Q1 no-change/高级模型、事件 CAR、placebo、结构冲击和波动探针
+- [x] 运行 Q2 LP、ARDL、GDP 验证和结论强度探针
+- [x] 运行 Q3 跨国可比性、面板、缓冲交互和规则反事实探针
 - [x] 写入 `results/risk_probe_summary.json`
-- [x] 执行已触发的回退：Q1 选择 no-change；Q2 保持 `CONDITIONAL`；Q3 中国代理值退出主排名
+- [x] 执行已触发的回退：Q1 选择 no-change；Q2 保持 `CONDITIONAL/INCONCLUSIVE`；Q3 中国代理值退出主排名
 
 ### 完整实现
 
-- [x] Q1：no-change、ARIMA、SARIMAX 滚动预测与统一基线比较
-- [x] Q1：多阶段日度事件研究和描述性 AR 基准情景差额
-- [x] Q1：WTI 稳健性
-- [x] Q1：匹配周末 placebo，并采用有限样本经验 p 值修正
+- [x] Q1：no-change/随机游走与 ARIMAX/SARIMAX/ETS/Theta 滚动预测
+- [x] Q1：多阶段日度事件研究、递归 AR 基准情景路径和 CAR/placebo 推断
+- [x] Q1：WTI 与 GJR-GARCH 波动稳健性
 - [x] Q2：ARDL 基线
 - [x] Q2：Local Projection 及 0—12 月响应
-- [x] Q2：NARDL 代理或季度 GDP 验证
+- [x] Q2：sign-asymmetry DL 与季度 GDP 验证
 - [x] Q3：分国传导率基线
-- [x] Q3：跨国面板 LP（中国构造代理值剔除主比较）
-- [x] Q3：中国临时调控关闭反事实
+- [x] Q3：跨国面板 LP 与政策缓冲交互
+- [x] Q3：中国临时调控关闭代理情景
 - [x] Q3：逐个删除对照国稳健性
 - [x] 生成 `reports/RESULTS_REPORT.md`
-- [x] 生成中文论文数据图表 PDF，并将大标题交给 LaTeX caption
+- [x] 生成论文数据图表 PDF
 - [x] 写入 `results/final_numbers.json`
-- [x] 使用标准格式生成并检查 `results/frozen_numbers.json`
+- [x] 生成并检查 `results/frozen_numbers.json`
 - [x] 生成并检查 `results/reproducibility_manifest.json`
 
 ### 当前阻塞项
 
 - [ ] 补齐国家统计局工业增加值、PPI 月度历史后重跑 Q2
-- [ ] 决定是否继续开发能够稳定战胜 no-change 的 Q1 预测模型
+- [ ] 重建中国官方受管制成品油价格连续序列，使中国进入 Q3 主燃油比较
+- [ ] 将政策反事实从 Brent-CNY 代理层改为官方成品油价格层
 - [ ] 风险门禁全部 `PASS` 后允许论文数值定稿
 
 ## 3. 流程与架构图 - `4drawio`

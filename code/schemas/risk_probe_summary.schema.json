@@ -14,7 +14,8 @@
     "core_results_present",
     "figure_pngs",
     "output_hash_count",
-    "input_hash_count"
+    "input_hash_count",
+    "model_code_hash_count"
   ],
   "properties": {
     "schema_version": { "type": "string" },
@@ -43,6 +44,7 @@
     "core_results_present": { "type": "object" },
     "figure_pngs": { "type": "array", "items": { "type": "string" } },
     "output_hash_count": { "type": "integer" },
-    "input_hash_count": { "type": "integer" }
+    "input_hash_count": { "type": "integer" },
+    "model_code_hash_count": { "type": "integer" }
   }
 }

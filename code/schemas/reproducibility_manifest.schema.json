@@ -9,6 +9,7 @@
     "overall_status",
     "paper_finalize_allowed",
     "git_commit",
+    "source_commit",
     "cutoff",
     "random_seed",
     "replay_environment",
@@ -42,6 +43,9 @@
       "type": "boolean"
     },
     "git_commit": {
+      "type": "string"
+    },
+    "source_commit": {
       "type": "string"
     },
     "cutoff": {

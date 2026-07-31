@@ -1,7 +1,8 @@
 {
   "blocking_probe_ids": [
-    "q1_forecast_baseline_gate",
-    "q2_nbs_macro_completeness_gate"
+    "q2_nbs_macro_completeness_gate",
+    "q3_china_comparability",
+    "q3_policy_counterfactual_price_layer"
   ],
   "core_results_present": {
     "q1_daily_counterfactual.csv": true,
@@ -10,7 +11,9 @@
     "q1_monthly_shocks.csv": true,
     "q1_placebo_distribution.csv": true,
     "q1_robustness.csv": true,
+    "q1_structural_shocks.csv": true,
     "q1_summary.json": true,
+    "q1_volatility.csv": true,
     "q2_ardl_baseline.csv": true,
     "q2_asymmetry.csv": true,
     "q2_gdp_validation.csv": true,
@@ -18,6 +21,7 @@
     "q2_robustness.csv": true,
     "q2_summary.csv": true,
     "q2_summary.json": true,
+    "q3_buffer_interactions.csv": true,
     "q3_country_pass_through.csv": true,
     "q3_panel_irf.csv": true,
     "q3_policy_counterfactual.csv": true,
@@ -36,8 +40,9 @@
     "q3_pass_through_6m.png",
     "q3_policy_counterfactual.png"
   ],
-  "input_hash_count": 15,
-  "output_hash_count": 20,
+  "input_hash_count": 20,
+  "model_code_hash_count": 15,
+  "output_hash_count": 23,
   "overall_status": "CONDITIONAL",
   "paper_finalize_allowed": false,
   "probes": [
@@ -46,37 +51,40 @@
         "results/q1_forecast_metrics.csv",
         "results/q1_summary.json"
       ],
-      "message": "No-change is selected as the main forecast. ARIMA/SARIMAX are not allowed to claim PASS when they do not beat the baseline.",
+      "message": "No-change is selected as the main forecast. ARIMA/SARIMAX/ETS/Theta failures are empirical findings, not a paper-finalization blocker when the baseline wins honestly.",
       "metric": {
-        "advanced_non_pass_rows": 6,
+        "advanced_non_pass_rows": 15,
+        "no_change_pass": true,
         "no_change_rows": 3,
         "selected_model": "no_change"
       },
       "probe_id": "q1_forecast_baseline_gate",
       "severity": "blocking",
-      "status": "CONDITIONAL",
-      "threshold": "no-change rows exist; ARIMA/SARIMAX must be non-PASS when they fail the baseline"
+      "status": "PASS",
+      "threshold": "no-change rows exist and pass the pre-registered rolling backtest; advanced model failures are recorded but non-blocking"
     },
     {
       "evidence_files": [
         "results/q1_event_effects.csv",
         "results/q1_summary.json"
       ],
-      "message": "E1 weekend event has been remapped to the first common trading day and the zero-variance dummy problem is removed.",
+      "message": "E1 weekend event has been remapped to the first common trading day. Single-window conventional significance is blocked; formal evidence uses recursive normal-return CAR and matched placebo p-values.",
       "metric": {
-        "e1_identified_rows": 2,
+        "brent_car_rows": 3,
+        "car_empirical_p_nonzero": true,
         "event_calendar": {
           "e1_calendar_start": "2026-02-28",
           "e1_car_end_0_2": "2026-03-04",
           "e1_trading_start": "2026-03-02",
           "e2_trading_start": "2026-03-05",
           "e3_trading_start": "2026-06-17"
-        }
+        },
+        "stage_e1_descriptive_only": true
       },
       "probe_id": "q1_event_trading_day_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "E1 maps to 2026-03-02 and has identifiable nonzero trading observations"
+      "threshold": "E1 maps to 2026-03-02; stage dummy is descriptive only; CAR[0], CAR[0,+1], CAR[0,+2] carry formal event inference"
     },
     {
       "evidence_files": [
@@ -85,8 +93,8 @@
       ],
       "message": "Matched weekend placebo evidence uses the add-one correction, so a finite pseudo-event sample cannot report an empirical p-value of exactly zero.",
       "metric": {
-        "min_empirical_pvalue": 0.010752688172043012,
-        "placebo_rows": 267
+        "min_empirical_pvalue": 0.01020408163265306,
+        "placebo_rows": 280
       },
       "probe_id": "q1_placebo_distribution_gate",
       "severity": "blocking",
@@ -110,6 +118,21 @@
     },
     {
       "evidence_files": [
+        "results/q1_monthly_shocks.csv",
+        "results/q1_structural_shocks.csv"
+      ],
+      "message": "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Because the current EIA STEO decomposition is ex-post and starts in 2022, identification remains methodologically limited.",
+      "metric": {
+        "has_columns": true,
+        "nonmissing_structural_months": 197
+      },
+      "probe_id": "q2_structural_shock_identification",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; at least 24 months are available"
+    },
+    {
+      "evidence_files": [
         "data/processed/nbs_iav_monthly.csv",
         "data/processed/nbs_ppi_monthly.csv",
         "results/q2_summary.json"
@@ -129,100 +152,76 @@
         "results/q2_irf.csv",
         "results/q2_summary.json"
       ],
-      "message": "Q2 output distinguishes reduced-form association from structural oil-supply transmission and blocks unsupported growth-loss wording.",
+      "message": "Q2 output distinguishes structural shock categories from reduced-form robustness and blocks unsupported growth-loss wording.",
       "metric": {
         "guardrail_present": true,
-        "irf_rows": 26
+        "has_required_inference_columns": true,
+        "irf_rows": 104,
+        "structural_shocks_present": true
       },
       "probe_id": "q2_claim_strength_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "LP inference flags and reduced-form shock wording are present"
+      "threshold": "LP inference flags, structural-shock labels and conclusion guardrails are present"
     },
     {
       "evidence_files": [
         "results/q3_country_pass_through.csv",
         "data/processed/model_country_monthly.csv"
       ],
-      "message": "The Brent-CNY China proxy is retained only as a sensitivity/policy-scenario input, not as main cross-country evidence.",
-      "metric": [
-        {
-          "country": "CHN",
-          "horizon": 1,
-          "included_in_main_comparison": false,
-          "price_measure_type": "constructed_brent_cny_policy_proxy"
-        },
-        {
-          "country": "CHN",
-          "horizon": 3,
-          "included_in_main_comparison": false,
-          "price_measure_type": "constructed_brent_cny_policy_proxy"
-        },
-        {
-          "country": "CHN",
-          "horizon": 6,
-          "included_in_main_comparison": false,
-          "price_measure_type": "constructed_brent_cny_policy_proxy"
-        },
-        {
-          "country": "DEU",
-          "horizon": 1,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "DEU",
-          "horizon": 3,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "DEU",
-          "horizon": 6,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "JPN",
-          "horizon": 1,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "JPN",
-          "horizon": 3,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "JPN",
-          "horizon": 6,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "KOR",
-          "horizon": 1,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "KOR",
-          "horizon": 3,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        },
-        {
-          "country": "KOR",
-          "horizon": 6,
-          "included_in_main_comparison": true,
-          "price_measure_type": "observed_retail_gasoline"
-        }
+      "message": "The current run correctly excludes the Brent-CNY China proxy from the main fuel ranking, but Q3 remains conditional until an official regulated China fuel series is reconstructed.",
+      "metric": {
+        "china_official_main": false,
+        "china_rows": [
+          {
+            "horizon": 1,
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_observed",
+            "price_measure_type": "constructed_brent_cny_policy_proxy"
+          },
+          {
+            "horizon": 3,
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_observed",
+            "price_measure_type": "constructed_brent_cny_policy_proxy"
+          },
+          {
+            "horizon": 6,
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_observed",
+            "price_measure_type": "constructed_brent_cny_policy_proxy"
+          }
+        ],
+        "main_countries": [
+          "DEU",
+          "ESP",
+          "FRA",
+          "ITA",
+          "JPN",
+          "KOR"
+        ]
+      },
+      "probe_id": "q3_china_comparability",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable"
+    },
+    {
+      "evidence_files": [
+        "results/q3_buffer_interactions.csv",
+        "data/processed/country_policy_buffers_annual.csv"
       ],
-      "probe_id": "q3_china_proxy_exclusion_gate",
+      "message": "Q3 has a policy-buffer interaction interface. Current fuel and industrial-activity interactions may be unidentifiable until China fuel/IAV data are official and comparable.",
+      "metric": {
+        "buffer_rows": 13,
+        "outcomes": [
+          "cpi"
+        ]
+      },
+      "probe_id": "q3_policy_buffer_interaction_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "China proxy is excluded from the main fuel pass-through comparison"
+      "threshold": "Panel LP reports Shock×Buffer interactions with country FE and full year-month FE"
     },
     {
       "evidence_files": [
@@ -239,6 +238,21 @@
       "severity": "blocking",
       "status": "PASS",
       "threshold": "April annotation separates incremental 380 from cumulative 1425 CNY/tonne"
+    },
+    {
+      "evidence_files": [
+        "results/q3_policy_counterfactual.csv",
+        "data/processed/china_regulated_gasoline_monthly.csv"
+      ],
+      "message": "The current policy scenario is explicitly labeled as a proxy demonstration; it must not be presented as a full official-price policy counterfactual in the paper.",
+      "metric": {
+        "policy_rows": 5,
+        "uses_proxy_price_layer": true
+      },
+      "probe_id": "q3_policy_counterfactual_price_layer",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic"
     },
     {
       "evidence_files": [
@@ -270,14 +284,32 @@
     },
     {
       "evidence_files": [
+        "data/raw/source_manifest.json",
+        "data/raw/source_manifest.csv"
+      ],
+      "message": "Raw-source provenance cannot claim a cache exists unless the file is present and hashable. REMOTE_ONLY records keep missing browser/official snapshots visible.",
+      "metric": {
+        "cached_missing": [],
+        "status_counts": {
+          "CACHED": 15,
+          "REMOTE_ONLY": 6
+        }
+      },
+      "probe_id": "source_provenance_integrity",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "source_manifest has no CACHED/DOWNLOADED rows whose local snapshot is absent"
+    },
+    {
+      "evidence_files": [
         "requirements.in",
         "requirements.lock.txt"
       ],
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
-        "exact_package_pins": 36,
-        "generation_python_version": "3.13.9",
-        "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea",
+        "exact_package_pins": 41,
+        "generation_python_version": "3.11.9",
+        "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },
       "probe_id": "environment_lock_gate",
@@ -290,15 +322,16 @@
         "results/reproducibility_manifest.json",
         "results/frozen_numbers.json"
       ],
-      "message": "The reproducibility manifest hashes model outputs and processed inputs, while frozen_numbers.json follows the standard numerical-freeze schema.",
+      "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
-        "input_hash_count": 15,
-        "output_hash_count": 20
+        "input_hash_count": 20,
+        "model_code_hash_count": 15,
+        "output_hash_count": 23
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "all core result files and processed model inputs are hashed"
+      "threshold": "all core result files, processed model inputs and model code files are hashed"
     }
   ],
   "random_seed": 20260730,

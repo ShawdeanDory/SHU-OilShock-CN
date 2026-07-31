@@ -1,5 +1,6 @@
 component,rows,status,note
-CountryPassThrough,12,CONDITIONAL,"main ranking excludes China proxy; distributed lag, 1/3/6 month cumulative response"
-PanelLP,130,CONDITIONAL,"fuel LP excludes China proxy from main comparison; country FE, month seasonality, country trend"
-ChinaPolicyCounterfactual,5,PASS,price layer always reported; CPI propagation uses proxy fuel ARDL
-Robustness,14,PASS,"leave-one-country, USD Brent and diesel policy-layer checks"
+CountryPassThrough,21,CONDITIONAL,"main ranking excludes China proxy; distributed lag, 1/3/6 month cumulative response"
+PanelLP,195,CONDITIONAL,fuel LP excludes China proxy from main comparison; country FE and full year-month FE absorb common shocks
+BufferInteractions,13,CONDITIONAL,"Shock×fuel_price_regulation with country FE and full year-month FE; interprets buffer differences, not absolute China ranking"
+ChinaPolicyCounterfactual,5,CONDITIONAL,descriptive proxy scenario; official regulated fuel price series is still required before paper-ready policy counterfactual
+Robustness,35,PASS,"leave-one-country, USD Brent and diesel policy-layer checks"

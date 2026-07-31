@@ -1,11 +1,13 @@
 {
   "status": "CONDITIONAL",
+  "execution_status": "PASS",
+  "evidence_status": "INCONCLUSIVE",
   "random_seed": 20260730,
   "outcomes": [
     "china_cpi_yoy_pct",
     "china_fx_log_change_pct"
   ],
-  "shock_identification": "OilShock is a reduced-form ARX oil-price innovation, not a Kilian structural supply shock.",
+  "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the EIA STEO ex-post decomposition when available; OilShock remains a reduced-form robustness shock.",
   "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
   "warnings": [
     {
@@ -15,13 +17,21 @@
     {
       "code": "q2_outcome_skipped",
       "message": "中国PPI同比，百分点 skipped: insufficient usable monthly history."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_cpi_yoy_pct lag=12 exclude_covid=True: too few observations."
+    },
+    {
+      "code": "q2_robustness_skipped",
+      "message": "china_fx_log_change_pct lag=12 exclude_covid=True: too few observations."
     }
   ],
   "rows": {
     "q2_ardl_baseline.csv": 6,
-    "q2_irf.csv": 26,
+    "q2_irf.csv": 104,
     "q2_gdp_validation.csv": 1,
     "q2_asymmetry.csv": 4,
-    "q2_robustness.csv": 12
+    "q2_robustness.csv": 10
   }
 }

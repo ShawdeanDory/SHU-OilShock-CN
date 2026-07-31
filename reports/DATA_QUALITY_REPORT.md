@@ -30,16 +30,22 @@
 | `gpr_global_monthly` | `PASS` | 198 | 2010-01-01 | 2026-06-01 | 0 | 0 | 2026-06 为最新初值，后续可能修订 |
 | `p0_monthly_market` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | 2010-01至2026-06主市场面板；未对缺失值做插值 |
 | `eia_steo_selected` | `CONDITIONAL` | 162 | 2022-01-01 | 2026-06-01 | 0 | 0 | 当前单一版本仅覆盖2022年起，且2026-02至06为估计值；不能回填2010年起的实时滚动预测 |
-| `oecd_g20_cpi_monthly` | `PASS` | 792 | 2010-01-01 | 2026-06-01 | 0 | 0 | CHN/DEU/JPN/KOR 各198期；德国为HICP，其余为国家CPI |
-| `oecd_kei_ip_monthly` | `PASS` | 591 | 2010-01-01 | 2026-05-01 | 0 | 0 | DEU/JPN/KOR 各197期；中国活动变量仍需国家统计局 |
-| `germany_eurosuper95_weekly` | `PASS` | 827 | 2010-01-04 | 2026-06-29 | 0 | 0 | 欧盟周报含税Euro-super 95，原单位EUR/1000 litres |
-| `germany_eurosuper95_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | 自然月内周度观测算术均值 |
+| `oecd_g20_cpi_monthly` | `PASS` | 1188 | 2010-01-01 | 2026-06-01 | 0 | 0 | CHN/DEU/FRA/ITA/ESP/JPN/KOR 各198期；德国、法国、意大利、西班牙为HICP，其余为国家CPI |
+| `oecd_kei_ip_monthly` | `PASS` | 1181 | 2010-01-01 | 2026-05-01 | 0 | 0 | DEU/FRA/ITA/ESP/JPN/KOR 各197期；中国活动变量仍需国家统计局 |
+| `germany_eurosuper95_weekly` | `PASS` | 827 | 2010-01-04 | 2026-06-29 | 0 | 0 | European Commission Weekly Oil Bulletin, tax-inclusive Euro-super 95, original unit EUR/1000 litres. |
+| `germany_eurosuper95_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | Arithmetic monthly average of official weekly observations. |
+| `france_eurosuper95_weekly` | `PASS` | 827 | 2010-01-04 | 2026-06-29 | 0 | 0 | European Commission Weekly Oil Bulletin, tax-inclusive Euro-super 95, original unit EUR/1000 litres. |
+| `france_eurosuper95_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | Arithmetic monthly average of official weekly observations. |
+| `italy_eurosuper95_weekly` | `PASS` | 826 | 2010-01-04 | 2026-06-29 | 0 | 0 | European Commission Weekly Oil Bulletin, tax-inclusive Euro-super 95, original unit EUR/1000 litres. |
+| `italy_eurosuper95_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | Arithmetic monthly average of official weekly observations. |
+| `spain_eurosuper95_weekly` | `PASS` | 825 | 2010-01-04 | 2026-06-29 | 0 | 0 | European Commission Weekly Oil Bulletin, tax-inclusive Euro-super 95, original unit EUR/1000 litres. |
+| `spain_eurosuper95_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | Arithmetic monthly average of official weekly observations. |
 | `japan_regular_gasoline_weekly` | `PASS` | 839 | 2010-01-05 | 2026-06-29 | 0 | 0 | 日本资源能源厅给油所普通汽油现金价，全国，日元/升 |
 | `japan_regular_gasoline_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | 自然月内周度观测算术均值；2004-04以后为含消费税价格 |
 | `korea_regular_gasoline_monthly` | `PASS` | 198 | 2010-01-31 | 2026-06-30 | 0 | 0 | KOSIS表TX_31802_A000，韩国石油公社普通汽油全国月均价，单位KRW/litre；公开表浏览器读取快照 |
-| `cn_fuel_policy_events` | `PASS` | 2 | 2026-03-23 | 2026-04-07 | 0 | 0 | 由两份国家发展改革委网页快照自动复算政策差额 |
+| `cn_fuel_policy_events` | `CONDITIONAL` | 2 | 2026-03-23 | 2026-04-07 | 0 | 0 | NDRC网页快照当前不可用，沿用已生成的规范化提取表；需补回官方原始快照后才能解除来源门禁。原因：RuntimeError: artifact ndrc_fuel_control_20260323 is not usable: status=REMOTE_ONLY error=manifest local snapshot is absent; rerun download or provide a browser-extracted snapshot before marking CACHED |
 
-状态汇总：`PASS=18`，`CONDITIONAL=1`。
+状态汇总：`PASS=23`，`CONDITIONAL=2`。
 
 ## 3. 信息集与发布滞后
 

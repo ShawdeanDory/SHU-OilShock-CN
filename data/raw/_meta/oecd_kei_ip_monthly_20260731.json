@@ -1,0 +1,18 @@
+{
+  "artifact_id": "oecd_kei_ip_monthly",
+  "source_id": "SRC_OECD_KEI_IP",
+  "status": "DOWNLOADED",
+  "required": true,
+  "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_KEI@DF_KEI,4.0/DEU+ESP+FRA+ITA+JPN+KOR.M.PRVM.IX.BTE..?startPeriod=2010-01&endPeriod=2026-06&dimensionAtObservation=AllDimensions&format=csvfile",
+  "local_path": "data/raw/oecd_kei_ip_monthly_20260731.csv",
+  "downloaded_at": "2026-07-31T12:46:16+08:00",
+  "checked_at": "2026-07-31T12:46:16+08:00",
+  "http_status": "200",
+  "content_type": "application/vnd.sdmx.data+csv; charset=utf-8",
+  "content_length_header": "",
+  "size_bytes": 108722,
+  "sha256": "c12de10710351d5757e44e159455c948b69ecd40537a3022940bd13c961e6aed",
+  "etag": "",
+  "last_modified": "Fri, 31 Jul 2026 04:23:03 GMT",
+  "error": ""
+}
