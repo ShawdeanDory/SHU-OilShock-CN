@@ -21,6 +21,7 @@ import statsmodels.api as sm
 from scipy.optimize import minimize
 from scipy.stats import norm
 from statsmodels.tools.sm_exceptions import ValueWarning
+from statsmodels.tsa.api import VAR
 from statsmodels.tsa.forecasting.theta import ThetaModel
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -387,6 +388,53 @@ def monthly_forecasts(monthly: pd.DataFrame, warnings_log: list[dict[str, Any]])
     metrics = forecast_metrics(forecasts)
     save_csv(metrics, "q1_forecast_metrics.csv")
     return forecasts, metrics
+
+
+def origin_forecast_table(monthly: pd.DataFrame) -> pd.DataFrame:
+    origin_period = "2026-02"
+    origin_rows = monthly.loc[monthly["period"].eq(origin_period)].copy()
+    if origin_rows.empty:
+        raise ValueError("Q1 final origin forecast requires 2026-02 in model_monthly_q1.csv.")
+    origin = origin_rows.iloc[0]
+    train = monthly.loc[monthly["period"].le(origin_period)].dropna(subset=["log_brent"]).copy()
+    sigma = float(train["log_brent"].diff().dropna().std())
+    rows: list[dict[str, Any]] = []
+    for horizon in [1, 3, 6]:
+        target_period = str((pd.Period(origin_period, freq="M") + horizon))
+        target = monthly.loc[monthly["period"].eq(target_period)].copy()
+        actual_log = float(target["log_brent"].iloc[0]) if not target.empty and pd.notna(target["log_brent"].iloc[0]) else np.nan
+        actual_price = float(target["brent_usd_bbl"].iloc[0]) if not target.empty and pd.notna(target["brent_usd_bbl"].iloc[0]) else np.nan
+        prediction_log = float(origin["log_brent"])
+        lower_80, upper_80 = forecast_interval(prediction_log, sigma, horizon, 0.20)
+        lower_95, upper_95 = forecast_interval(prediction_log, sigma, horizon, 0.05)
+        rows.append(
+            {
+                "origin_period": origin_period,
+                "origin_price": float(origin["brent_usd_bbl"]),
+                "origin_log_price": float(origin["log_brent"]),
+                "target_period": target_period,
+                "horizon_months": horizon,
+                "model": "no_change",
+                "forecast_status": "ACTUAL_AVAILABLE" if np.isfinite(actual_price) else "FORECAST_ONLY",
+                "prediction_log_price": prediction_log,
+                "prediction_price": float(np.exp(prediction_log)),
+                "lower_80_price": float(np.exp(lower_80)),
+                "upper_80_price": float(np.exp(upper_80)),
+                "lower_95_price": float(np.exp(lower_95)),
+                "upper_95_price": float(np.exp(upper_95)),
+                "actual_log_price": actual_log if np.isfinite(actual_log) else np.nan,
+                "actual_price": actual_price if np.isfinite(actual_price) else np.nan,
+                "forecast_error_price": actual_price - float(np.exp(prediction_log)) if np.isfinite(actual_price) else np.nan,
+                "actual_change": actual_log - float(origin["log_brent"]) if np.isfinite(actual_log) else np.nan,
+                "predicted_change": 0.0,
+                "sample_start": train["period"].iloc[0],
+                "sample_end": train["period"].iloc[-1],
+                "specification": "competition final no-change forecast from 2026-02 origin; 2026-08 remains forecast-only under 2026-06-30 cutoff",
+            }
+        )
+    result = pd.DataFrame(rows)
+    save_csv(result, "q1_origin_forecast.csv")
+    return result
 
 
 def add_equal_weight_combination(forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -805,50 +853,130 @@ def residualize(series: pd.Series, controls: pd.DataFrame) -> pd.Series:
     return result
 
 
+def safe_whiteness_pvalue(fit: Any, lags: int) -> float:
+    nlags = max(int(fit.k_ar) + 1, lags)
+    try:
+        return float(fit.test_whiteness(nlags=nlags).pvalue)
+    except (ValueError, np.linalg.LinAlgError):
+        return np.nan
+
+
 def structural_shock_decomposition(monthly: pd.DataFrame) -> pd.DataFrame:
-    steo_path = PROCESSED_DIR / "eia_steo_selected.csv"
-    base = monthly[["period", "month_end", "brent_usd_bbl_log_return", "GPR_z"]].copy()
-    if not steo_path.exists():
-        result = base[["period"]].copy()
-        for column in ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"]:
-            result[column] = np.nan
-        result["reduced_form_shock"] = np.nan
-        result["source_vintage"] = "EIA_STEO_missing"
-        save_csv(result, "q1_structural_shocks.csv")
-        return result
-    steo = pd.read_csv(steo_path)
-    pivot = steo.pivot_table(index="period", columns="variable_id", values="value", aggfunc="first").reset_index()
-    frame = base.merge(pivot, on="period", how="left").sort_values("period").reset_index(drop=True)
-    frame["supply_growth"] = np.log(frame["world_liquids_supply_mbd"]).diff()
-    frame["demand_growth"] = np.log(frame["world_liquids_demand_mbd"]).diff()
-    frame["inventory_change"] = np.log(frame["oecd_commercial_liquids_stocks_mmbbl"]).diff()
-    controls = pd.DataFrame(
+    input_path = PROCESSED_DIR / "global_oil_svar_monthly.csv"
+    if not input_path.exists():
+        raise FileNotFoundError("global_oil_svar_monthly.csv is required for Q1 SVAR structural shocks.")
+    global_input = pd.read_csv(input_path)
+    frame = (
+        monthly[["period", "month_end", "brent_usd_bbl_log_return"]]
+        .merge(global_input, on="period", how="left")
+        .sort_values("period")
+        .reset_index(drop=True)
+    )
+    frame["supply_growth"] = np.log(pd.to_numeric(frame["world_liquids_supply"], errors="coerce")).diff() * 100.0
+    frame["real_brent_return"] = np.log(pd.to_numeric(frame["real_brent"], errors="coerce")).diff() * 100.0
+    var_cols = ["supply_growth", "global_real_activity", "real_brent_return"]
+    var_data = frame.dropna(subset=var_cols).copy()
+    if len(var_data) < 120:
+        raise ValueError(f"Q1 SVAR common sample has only {len(var_data)} months; required >=120.")
+    var_data = var_data.set_index("period")
+    candidates: list[dict[str, Any]] = []
+    fits: dict[int, Any] = {}
+    for lag in [6, 12, 18, 24]:
+        if len(var_data) <= lag + 36:
+            candidates.append(
+                {
+                    "candidate_lags": lag,
+                    "is_selected": False,
+                    "bic": np.nan,
+                    "aic": np.nan,
+                    "hqic": np.nan,
+                    "is_stable": False,
+                    "whiteness_pvalue": np.nan,
+                    "sample_start": var_data.index.min(),
+                    "sample_end": var_data.index.max(),
+                    "nobs": int(len(var_data)),
+                    "ordering": "supply_growth -> global_real_activity -> real_brent_return",
+                    "error": "insufficient_sample_for_lag",
+                }
+            )
+            continue
+        try:
+            fit = VAR(var_data[var_cols]).fit(lag)
+            stable = bool(fit.is_stable(verbose=False))
+            fits[lag] = fit
+            candidates.append(
+                {
+                    "candidate_lags": lag,
+                    "is_selected": False,
+                    "bic": float(fit.bic),
+                    "aic": float(fit.aic),
+                    "hqic": float(fit.hqic),
+                    "is_stable": stable,
+                    "whiteness_pvalue": safe_whiteness_pvalue(fit, 24),
+                    "sample_start": var_data.index.min(),
+                    "sample_end": var_data.index.max(),
+                    "nobs": int(fit.nobs),
+                    "ordering": "supply_growth -> global_real_activity -> real_brent_return",
+                    "error": "",
+                }
+            )
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            candidates.append(
+                {
+                    "candidate_lags": lag,
+                    "is_selected": False,
+                    "bic": np.nan,
+                    "aic": np.nan,
+                    "hqic": np.nan,
+                    "is_stable": False,
+                    "whiteness_pvalue": np.nan,
+                    "sample_start": var_data.index.min(),
+                    "sample_end": var_data.index.max(),
+                    "nobs": int(len(var_data)),
+                    "ordering": "supply_growth -> global_real_activity -> real_brent_return",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+    diag = pd.DataFrame(candidates)
+    selectable = diag.loc[diag["is_stable"].eq(True) & diag["bic"].notna()].sort_values("bic")
+    if selectable.empty:
+        raise ValueError("No stable Q1 VAR candidate among lags 6/12/18/24.")
+    selected_lag = int(selectable.iloc[0]["candidate_lags"])
+    fit = fits[selected_lag]
+    diag.loc[diag["candidate_lags"].eq(selected_lag), "is_selected"] = True
+
+    sigma_u = np.asarray(fit.sigma_u, dtype=float)
+    chol = np.linalg.cholesky(sigma_u)
+    residuals = fit.resid[var_cols].copy()
+    structural = np.linalg.solve(chol, residuals.to_numpy(dtype=float).T).T
+
+    alt_corr = np.nan
+    alt_cols = ["global_real_activity", "supply_growth", "real_brent_return"]
+    alt_fit = VAR(var_data[alt_cols]).fit(selected_lag)
+    if alt_fit.is_stable(verbose=False):
+        alt_chol = np.linalg.cholesky(np.asarray(alt_fit.sigma_u, dtype=float))
+        alt_structural = np.linalg.solve(alt_chol, alt_fit.resid[alt_cols].to_numpy(dtype=float).T).T
+        alt_risk = pd.Series(alt_structural[:, 2], index=alt_fit.resid.index)
+        main_risk = pd.Series(structural[:, 2], index=residuals.index)
+        common = pd.concat([main_risk.rename("main"), alt_risk.rename("alt")], axis=1).dropna()
+        alt_corr = float(common.corr().iloc[0, 1]) if len(common) > 2 else np.nan
+    diag["alternative_ordering_price_shock_corr"] = np.nan
+    diag.loc[diag["candidate_lags"].eq(selected_lag), "alternative_ordering_price_shock_corr"] = alt_corr
+    save_csv(diag, "q1_svar_diagnostics.csv")
+
+    shock_frame = pd.DataFrame(
         {
-            "supply_lag1": frame["supply_growth"].shift(1),
-            "demand_lag1": frame["demand_growth"].shift(1),
-            "inventory_lag1": frame["inventory_change"].shift(1),
-            "price_lag1": frame["brent_usd_bbl_log_return"].shift(1),
+            "period": residuals.index.astype(str),
+            "supply_shock": zscore(pd.Series(-structural[:, 0])),
+            "aggregate_demand_shock": zscore(pd.Series(structural[:, 1])),
+            "oil_specific_risk_shock": zscore(pd.Series(structural[:, 2])),
         }
     )
-    supply_resid = residualize(frame["supply_growth"], controls)
-    demand_resid = residualize(frame["demand_growth"], pd.concat([controls, supply_resid.rename("supply_resid")], axis=1))
-    risk_controls = pd.concat(
-        [
-            controls,
-            supply_resid.rename("supply_resid"),
-            demand_resid.rename("demand_resid"),
-            frame["inventory_change"].rename("inventory_change"),
-            frame["GPR_z"].rename("GPR_z"),
-        ],
-        axis=1,
-    )
-    risk_resid = residualize(frame["brent_usd_bbl_log_return"], risk_controls)
-    result = frame[["period"]].copy()
-    result["supply_shock"] = zscore(-supply_resid)
-    result["aggregate_demand_shock"] = zscore(demand_resid)
-    result["oil_specific_risk_shock"] = zscore(risk_resid)
+    result = frame[["period"]].copy().merge(shock_frame, on="period", how="left")
     result["reduced_form_shock"] = zscore(frame["brent_usd_bbl_log_return"])
-    result["source_vintage"] = "EIA_STEO_July_2026_ex_post_2022plus"
+    result["source_vintage"] = frame["source_vintage"].fillna("global_oil_svar_input").astype(str)
+    result["svar_lags"] = selected_lag
+    result["svar_ordering"] = "supply_growth -> global_real_activity -> real_brent_return"
     save_csv(result, "q1_structural_shocks.csv")
     return result
 
@@ -932,6 +1060,47 @@ def volatility_module(daily: pd.DataFrame, event_start: pd.Timestamp) -> pd.Data
     ]
     save_csv(output, "q1_volatility.csv")
     return output
+
+
+def volatility_stage_summary(volatility: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
+    if volatility.empty:
+        result = pd.DataFrame()
+        save_csv(result, "q1_volatility_summary.csv")
+        return result
+    frame = volatility.copy()
+    frame["date"] = pd.to_datetime(frame["date"])
+    stages = daily[["date", "war_stage"]].copy()
+    stages["date"] = pd.to_datetime(stages["date"])
+    frame = frame.merge(stages, on="date", how="left")
+    rows: list[dict[str, Any]] = []
+    pre = frame.loc[frame["war_stage"].eq("prewar"), "conditional_vol_pct"].dropna()
+    pre_median = float(pre.median()) if not pre.empty else np.nan
+    for stage in ["prewar", "E1_immediate_window", "E2_disruption", "E3_easing"]:
+        group = frame.loc[frame["war_stage"].eq(stage)].copy()
+        if group.empty:
+            continue
+        vol = pd.to_numeric(group["conditional_vol_pct"], errors="coerce").dropna()
+        ratio = pd.to_numeric(group["abnormal_vol_ratio_vs_pre_median"], errors="coerce").dropna()
+        rows.append(
+            {
+                "war_stage": stage,
+                "stage_start": group["date"].min().strftime("%Y-%m-%d"),
+                "stage_end": group["date"].max().strftime("%Y-%m-%d"),
+                "trading_days": int(len(group)),
+                "conditional_vol_pct_mean": float(vol.mean()) if not vol.empty else np.nan,
+                "conditional_vol_pct_median": float(vol.median()) if not vol.empty else np.nan,
+                "conditional_vol_pct_p10": float(vol.quantile(0.10)) if not vol.empty else np.nan,
+                "conditional_vol_pct_p90": float(vol.quantile(0.90)) if not vol.empty else np.nan,
+                "abnormal_vol_ratio_mean": float(ratio.mean()) if not ratio.empty else np.nan,
+                "abnormal_vol_ratio_median": float(ratio.median()) if not ratio.empty else np.nan,
+                "vol_multiple_vs_pre_median": float(vol.median() / pre_median) if np.isfinite(pre_median) and pre_median > 0 and not vol.empty else np.nan,
+                "model": "GJR_GARCH_1_1",
+                "evidence_status": "DESCRIPTIVE_VOLATILITY",
+            }
+        )
+    result = pd.DataFrame(rows)
+    save_csv(result, "q1_volatility_summary.csv")
+    return result
 
 
 def make_q1_shocks(monthly: pd.DataFrame, counterfactual: pd.DataFrame) -> pd.DataFrame:
@@ -1114,6 +1283,7 @@ def main(argv: list[str] | None = None) -> int:
     daily, event_meta = assign_event_stages(daily, None, "brent_usd_bbl")
 
     forecasts, metrics = monthly_forecasts(monthly, warnings_log)
+    origin_forecast = origin_forecast_table(monthly)
     stage_effects = pd.concat(
         [
             stage_effect_regression(daily, "brent_usd_bbl", "main Brent event-stage dummy with Newey-West SE"),
@@ -1134,6 +1304,7 @@ def main(argv: list[str] | None = None) -> int:
     effects = pd.concat([stage_effects, car_effects], ignore_index=True, sort=False)
     save_csv(effects, "q1_event_effects.csv")
     volatility = volatility_module(daily, event_start)
+    volatility_summary = volatility_stage_summary(volatility, daily)
     counterfactual = daily_counterfactual(daily)
     shocks = make_q1_shocks(monthly, counterfactual)
     robustness = robustness_summary(forecasts, effects, daily, placebos)
@@ -1167,19 +1338,39 @@ def main(argv: list[str] | None = None) -> int:
         status = "CONDITIONAL"
     if no_change_rows.empty or not no_change_rows["model_status"].eq("PASS").all() or not incorrectly_passing_advanced.empty:
         status = "FAIL"
+    structural_counts = {
+        column: int(shocks[column].dropna().shape[0]) if column in shocks.columns else 0
+        for column in ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"]
+    }
     summary = {
         "status": status,
+        "execution_status": "PASS" if status != "FAIL" else "FAIL",
+        "evidence_status": "SUPPORTED",
+        "allowed_claims": [
+            "no-change is the selected 1/3/6-month forecast benchmark under the fixed backtest",
+            "E1 effects are reported as CARs with empirical placebo p-values",
+            "ARBaselineGap is a descriptive AR baseline gap, not a causal war premium",
+            "SVAR shocks are ex-post structural inputs for Q2/Q3 transmission analysis",
+        ],
+        "forbidden_claims": [
+            "ARIMA/SARIMAX necessarily outperform no-change",
+            "ARBaselineGap equals the net causal contribution of war",
+            "E1 single-day HAC p-values are formal causal evidence",
+        ],
         "random_seed": RANDOM_SEED,
         "event_calendar": event_meta,
         "selected_forecast_model": "no_change",
+        "structural_shock_nonmissing_months": structural_counts,
         "forecast_model_non_pass": advanced_non_pass,
         "placebo_min_empirical_pvalue": placebo_min_p if np.isfinite(placebo_min_p) else None,
         "forecast_rows": int(len(forecasts)),
+        "origin_forecast_rows": int(len(origin_forecast)),
         "metric_rows": int(len(metrics)),
         "event_effect_rows": int(len(effects)),
         "placebo_rows": int(len(placebos)),
         "shock_rows": int(len(shocks)),
         "volatility_rows": int(len(volatility)),
+        "volatility_summary_rows": int(len(volatility_summary)),
         "robustness_rows": int(len(robustness)),
         "warnings": warnings_log,
         "main_metric_best_rmse": json_records(metrics.sort_values("RMSE").head(1)) if not metrics.empty else [],

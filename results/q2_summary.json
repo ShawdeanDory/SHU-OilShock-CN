@@ -2,46 +2,32 @@
   "status": "PASS",
   "execution_status": "PASS",
   "evidence_status": "INCONCLUSIVE",
+  "allowed_claims": [
+    "Q2 reports direction, magnitude and uncertainty for oil-shock transmission",
+    "RMB crude-cost, PPI, CPI, FX and industrial activity responses are model outputs where data permit",
+    "GDP is a low-frequency validation and remains inconclusive when intervals cross zero"
+  ],
+  "forbidden_claims": [
+    "oil shocks caused a robust aggregate growth loss unless the industrial/GDP joint interval excludes zero",
+    "reduced-form OilShock is a structural supply or war shock"
+  ],
   "random_seed": 20260730,
   "outcomes": [
     "china_iav_yoy_pct",
     "china_ppi_yoy_pct",
     "china_cpi_yoy_pct",
-    "china_fx_log_change_pct"
+    "china_fx_log_change_pct",
+    "brent_cny_cost_log_change_pct"
   ],
-  "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the EIA STEO ex-post decomposition when available; OilShock remains a reduced-form robustness shock.",
+  "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the historical recursive VAR when available; OilShock remains a reduced-form robustness shock.",
   "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
-  "warnings": [
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_iav_yoy_pct lag=6 exclude_covid=True: too few observations."
-    },
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_iav_yoy_pct lag=12 exclude_covid=False: too few observations."
-    },
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_iav_yoy_pct lag=12 exclude_covid=True: too few observations."
-    },
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_ppi_yoy_pct lag=12 exclude_covid=True: too few observations."
-    },
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_cpi_yoy_pct lag=12 exclude_covid=True: too few observations."
-    },
-    {
-      "code": "q2_robustness_skipped",
-      "message": "china_fx_log_change_pct lag=12 exclude_covid=True: too few observations."
-    }
-  ],
+  "warnings": [],
   "rows": {
-    "q2_ardl_baseline.csv": 12,
-    "q2_irf.csv": 181,
+    "q2_ardl_baseline.csv": 15,
+    "q2_irf.csv": 224,
     "q2_gdp_validation.csv": 1,
-    "q2_asymmetry.csv": 8,
-    "q2_robustness.csv": 18
+    "q2_asymmetry.csv": 10,
+    "q2_robustness.csv": 30,
+    "q2_transmission_metrics.csv": 21
   }
 }

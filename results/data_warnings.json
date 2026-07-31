@@ -11,7 +11,62 @@
     "korea_regular_gasoline_monthly.csv rows=198",
     "cn_fuel_policy_events.csv rows=2"
   ],
-  "warnings": [],
+  "warnings": [
+    {
+      "code": "manifest_status",
+      "message": "nbs_cpi_202606_release status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_cpi_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_cpi_202606_release_20260730.html"
+    },
+    {
+      "code": "manifest_status",
+      "message": "nbs_gdp_2026q2_release status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_gdp_2026q2_release raw snapshot is absent",
+      "path": "data/raw/nbs_gdp_2026q2_release_20260730.html"
+    },
+    {
+      "code": "manifest_status",
+      "message": "nbs_iav_202606_release status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_iav_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_iav_202606_release_20260730.html"
+    },
+    {
+      "code": "manifest_status",
+      "message": "nbs_ppi_202606_release status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "nbs_ppi_202606_release raw snapshot is absent",
+      "path": "data/raw/nbs_ppi_202606_release_20260730.html"
+    },
+    {
+      "code": "manifest_status",
+      "message": "ndrc_fuel_control_20260323 status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "ndrc_fuel_control_20260323 raw snapshot is absent",
+      "path": "data/raw/ndrc_fuel_control_20260323_20260730.html"
+    },
+    {
+      "code": "manifest_status",
+      "message": "ndrc_fuel_control_20260407 status=REMOTE_ONLY"
+    },
+    {
+      "code": "missing_raw_snapshot",
+      "message": "ndrc_fuel_control_20260407 raw snapshot is absent",
+      "path": "data/raw/ndrc_fuel_control_20260407_20260730.html"
+    }
+  ],
   "errors": [],
   "stage_warnings": {
     "build_model_panels": [
@@ -19,10 +74,6 @@
         "code": "nbs_gdp_yoy_manual_supplement",
         "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
         "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
-      },
-      {
-        "code": "china_official_fuel_coverage_limited",
-        "message": "China official regulated gasoline series has 5 nonmissing months; at least 48 are required for the main Q3 fuel comparison."
       }
     ]
   }

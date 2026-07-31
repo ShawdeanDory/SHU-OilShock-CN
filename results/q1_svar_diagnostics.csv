@@ -1,0 +1,5 @@
+candidate_lags,is_selected,bic,aic,hqic,is_stable,whiteness_pvalue,sample_start,sample_end,nobs,ordering,error,alternative_ordering_price_shock_corr
+6,True,12.51226275575375,11.523727484777122,11.924319618400318,True,0.3817376042337254,2010-02,2026-03,186,supply_growth -> global_real_activity -> real_brent_return,,1.0000000000000004
+12,False,13.772869443006218,11.803879384957256,12.602220067032416,True,0.2638521895724922,2010-02,2026-03,180,supply_growth -> global_real_activity -> real_brent_return,,
+18,False,15.03162622482653,12.035970337640338,13.251192457128045,True,0.0030896115104588474,2010-02,2026-03,174,supply_growth -> global_real_activity -> real_brent_return,,
+24,False,16.32427063032603,12.25196044288964,13.904702223558088,True,4.099574644996625e-15,2010-02,2026-03,168,supply_growth -> global_real_activity -> real_brent_return,,

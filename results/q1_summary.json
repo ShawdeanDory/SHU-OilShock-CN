@@ -1,5 +1,18 @@
 {
   "status": "PASS",
+  "execution_status": "PASS",
+  "evidence_status": "SUPPORTED",
+  "allowed_claims": [
+    "no-change is the selected 1/3/6-month forecast benchmark under the fixed backtest",
+    "E1 effects are reported as CARs with empirical placebo p-values",
+    "ARBaselineGap is a descriptive AR baseline gap, not a causal war premium",
+    "SVAR shocks are ex-post structural inputs for Q2/Q3 transmission analysis"
+  ],
+  "forbidden_claims": [
+    "ARIMA/SARIMAX necessarily outperform no-change",
+    "ARBaselineGap equals the net causal contribution of war",
+    "E1 single-day HAC p-values are formal causal evidence"
+  ],
   "random_seed": 20260730,
   "event_calendar": {
     "e1_calendar_start": "2026-02-28",
@@ -9,6 +22,11 @@
     "e3_trading_start": "2026-06-17"
   },
   "selected_forecast_model": "no_change",
+  "structural_shock_nonmissing_months": {
+    "supply_shock": 186,
+    "aggregate_demand_shock": 186,
+    "oil_specific_risk_shock": 186
+  },
   "forecast_model_non_pass": [
     {
       "model": "ARIMA",
@@ -25,61 +43,61 @@
     {
       "model": "ARIMA",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1136961427,
+      "relative_RMSE_vs_no_change": 1.1136961428,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.1586595433,
+      "relative_RMSE_vs_no_change": 1.1586595504,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.2148708347,
+      "relative_RMSE_vs_no_change": 1.2148708436,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.2697060115,
+      "relative_RMSE_vs_no_change": 1.2697060242,
       "model_status": "FAIL"
     },
     {
       "model": "EqualWeight",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.0285674525,
+      "relative_RMSE_vs_no_change": 1.0285679769,
       "model_status": "CONDITIONAL"
     },
     {
       "model": "EqualWeight",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.0770338815,
+      "relative_RMSE_vs_no_change": 1.0770345218,
       "model_status": "FAIL"
     },
     {
       "model": "EqualWeight",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.0826250354,
+      "relative_RMSE_vs_no_change": 1.082625536,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.0247459695,
+      "relative_RMSE_vs_no_change": 1.024748029,
       "model_status": "CONDITIONAL"
     },
     {
       "model": "SARIMAX",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.104421116,
+      "relative_RMSE_vs_no_change": 1.1044238842,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1013692761,
+      "relative_RMSE_vs_no_change": 1.1013714942,
       "model_status": "FAIL"
     },
     {
@@ -103,11 +121,13 @@
   ],
   "placebo_min_empirical_pvalue": 0.01020408163265306,
   "forecast_rows": 1404,
+  "origin_forecast_rows": 3,
   "metric_rows": 18,
   "event_effect_rows": 12,
   "placebo_rows": 280,
   "shock_rows": 198,
   "volatility_rows": 615,
+  "volatility_summary_rows": 4,
   "robustness_rows": 48,
   "warnings": [],
   "main_metric_best_rmse": [

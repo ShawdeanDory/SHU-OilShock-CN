@@ -35,9 +35,9 @@ FIGURES_DIR = REPO_ROOT / "figures"
 RANDOM_SEED = 20260730
 BOOTSTRAP_REPS = 2000
 SHOCK_SPECS = {
-    "supply_shock": "adverse_supply_shock_from_EIA_recursive_decomposition",
-    "aggregate_demand_shock": "aggregate_demand_shock_from_EIA_recursive_decomposition",
-    "oil_specific_risk_shock": "oil_specific_risk_shock_from_EIA_recursive_decomposition",
+    "supply_shock": "adverse_supply_shock_from_historical_recursive_VAR",
+    "aggregate_demand_shock": "aggregate_demand_shock_from_historical_recursive_VAR",
+    "oil_specific_risk_shock": "oil_specific_risk_shock_from_historical_recursive_VAR",
     "OilShock": "reduced_form_ARX_oil_price_innovation_robustness",
 }
 
@@ -47,6 +47,7 @@ OUTCOME_SPECS = {
     "china_ppi_yoy_pct": "中国PPI同比，百分点",
     "china_cpi_yoy_pct": "中国CPI同比，百分点",
     "china_fx_log_change_pct": "人民币兑美元月度对数变化，百分点",
+    "brent_cny_cost_log_change_pct": "人民币原油成本月度对数变化，百分点",
 }
 
 
@@ -262,6 +263,24 @@ def joint_lp_bootstrap(
     return point, boot[success, :]
 
 
+def full_rank_regressors(usable: pd.DataFrame, regressors: list[str], required_terms: list[str]) -> list[str]:
+    active = [
+        column
+        for column in regressors
+        if column in required_terms or usable[column].nunique(dropna=True) > 1
+    ]
+    while active:
+        x = sm.add_constant(usable[active].astype(float), has_constant="add").to_numpy(dtype=float)
+        if np.linalg.matrix_rank(x) == x.shape[1] and np.isfinite(x).all():
+            return active
+        removable = [column for column in active if column not in required_terms]
+        if not removable:
+            break
+        removable.sort(key=lambda column: (not column.startswith("month_"), column))
+        active.remove(removable[0])
+    raise np.linalg.LinAlgError("LP design remains rank deficient after dropping non-core controls.")
+
+
 def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     base = add_month_dummies(monthly)
@@ -272,11 +291,12 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
         base[f"{shock_col}_lag1"] = base[shock_col].shift(1)
 
     for outcome in outcomes:
+        horizons = [0, 3, 6, 12] if outcome == "china_iav_yoy_pct" else list(range(13))
         for shock_col in shocks:
             frame = base.copy()
             frame[f"{outcome}_lag1"] = frame[outcome].shift(1)
             target_cols: list[str] = []
-            for horizon in range(13):
+            for horizon in horizons:
                 target_col = f"target_h{horizon}"
                 target_cols.append(target_col)
                 if outcome == "china_fx_log_change_pct":
@@ -296,20 +316,21 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
                 fallback_rows = 0
                 family_size = len(target_cols)
                 simultaneous_alpha = 0.05 / family_size
-                for horizon, target_col in enumerate(target_cols):
+                for horizon, target_col in zip(horizons, target_cols, strict=False):
                     usable_h = frame.dropna(subset=[target_col] + regressors).copy()
                     if len(usable_h) < len(regressors) + 16:
                         continue
+                    active_regressors = full_rank_regressors(usable_h, regressors, [shock_col])
                     fit = fit_ols_hac(
                         usable_h[target_col],
-                        usable_h[regressors].astype(float),
+                        usable_h[active_regressors].astype(float),
                         maxlags=horizon + 1,
                     )
                     estimate = float(fit.params[shock_col])
                     boot = block_bootstrap_coefs(
                         usable_h,
                         target_col,
-                        regressors,
+                        active_regressors,
                         shock_col,
                         horizon + 1,
                     )
@@ -364,7 +385,8 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
                         }
                     )
                 continue
-            point, boot = joint_lp_bootstrap(usable, target_cols, regressors, shock_col)
+            active_regressors = full_rank_regressors(usable, regressors, [shock_col])
+            point, boot = joint_lp_bootstrap(usable, target_cols, active_regressors, shock_col)
             se = np.nanstd(boot, axis=0, ddof=1)
             lower_80, upper_80 = np.quantile(boot, [0.10, 0.90], axis=0)
             lower_95, upper_95 = np.quantile(boot, [0.025, 0.975], axis=0)
@@ -372,8 +394,8 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
             sup_t = np.nanquantile(np.nanmax(np.abs(t_boot), axis=1), 0.95)
             joint_lower = point - sup_t * se
             joint_upper = point + sup_t * se
-            for horizon in range(13):
-                bh = boot[:, horizon]
+            for idx, horizon in enumerate(horizons):
+                bh = boot[:, idx]
                 p_boot = min(
                     1.0,
                     2.0
@@ -387,14 +409,14 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
                         "outcome": outcome,
                         "shock": shock_col,
                         "horizon": horizon,
-                        "response": float(point[horizon]),
-                        "std_error": float(se[horizon]),
-                        "lower_80": float(lower_80[horizon]),
-                        "upper_80": float(upper_80[horizon]),
-                        "lower_95": float(lower_95[horizon]),
-                        "upper_95": float(upper_95[horizon]),
-                        "joint_lower_95": float(joint_lower[horizon]),
-                        "joint_upper_95": float(joint_upper[horizon]),
+                        "response": float(point[idx]),
+                        "std_error": float(se[idx]),
+                        "lower_80": float(lower_80[idx]),
+                        "upper_80": float(upper_80[idx]),
+                        "lower_95": float(lower_95[idx]),
+                        "upper_95": float(upper_95[idx]),
+                        "joint_lower_95": float(joint_lower[idx]),
+                        "joint_upper_95": float(joint_upper[idx]),
                         "pvalue": float(p_boot),
                         "bootstrap_reps": int(len(boot)),
                         "model": "LocalProjection",
@@ -434,7 +456,7 @@ def annotate_lp_inference(irf: pd.DataFrame) -> pd.DataFrame:
         result["joint_ci95_contains_zero"] = result["joint_lower_95"].le(0) & result["joint_upper_95"].ge(0)
     else:
         result["joint_ci95_contains_zero"] = result["ci95_contains_zero"]
-    result["pre_specified_horizon"] = result["horizon"].isin([0, 6, 12])
+    result["pre_specified_horizon"] = result["horizon"].isin([0, 3, 6, 12])
     result["fdr_qvalue"] = np.nan
     group_cols = ["outcome", "shock"] if "shock" in result.columns else ["outcome"]
     for _, group in result.groupby(group_cols):
@@ -602,6 +624,82 @@ def gdp_validation(quarterly: pd.DataFrame, warnings_log: list[dict[str, Any]]) 
     return result
 
 
+def build_transmission_metrics(irf: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    if not irf.empty:
+        for (shock, outcome), group in irf.groupby(["shock", "outcome"]):
+            frame = group.sort_values("horizon").copy()
+            values = pd.to_numeric(frame["response"], errors="coerce")
+            if values.dropna().empty:
+                continue
+            if outcome == "china_iav_yoy_pct":
+                idx = values.idxmin()
+                extremum_type = "trough"
+            else:
+                idx = values.abs().idxmax()
+                extremum_type = "peak_abs"
+            extreme = frame.loc[idx]
+            h6 = frame.loc[frame["horizon"].le(6), "response"].sum()
+            h12 = frame.loc[frame["horizon"].le(12), "response"].sum()
+            recovery = frame.loc[
+                frame["horizon"].ge(int(extreme["horizon"])) & frame["lower_95"].le(0) & frame["upper_95"].ge(0),
+                "horizon",
+            ]
+            supported_loss = bool(
+                outcome == "china_iav_yoy_pct"
+                and float(extreme["response"]) < 0
+                and not (float(extreme["joint_lower_95"]) <= 0 <= float(extreme["joint_upper_95"]))
+            )
+            evidence = "SUPPORTED" if supported_loss else ("INCONCLUSIVE" if bool(frame["joint_ci95_contains_zero"].any()) else "SUPPORTED")
+            rows.append(
+                {
+                    "shock": shock,
+                    "outcome": outcome,
+                    "extremum_type": extremum_type,
+                    "extremum_response": float(extreme["response"]),
+                    "extremum_month": int(extreme["horizon"]),
+                    "extremum_lower_95": float(extreme["lower_95"]),
+                    "extremum_upper_95": float(extreme["upper_95"]),
+                    "extremum_joint_lower_95": float(extreme["joint_lower_95"]),
+                    "extremum_joint_upper_95": float(extreme["joint_upper_95"]),
+                    "cumulative_response_0_6": float(h6),
+                    "cumulative_response_0_12": float(h12),
+                    "recovery_month": int(recovery.iloc[0]) if not recovery.empty else np.nan,
+                    "evidence_status": evidence,
+                    "allows_growth_loss_language": supported_loss,
+                    "inference_source": str(extreme.get("inference_band", "")),
+                    "sample_start": str(frame["sample_start"].dropna().iloc[0]) if not frame["sample_start"].dropna().empty else "",
+                    "sample_end": str(frame["sample_end"].dropna().iloc[-1]) if not frame["sample_end"].dropna().empty else "",
+                }
+            )
+    if not gdp.empty:
+        for row in gdp.to_dict("records"):
+            rows.append(
+                {
+                    "shock": row.get("shock", ""),
+                    "outcome": row.get("outcome", "china_real_gdp_yoy_pct"),
+                    "extremum_type": "quarterly_validation",
+                    "extremum_response": row.get("estimate", np.nan),
+                    "extremum_month": np.nan,
+                    "extremum_lower_95": row.get("lower_95", np.nan),
+                    "extremum_upper_95": row.get("upper_95", np.nan),
+                    "extremum_joint_lower_95": row.get("lower_95", np.nan),
+                    "extremum_joint_upper_95": row.get("upper_95", np.nan),
+                    "cumulative_response_0_6": np.nan,
+                    "cumulative_response_0_12": np.nan,
+                    "recovery_month": np.nan,
+                    "evidence_status": row.get("evidence_status", "INCONCLUSIVE"),
+                    "allows_growth_loss_language": False,
+                    "inference_source": "quarterly_HAC_validation",
+                    "sample_start": row.get("sample_start", ""),
+                    "sample_end": row.get("sample_end", ""),
+                }
+            )
+    result = pd.DataFrame(rows)
+    save_csv(result, "q2_transmission_metrics.csv")
+    return result
+
+
 def plot_irf(irf: pd.DataFrame) -> None:
     if irf.empty:
         return
@@ -663,6 +761,7 @@ def main(argv: list[str] | None = None) -> int:
     asymmetry = asymmetry_check(monthly, outcomes, warnings_log)
     robustness = lag_and_covid_robustness(monthly, outcomes, warnings_log)
     gdp = gdp_validation(quarterly, warnings_log)
+    transmission_metrics = build_transmission_metrics(irf, gdp)
     plot_irf(irf)
     gdp_status = "INCONCLUSIVE"
     if not gdp.empty and "evidence_status" in gdp.columns:
@@ -707,9 +806,18 @@ def main(argv: list[str] | None = None) -> int:
         "status": "PASS" if len(irf) and len(ardl) else "CONDITIONAL",
         "execution_status": "PASS" if len(irf) or len(ardl) else "WARN",
         "evidence_status": "INCONCLUSIVE",
+        "allowed_claims": [
+            "Q2 reports direction, magnitude and uncertainty for oil-shock transmission",
+            "RMB crude-cost, PPI, CPI, FX and industrial activity responses are model outputs where data permit",
+            "GDP is a low-frequency validation and remains inconclusive when intervals cross zero",
+        ],
+        "forbidden_claims": [
+            "oil shocks caused a robust aggregate growth loss unless the industrial/GDP joint interval excludes zero",
+            "reduced-form OilShock is a structural supply or war shock",
+        ],
         "random_seed": RANDOM_SEED,
         "outcomes": outcomes,
-        "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the EIA STEO ex-post decomposition when available; OilShock remains a reduced-form robustness shock.",
+        "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the historical recursive VAR when available; OilShock remains a reduced-form robustness shock.",
         "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
         "warnings": warnings_log,
         "rows": {
@@ -718,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
             "q2_gdp_validation.csv": int(len(gdp)),
             "q2_asymmetry.csv": int(len(asymmetry)),
             "q2_robustness.csv": int(len(robustness)),
+            "q2_transmission_metrics.csv": int(len(transmission_metrics)),
         },
     }
     (RESULTS_DIR / "q2_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

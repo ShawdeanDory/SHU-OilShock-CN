@@ -47,7 +47,10 @@ CORE_RESULT_FILES = [
     "q1_daily_counterfactual.csv",
     "q1_monthly_shocks.csv",
     "q1_structural_shocks.csv",
+    "q1_svar_diagnostics.csv",
+    "q1_origin_forecast.csv",
     "q1_volatility.csv",
+    "q1_volatility_summary.csv",
     "q1_robustness.csv",
     "q1_summary.json",
     "q2_ardl_baseline.csv",
@@ -55,12 +58,15 @@ CORE_RESULT_FILES = [
     "q2_gdp_validation.csv",
     "q2_asymmetry.csv",
     "q2_robustness.csv",
+    "q2_transmission_metrics.csv",
     "q2_summary.csv",
     "q2_summary.json",
     "q3_country_pass_through.csv",
     "q3_panel_irf.csv",
     "q3_buffer_interactions.csv",
     "q3_policy_counterfactual.csv",
+    "q3_policy_macro_counterfactual.csv",
+    "q3_resilience_metrics.csv",
     "q3_robustness.csv",
     "q3_summary.csv",
     "q3_summary.json",
@@ -69,6 +75,7 @@ CORE_RESULT_FILES = [
 PROCESSED_INPUT_FILES = [
     "p0_daily_market.csv",
     "p0_monthly_market.csv",
+    "global_oil_svar_monthly.csv",
     "model_daily_q1.csv",
     "model_monthly_q1.csv",
     "model_monthly_cn.csv",
@@ -88,6 +95,7 @@ PROCESSED_INPUT_FILES = [
     "china_fuel_policy_monthly.csv",
     "china_fuel_proxy_monthly.csv",
     "china_regulated_gasoline_monthly.csv",
+    "eurostat_spain_hicp_yoy_monthly.csv",
     "country_policy_buffers_annual.csv",
     "nbs_iav_monthly.csv",
     "nbs_ppi_monthly.csv",
@@ -107,6 +115,7 @@ CODE_FILES = [
     "code/schemas/frozen_numbers.schema.json",
     "code/schemas/reproducibility_manifest.schema.json",
     "code/schemas/risk_probe_summary.schema.json",
+    "code/utils/build_paper_handoff.py",
     "code/utils/freeze_results.py",
     "code/utils/plot_style.py",
     "code/utils/verify_freeze.py",
@@ -409,6 +418,49 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    svar_diag = read_csv("q1_svar_diagnostics.csv")
+    selected_svar = svar_diag.loc[svar_diag.get("is_selected", pd.Series(dtype=bool)).astype(str).str.lower().isin(["true", "1"])] if not svar_diag.empty else pd.DataFrame()
+    svar_ok = (
+        not selected_svar.empty
+        and bool(selected_svar["is_stable"].astype(str).str.lower().isin(["true", "1"]).all())
+        and core_structural_months >= 120
+    )
+    probes.append(
+        probe(
+            "q1_svar_identification_gate",
+            "PASS" if svar_ok else "FAIL",
+            {
+                "selected_rows": int(len(selected_svar)),
+                "selected_lag": clean_value(selected_svar["candidate_lags"].iloc[0]) if not selected_svar.empty else None,
+                "selected_is_stable": bool(selected_svar["is_stable"].astype(str).str.lower().isin(["true", "1"]).all()) if not selected_svar.empty else False,
+                "core_structural_months": core_structural_months,
+            },
+            "Q1 historical recursive VAR has one selected stable specification and enough structural-shock coverage",
+            ["results/q1_svar_diagnostics.csv", "results/q1_structural_shocks.csv"],
+            "SVAR shocks must be generated from the full-history ex-post input rather than the short STEO residual proxy.",
+        )
+    )
+
+    origin_forecast = read_csv("q1_origin_forecast.csv")
+    origin_ok = (
+        not origin_forecast.empty
+        and sorted(pd.to_numeric(origin_forecast.get("horizon_months", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).tolist()) == [1, 3, 6]
+        and origin_forecast.loc[origin_forecast["horizon_months"].eq(6), "forecast_status"].astype(str).eq("FORECAST_ONLY").all()
+    )
+    probes.append(
+        probe(
+            "q1_origin_forecast_completeness_gate",
+            "PASS" if origin_ok else "FAIL",
+            {
+                "rows": int(len(origin_forecast)),
+                "horizons": sorted(pd.to_numeric(origin_forecast.get("horizon_months", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).tolist()) if not origin_forecast.empty else [],
+            },
+            "Q1 2026-02 origin forecast table contains 1, 3 and 6 month horizons, with 2026-08 marked forecast-only",
+            ["results/q1_origin_forecast.csv"],
+            "The competition cutoff is 2026-06-30, so the six-month target from 2026-02 must be retained as a forecast-only row rather than removed.",
+        )
+    )
+
     nbs_iav_ok = has_nonmissing(
         REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv",
         "china_iav_yoy_pct",
@@ -473,7 +525,7 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         china_regulated_frame = pd.read_csv(china_regulated)
         china_official_months = int(
             pd.to_numeric(
-                china_regulated_frame.get("china_regulated_gasoline_cny_per_l", pd.Series(dtype=float)),
+                china_regulated_frame.get("china_regulated_gasoline_cny_per_ton", pd.Series(dtype=float)),
                 errors="coerce",
             )
             .notna()
@@ -508,6 +560,35 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable",
             ["results/q3_country_pass_through.csv", "data/processed/model_country_monthly.csv", "data/processed/china_regulated_gasoline_monthly.csv"],
             "Q3 remains conditional until China has enough official regulated fuel-price history to enter the main fuel ranking with the six control countries.",
+        )
+    )
+
+    q2_metrics = read_csv("q2_transmission_metrics.csv")
+    iav_horizons = (
+        sorted(pd.to_numeric(q2_irf.loc[q2_irf.get("outcome", pd.Series(dtype=str)).eq("china_iav_yoy_pct"), "horizon"], errors="coerce").dropna().astype(int).unique().tolist())
+        if not q2_irf.empty and "outcome" in q2_irf.columns
+        else []
+    )
+    q2_inference_ok = (
+        not q2_irf.empty
+        and not q2_metrics.empty
+        and iav_horizons == [0, 3, 6, 12]
+        and q2_irf.get("inference_band", pd.Series(dtype=str)).astype(str).str.contains("bootstrap", case=False, na=False).all()
+        and {"evidence_status", "allows_growth_loss_language", "cumulative_response_0_6", "cumulative_response_0_12"}.issubset(q2_metrics.columns)
+    )
+    probes.append(
+        probe(
+            "q2_inference_consistency_gate",
+            "PASS" if q2_inference_ok else "FAIL",
+            {
+                "irf_rows": int(len(q2_irf)),
+                "transmission_metric_rows": int(len(q2_metrics)),
+                "iav_horizons": iav_horizons,
+                "all_irf_bootstrap": bool(q2_irf.get("inference_band", pd.Series(dtype=str)).astype(str).str.contains("bootstrap", case=False, na=False).all()) if not q2_irf.empty else False,
+            },
+            "Q2 LP intervals, p-values/FDR family and transmission metrics use the bootstrap interface, and IAV uses the fixed 0/3/6/12 month grid",
+            ["results/q2_irf.csv", "results/q2_transmission_metrics.csv"],
+            "Q2 may remain substantively inconclusive, but the inference source and response horizons must be internally consistent.",
         )
     )
 
@@ -559,6 +640,99 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic",
             ["results/q3_policy_counterfactual.csv", "data/processed/china_regulated_gasoline_monthly.csv"],
             "The policy scenario must be computed on the official regulated finished-fuel price layer, while macro propagation may remain conditional when coverage is short.",
+        )
+    )
+
+    q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
+    macro_outcomes = set(q3_policy_macro.get("outcome", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_policy_macro.empty else set()
+    macro_policy_ok = (
+        not q3_policy_macro.empty
+        and {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}.issubset(macro_outcomes)
+        and q3_policy_macro.get("price_layer_status", pd.Series(dtype=str)).astype(str).str.contains("official_regulated", na=False).all()
+        and {"lower_95", "upper_95", "macro_counterfactual_gap_pctpt"}.issubset(q3_policy_macro.columns)
+    )
+    probes.append(
+        probe(
+            "q3_policy_macro_propagation_gate",
+            "PASS" if macro_policy_ok else "FAIL",
+            {
+                "rows": int(len(q3_policy_macro)),
+                "outcomes": sorted(macro_outcomes),
+                "has_interval_columns": bool({"lower_95", "upper_95", "macro_counterfactual_gap_pctpt"}.issubset(q3_policy_macro.columns)) if not q3_policy_macro.empty else False,
+            },
+            "Q3 policy-close counterfactual propagates official fuel-price gaps to PPI, CPI and IAV with intervals",
+            ["results/q3_policy_macro_counterfactual.csv", "results/q3_policy_counterfactual.csv"],
+            "The policy counterfactual must operate on the finished-fuel price layer and quantify macro paths, not only the fuel-price gap.",
+        )
+    )
+
+    buffer_table_path = REPO_ROOT / "data" / "processed" / "country_policy_buffers_annual.csv"
+    buffer_table = pd.read_csv(buffer_table_path) if buffer_table_path.exists() else pd.DataFrame()
+    required_buffers = ["oil_import_dependency", "oil_intensity", "import_source_hhi", "fuel_price_regulation"]
+    buffer_data_ok = (
+        not buffer_table.empty
+        and all(column in buffer_table.columns for column in required_buffers)
+        and buffer_table[required_buffers].notna().all().all()
+        and set(required_buffers).issubset(set(q3_buffer.get("buffer", pd.Series(dtype=str)).dropna().unique().tolist()))
+    )
+    probes.append(
+        probe(
+            "q3_buffer_data_completeness_gate",
+            "PASS" if buffer_data_ok else "FAIL",
+            {
+                "buffer_table_rows": int(len(buffer_table)),
+                "buffer_interaction_rows": int(len(q3_buffer)),
+                "buffers_in_results": sorted(q3_buffer.get("buffer", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_buffer.empty else [],
+                "required_buffers": required_buffers,
+            },
+            "Q3 annual buffer table has nonmissing continuous variables and all four buffers appear in interaction outputs",
+            ["data/processed/country_policy_buffers_annual.csv", "results/q3_buffer_interactions.csv"],
+            "The panel cannot claim policy-buffer evidence if the continuous annual buffer variables are empty or overwritten by blanks.",
+        )
+    )
+
+    q3_panel = read_csv("q3_panel_irf.csv")
+    panel_ok = (
+        not q3_panel.empty
+        and q3_panel.get("reference_country", pd.Series(dtype=str)).astype(str).eq("CHN").all()
+        and q3_panel.get("response_type", pd.Series(dtype=str)).astype(str).str.contains("control_country_minus_china", na=False).all()
+        and len(set(q3_panel.get("country", pd.Series(dtype=str)).dropna())) >= 6
+    )
+    probes.append(
+        probe(
+            "q3_panel_identification_gate",
+            "PASS" if panel_ok else "FAIL",
+            {
+                "panel_rows": int(len(q3_panel)),
+                "countries": sorted(q3_panel.get("country", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_panel.empty else [],
+                "reference_country_values": sorted(q3_panel.get("reference_country", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_panel.empty else [],
+            },
+            "Q3 panel LP identifies control-country responses relative to China under full time fixed effects",
+            ["results/q3_panel_irf.csv"],
+            "With year-month fixed effects, country absolute shock slopes are not separately interpretable; the formal panel output must be relative to a reference country.",
+        )
+    )
+
+    q3_resilience = read_csv("q3_resilience_metrics.csv")
+    resilience_ok = (
+        not q3_resilience.empty
+        and {"fuel_pass_through", "cpi_peak_response", "industrial_activity_trough", "policy_counterfactual_macro"}.issubset(
+            set(q3_resilience.get("dimension", pd.Series(dtype=str)).dropna().unique().tolist())
+        )
+        and "overall_china_resilience_judgement" in q3_resilience.columns
+    )
+    probes.append(
+        probe(
+            "q3_resilience_output_gate",
+            "PASS" if resilience_ok else "FAIL",
+            {
+                "rows": int(len(q3_resilience)),
+                "dimensions": sorted(q3_resilience.get("dimension", pd.Series(dtype=str)).dropna().unique().tolist()) if not q3_resilience.empty else [],
+                "overall": q3_resilience.get("overall_china_resilience_judgement", pd.Series(dtype=str)).dropna().iloc[0] if not q3_resilience.empty and "overall_china_resilience_judgement" in q3_resilience else None,
+            },
+            "Q3 exports fuel, CPI, industrial-activity and policy-scenario resilience metrics plus an overall China judgement",
+            ["results/q3_resilience_metrics.csv"],
+            "The third question needs a synthesis metric rather than separate tables with no final judgement.",
         )
     )
 
@@ -681,15 +855,21 @@ def extract_final_numbers() -> dict[str, Any]:
     q1_metrics = read_csv("q1_forecast_metrics.csv")
     q1_events = read_csv("q1_event_effects.csv")
     q1_shocks = read_csv("q1_monthly_shocks.csv")
+    q1_origin = read_csv("q1_origin_forecast.csv")
+    q1_svar = read_csv("q1_svar_diagnostics.csv")
+    q1_vol_summary = read_csv("q1_volatility_summary.csv")
     q1_robust = read_csv("q1_robustness.csv")
     q2_ardl = read_csv("q2_ardl_baseline.csv")
     q2_irf = read_csv("q2_irf.csv")
     q2_gdp = read_csv("q2_gdp_validation.csv")
+    q2_transmission = read_csv("q2_transmission_metrics.csv")
     q2_robust = read_csv("q2_robustness.csv")
     q3_pass = read_csv("q3_country_pass_through.csv")
     q3_irf = read_csv("q3_panel_irf.csv")
     q3_buffer = read_csv("q3_buffer_interactions.csv")
     q3_policy = read_csv("q3_policy_counterfactual.csv")
+    q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
+    q3_resilience = read_csv("q3_resilience_metrics.csv")
     q3_robust = read_csv("q3_robustness.csv")
 
     final: dict[str, Any] = {"cutoff": CUTOFF, "status_note": "stage snapshot; not a paper-final causal freeze unless risk gate passes", "q1": {}, "q2": {}, "q3": {}}
@@ -710,6 +890,12 @@ def extract_final_numbers() -> dict[str, Any]:
     if not q1_shocks.empty:
         event_months = q1_shocks.loc[q1_shocks["ARBaselineGap"].abs().gt(0)]
         final["q1"]["ar_baseline_gap_months"] = records(event_months[["period", "ARBaselineGap", "ARBaselineGap_days"]])
+    if not q1_origin.empty:
+        final["q1"]["origin_2026_02_forecast"] = records(q1_origin.sort_values("horizon_months"))
+    if not q1_svar.empty:
+        final["q1"]["svar_diagnostics"] = records(q1_svar.sort_values("candidate_lags"))
+    if not q1_vol_summary.empty:
+        final["q1"]["volatility_summary"] = records(q1_vol_summary)
     if not q1_robust.empty:
         final["q1"]["robustness_rows"] = int(len(q1_robust))
         final["q1"]["robustness_types"] = sorted(q1_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q1_robust else []
@@ -722,6 +908,8 @@ def extract_final_numbers() -> dict[str, Any]:
         )
     if not q2_gdp.empty:
         final["q2"]["gdp_validation"] = records(q2_gdp)
+    if not q2_transmission.empty:
+        final["q2"]["transmission_metrics"] = records(q2_transmission.sort_values(["shock", "outcome"]))
     if not q2_robust.empty:
         final["q2"]["robustness"] = records(q2_robust.sort_values(["outcome", "lag_max", "exclude_covid"]))
 
@@ -741,6 +929,10 @@ def extract_final_numbers() -> dict[str, Any]:
         final["q3"]["policy_counterfactual"] = records(q3_policy)
         final["q3"]["policy_max_cumulative_gap_cny_t"] = clean_value(q3_policy["cumulative_gasoline_gap_cny_t"].max())
         final["q3"]["policy_max_cpi_gap_pctpt"] = clean_value(q3_policy["cpi_counterfactual_gap_pctpt"].max())
+    if not q3_policy_macro.empty:
+        final["q3"]["policy_macro_counterfactual"] = records(q3_policy_macro.sort_values(["period", "outcome"]))
+    if not q3_resilience.empty:
+        final["q3"]["resilience_metrics"] = records(q3_resilience)
     if not q3_robust.empty:
         final["q3"]["robustness_rows"] = int(len(q3_robust))
         final["q3"]["robustness_types"] = sorted(q3_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q3_robust else []
@@ -856,10 +1048,16 @@ def markdown_table(frame: pd.DataFrame, columns: list[str], limit: int = 12) -> 
 def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], warnings_list: list[dict[str, Any]]) -> str:
     q1_metrics = read_csv("q1_forecast_metrics.csv")
     q1_events = read_csv("q1_event_effects.csv")
+    q1_origin = read_csv("q1_origin_forecast.csv")
+    q1_svar = read_csv("q1_svar_diagnostics.csv")
+    q1_vol_summary = read_csv("q1_volatility_summary.csv")
     q2_irf = read_csv("q2_irf.csv")
     q2_gdp = read_csv("q2_gdp_validation.csv")
+    q2_metrics = read_csv("q2_transmission_metrics.csv")
     q3_pass = read_csv("q3_country_pass_through.csv")
     q3_policy = read_csv("q3_policy_counterfactual.csv")
+    q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
+    q3_resilience = read_csv("q3_resilience_metrics.csv")
     figures = collect_figures()
     nbs_iav = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv")
     nbs_ppi = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv")
@@ -876,12 +1074,45 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     if not blocker_lines:
         blocker_lines.append("- 无。")
 
-    return f"""# 国际油价三问阶段性建模结果报告
+    if risk_summary.get("paper_finalize_allowed"):
+        report_title = "国际油价三问建模封板结果报告"
+        execution_mode = "paper-ready modeling freeze"
+        conclusion_text = (
+            "本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，"
+            "可以作为论文定稿数字来源。论文仍需保持证据边界：Q2 的宏观增长损失证据为 "
+            "`INCONCLUSIVE`，Q3 对“我国应对更好”的综合判断为 `PARTIAL`。"
+        )
+        boundary_text = (
+            "当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、"
+            "历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 "
+            "约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国"
+            "官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实。"
+        )
+        paper_advice = (
+            "论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导"
+            "和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间"
+            "未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有"
+            "一般因果优势。"
+        )
+    else:
+        report_title = "国际油价三问阶段性建模结果报告"
+        execution_mode = "staged modeling audit"
+        conclusion_text = (
+            "本轮结果仍是 `CONDITIONAL` 阶段快照。代码、图表和结果可继续作为建模推进基础，"
+            "但论文正文不能把当前输出写成定稿结论。"
+        )
+        boundary_text = (
+            "当前需要先处理下方阻塞门禁，再重新冻结结果。已通过的模型输出只能作为阶段性证据，"
+            "不得越过门禁写入最终论文数字。"
+        )
+        paper_advice = "只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。"
+
+    return f"""# {report_title}
 
 ## Material Passport
 
-- Origin Skill: `3coding-visual`
-- Execution Mode: `staged modeling audit`
+- Origin Skill: `math-modeling-solver + math-modeling-paper`
+- Execution Mode: `{execution_mode}`
 - Verification Status: `{risk_summary['overall_status']}`
 - Paper Finalize Allowed: `{str(risk_summary['paper_finalize_allowed']).lower()}`
 - Cutoff: `{CUTOFF}`
@@ -889,11 +1120,11 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 ## 1. 总体结论
 
-本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
+{conclusion_text}
 
-当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二以结构冲击为主、`OilShock` 仅作约化形式稳健性；问题三已改用中国官方受管制零售价接口，但中国是否进入主跨国燃油排名取决于官方历史覆盖是否达标。
+{boundary_text}
 
-阻塞定稿的门禁：
+当前阻塞定稿的门禁：
 
 {chr(10).join(blocker_lines)}
 
@@ -902,6 +1133,18 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 月度预测表已经加入相对基线指标和逐模型状态。当前主预测模型是 `no_change`。
 
 {markdown_table(q1_metrics.sort_values(['horizon', 'model']) if not q1_metrics.empty else q1_metrics, ['model', 'horizon', 'RMSE', 'relative_RMSE_vs_no_change', 'dm_hln_pvalue_rmse_loss', 'model_status'])}
+
+以 2026-02 为原点的竞赛最终预测表如下。2026-08 在数据截止日之后，保留为 `FORECAST_ONLY`。
+
+{markdown_table(q1_origin.sort_values('horizon_months') if not q1_origin.empty else q1_origin, ['origin_period', 'target_period', 'horizon_months', 'model', 'forecast_status', 'origin_price', 'prediction_price', 'actual_price', 'forecast_error_price'])}
+
+历史结构冲击使用递归 VAR/Cholesky 分解，变量排序为“全球供给增长 → 全球真实经济活动 → 实际 Brent 收益”。被选规格如下：
+
+{markdown_table(q1_svar.loc[bool_series(q1_svar['is_selected'])] if not q1_svar.empty and 'is_selected' in q1_svar else q1_svar, ['candidate_lags', 'is_selected', 'bic', 'is_stable', 'whiteness_pvalue', 'sample_start', 'sample_end', 'nobs'])}
+
+GJR-GARCH 条件波动率用于描述战争阶段油价波动变化，不作为战争净因果效应。
+
+{markdown_table(q1_vol_summary, ['war_stage', 'trading_days', 'conditional_vol_pct_median', 'vol_multiple_vs_pre_median', 'evidence_status'])}
 
 E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。经验 p 值采用 \\((b+1)/(B+1)\\) 的有限样本修正，不报告严格的 0。
 
@@ -913,6 +1156,10 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 {markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'shock', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'shock', 'horizon', 'response', 'lower_95', 'upper_95', 'joint_lower_95', 'joint_upper_95', 'fdr_qvalue', 'inference_band'])}
 
+传导链摘要按冲击—变量输出峰值/谷值、累计响应和证据状态。当前即使部分点估计方向符合直觉，也不自动升级为“增长损失”结论。
+
+{markdown_table(q2_metrics.loc[q2_metrics['shock'].isin(['supply_shock', 'aggregate_demand_shock', 'oil_specific_risk_shock'])].sort_values(['shock', 'outcome']) if not q2_metrics.empty else q2_metrics, ['shock', 'outcome', 'extremum_type', 'extremum_response', 'extremum_month', 'cumulative_response_0_6', 'cumulative_response_0_12', 'evidence_status', 'allows_growth_loss_language'])}
+
 季度 GDP 只作低频验证，不插值成月度变量。
 
 {markdown_table(q2_gdp, ['outcome', 'estimate', 'lower_95', 'upper_95', 'pvalue', 'n', 'sample_start', 'sample_end'])}
@@ -923,9 +1170,17 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 {markdown_table(q3_main.loc[q3_main['horizon'].eq(6)].sort_values('country') if not q3_main.empty else q3_main, ['country', 'horizon', 'response', 'lower_95', 'upper_95', 'price_measure_type', 'included_in_main_comparison'])}
 
+综合韧性指标把燃油传导、CPI 相对响应、工业活动相对响应和政策关闭情景放在同一口径下判断。当前总体判断为 `PARTIAL`，不是无条件支持“中国显著更好”。
+
+{markdown_table(q3_resilience, ['dimension', 'metric', 'horizon', 'china_value', 'control_median', 'china_vs_control_median_diff', 'diff_lower_95', 'diff_upper_95', 'judgement', 'overall_china_resilience_judgement'])}
+
 中国政策图与数据表已区分新增差额和累计差额，2026-04 的累计差额为 1425 元/吨，4月新增为 380 元/吨。
 
-{markdown_table(q3_policy, ['period', 'policy_adjusted_official_cny_l', 'no_temporary_control_official_cny_l', 'incremental_gasoline_gap_cny_t', 'cumulative_gasoline_gap_cny_t', 'cpi_counterfactual_gap_pctpt', 'price_layer_status'])}
+{markdown_table(q3_policy, ['period', 'policy_adjusted_official_cny_t', 'no_temporary_control_official_cny_t', 'incremental_gasoline_gap_cny_t', 'cumulative_gasoline_gap_cny_t', 'cpi_counterfactual_gap_pctpt', 'price_layer_status'])}
+
+政策关闭宏观反事实已在官方受管制成品油价格层上将临时调控缺口传播到 PPI、CPI 与 IAV，区间来自同一参数不确定性传播。
+
+{markdown_table(q3_policy_macro.loc[q3_policy_macro['period'].eq('2026-06')].sort_values('outcome') if not q3_policy_macro.empty else q3_policy_macro, ['period', 'outcome_label', 'macro_counterfactual_gap_pctpt', 'lower_95', 'upper_95', 'price_layer_status', 'evidence_status'])}
 
 ## 5. 图表与冻结文件
 
@@ -946,7 +1201,7 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 7. 论文使用建议
 
-论文正文应把当前状态写成阶段性结果：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“结构冲击/约化形式稳健性下尚未发现稳健增长损失证据”；第三问主线是“六个可比国家零售燃油传导 + 政策缓冲交互 + 中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。
+{paper_advice}
 """
 
 

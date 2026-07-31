@@ -14,10 +14,6 @@
       "code": "nbs_gdp_yoy_manual_supplement",
       "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
       "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
-    },
-    {
-      "code": "china_official_fuel_coverage_limited",
-      "message": "China official regulated gasoline series has 5 nonmissing months; at least 48 are required for the main Q3 fuel comparison."
     }
   ]
 }

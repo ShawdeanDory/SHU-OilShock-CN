@@ -167,6 +167,27 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     if empirical.empty or not empirical.between(0.0, 1.0, inclusive="right").all() or empirical.eq(0.0).any():
         errors.append("Q1 empirical placebo p-values are missing, outside (0, 1], or still report zero")
 
+    q1_origin = pd.read_csv(RESULTS_DIR / "q1_origin_forecast.csv")
+    origin_horizons = sorted(pd.to_numeric(q1_origin.get("horizon_months", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).tolist())
+    if origin_horizons != [1, 3, 6]:
+        errors.append("q1_origin_forecast.csv must contain exactly 1/3/6 month horizons")
+    six_month = q1_origin.loc[q1_origin["horizon_months"].eq(6)]
+    if six_month.empty or not six_month["forecast_status"].astype(str).eq("FORECAST_ONLY").all():
+        errors.append("Q1 2026-08 six-month origin forecast must be retained and marked FORECAST_ONLY")
+
+    q1_svar = pd.read_csv(RESULTS_DIR / "q1_svar_diagnostics.csv")
+    selected = q1_svar.loc[q1_svar.get("is_selected", pd.Series(dtype=bool)).astype(str).str.lower().isin(["true", "1"])]
+    if len(selected) != 1 or not selected["is_stable"].astype(str).str.lower().isin(["true", "1"]).all():
+        errors.append("q1_svar_diagnostics.csv must identify exactly one selected stable VAR specification")
+
+    q2_irf = pd.read_csv(RESULTS_DIR / "q2_irf.csv")
+    q2_metrics = pd.read_csv(RESULTS_DIR / "q2_transmission_metrics.csv")
+    iav_horizons = sorted(pd.to_numeric(q2_irf.loc[q2_irf["outcome"].eq("china_iav_yoy_pct"), "horizon"], errors="coerce").dropna().astype(int).unique().tolist())
+    if iav_horizons != [0, 3, 6, 12]:
+        errors.append("Q2 IAV response horizons must be the pre-specified 0/3/6/12 grid")
+    if q2_metrics.empty or not {"evidence_status", "allows_growth_loss_language", "cumulative_response_0_6", "cumulative_response_0_12"}.issubset(q2_metrics.columns):
+        errors.append("q2_transmission_metrics.csv lacks required transmission-metric columns")
+
     q3_pass = pd.read_csv(RESULTS_DIR / "q3_country_pass_through.csv")
     required_q3 = {"price_measure_type", "observed_or_regulated", "included_in_main_comparison", "comparability_note"}
     if not required_q3.issubset(q3_pass.columns):
@@ -177,11 +198,27 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         chn_proxy = chn_rows["price_measure_type"].astype(str).str.contains("proxy", case=False, na=False) if not chn_rows.empty else pd.Series(dtype=bool)
         if bool((chn_included & chn_proxy).any()):
             errors.append("China proxy is included in the main Q3 fuel comparison")
+        if chn_rows.empty or not bool(chn_included.any()):
+            errors.append("China official regulated fuel series is not included in the main Q3 comparison")
 
     q3_buffer = pd.read_csv(RESULTS_DIR / "q3_buffer_interactions.csv")
     required_buffer = {"outcome", "buffer", "shock", "estimate", "lower_95", "upper_95", "specification"}
     if not required_buffer.issubset(q3_buffer.columns):
         errors.append("q3_buffer_interactions.csv lacks policy-buffer interaction columns")
+    required_buffers = {"fuel_price_regulation", "oil_import_dependency", "oil_intensity", "import_source_hhi"}
+    if not required_buffers.issubset(set(q3_buffer.get("buffer", pd.Series(dtype=str)).dropna().unique())):
+        errors.append("q3_buffer_interactions.csv must include all four planned buffer variables")
+
+    q3_panel = pd.read_csv(RESULTS_DIR / "q3_panel_irf.csv")
+    if "reference_country" not in q3_panel.columns or not q3_panel["reference_country"].astype(str).eq("CHN").all():
+        errors.append("q3_panel_irf.csv must use China as the explicit reference country")
+    if "response_type" not in q3_panel.columns or not q3_panel["response_type"].astype(str).str.contains("control_country_minus_china", na=False).all():
+        errors.append("q3_panel_irf.csv must report control-country-minus-China relative responses")
+
+    q3_resilience = pd.read_csv(RESULTS_DIR / "q3_resilience_metrics.csv")
+    required_dimensions = {"fuel_pass_through", "cpi_peak_response", "industrial_activity_trough", "policy_counterfactual_macro"}
+    if q3_resilience.empty or not required_dimensions.issubset(set(q3_resilience.get("dimension", pd.Series(dtype=str)).dropna().unique())):
+        errors.append("q3_resilience_metrics.csv lacks required resilience dimensions")
 
     policy = pd.read_csv(RESULTS_DIR / "q3_policy_counterfactual.csv")
     april = policy.loc[policy["period"].eq("2026-04")]
@@ -194,6 +231,13 @@ def verify_key_result_shapes(errors: list[str]) -> None:
             errors.append("Q3 April policy gap no longer matches incremental 380 and cumulative 1425")
     if "price_layer_status" not in policy.columns:
         errors.append("q3_policy_counterfactual.csv lacks price_layer_status")
+
+    policy_macro = pd.read_csv(RESULTS_DIR / "q3_policy_macro_counterfactual.csv")
+    macro_outcomes = set(policy_macro.get("outcome", pd.Series(dtype=str)).dropna().unique())
+    if not {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}.issubset(macro_outcomes):
+        errors.append("q3_policy_macro_counterfactual.csv must include PPI/CPI/IAV propagated paths")
+    if not {"lower_95", "upper_95", "macro_counterfactual_gap_pctpt"}.issubset(policy_macro.columns):
+        errors.append("q3_policy_macro_counterfactual.csv lacks macro interval columns")
 
 
 def main() -> int:

@@ -1,0 +1,76 @@
+# 建模到论文移交说明
+
+[PAPER_READY]
+
+三问建模、检验、数值冻结和论文移交材料已完成。当前 `overall_status=PASS`，`paper_finalize_allowed=true`，阻塞门禁数为 0。
+
+## 验证命令
+
+```powershell
+python code\utils\freeze_results.py
+python code\utils\verify_freeze.py
+python code\utils\verify_freeze.py --require-final
+```
+
+最后一次运行结果均为 `PASS`。论文所有数字优先引用 `results/frozen_numbers.json`、`results/final_numbers.json` 和 `reports/paper_numbers.csv`。
+
+## 问题一：预测与战争影响
+
+主线：`no_change` 作为诚实胜出的主预测模型，交易日 CAR 与周末匹配 placebo 作为事件相关异常证据，递归 SVAR 提供三类结构冲击。
+
+核心写法：
+
+- h=1：预测 70.89 美元/桶，实际 103.13。
+- h=3：预测 70.89 美元/桶，实际 107.14。
+- h=6：预测 70.89 美元/桶，实际 未到期。
+- E1_CAR_0：CAR=0.0797，经验 p=0.0112。
+- E1_CAR_0_1：CAR=0.1561，经验 p=0.0102。
+- E1_CAR_0_2：CAR=0.1355，经验 p=0.0208。
+
+可用图表：`figures/q1_forecast_1m.png`、`figures/q1_war_counterfactual.png`、`figures/q1_structural_shocks.png`、`figures/paper_event_timeline.png`。
+
+禁止写法：不得把 `ARBaselineGap` 称作严格战争净贡献；不得把 ARIMA/SARIMAX 未胜出解释成建模失败。
+
+## 问题二：中国经济增长传导
+
+主线：结构性油价冲击 → 人民币原油成本 → PPI → CPI/工业增加值 → 季度 GDP 验证。
+
+油价特定风险冲击下的摘要：
+
+- 人民币原油成本：峰值/谷值 8.832，h=0，0—12月累计 4.939，证据状态 INCONCLUSIVE。
+- CPI：峰值/谷值 0.247，h=7，0—12月累计 2.155，证据状态 INCONCLUSIVE。
+- 工业增加值：峰值/谷值 -0.427，h=12，0—12月累计 -0.340，证据状态 INCONCLUSIVE。
+- PPI：峰值/谷值 0.762，h=10，0—12月累计 7.401，证据状态 INCONCLUSIVE。
+
+结论边界：当前总体仍应写成“尚未发现稳健的总体增长损失证据”。若正文使用“增长损失”，必须同时满足工业活动负响应且联合区间排除零。
+
+可用图表：`figures/q2_irf.png`、`figures/q2_transmission_chain.png`、`figures/paper_transmission_mechanism.png`。
+
+## 问题三：中国政策与跨国比较
+
+主线：中国使用官方受管制成品油价格层进入主燃油比较；面板 LP 只估计六个对照国相对中国的响应差；缓冲交互用于机制解释；政策关闭情景在官方成品油价格层上传播至 PPI/CPI/IAV。
+
+综合韧性判断：`PARTIAL`。
+
+- fuel_1m_cumulative_pass_through：中国值 0.333，六国中位数 0.240，判断 NOT_SUPPORTED。
+- fuel_3m_cumulative_pass_through：中国值 0.370，六国中位数 0.232，判断 NOT_SUPPORTED。
+- fuel_6m_cumulative_pass_through：中国值 0.373，六国中位数 0.227，判断 NOT_SUPPORTED。
+- cpi_relative_to_china：中国值 0.000，六国中位数 0.245，判断 PARTIAL。
+- ip_relative_to_china：中国值 0.000，六国中位数 -0.544，判断 PARTIAL。
+
+政策关闭宏观反事实：
+
+- 2026-06 CPI：无临时调控相对实际路径差额 0.819 个百分点，95%区间 [0.242, 1.395]。
+- 2026-06 IAV：无临时调控相对实际路径差额 -2.093 个百分点，95%区间 [-4.164, -0.023]。
+- 2026-06 PPI：无临时调控相对实际路径差额 3.370 个百分点，95%区间 [1.567, 5.173]。
+
+可用图表：`figures/q3_pass_through_6m.png`、`figures/q3_panel_irf.png`、`figures/q3_resilience_metrics.png`、`figures/q3_policy_macro_counterfactual.png`、`figures/paper_policy_counterfactual_flow.png`。
+
+禁止写法：不得仅凭价格传导或中国单一价格监管变量宣称“中国显著更好”；不得把价格平滑写成无成本福利改善。
+
+## 论文接手顺序
+
+1. 先按 `reports/paper_numbers.csv` 抽取数值，填入摘要、问题重述、模型假设和结果表。
+2. 论文正文每问按“目标—数据—公式—估计—结果—检验—解释边界”写。
+3. 所有图表从 `figures/` 选择 PNG 入文，PDF 留作高清备份。
+4. 写作期间如改动模型代码、输入数据或核心结果，必须重新运行冻结和 `--require-final`。

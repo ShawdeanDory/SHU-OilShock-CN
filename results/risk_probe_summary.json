@@ -1,19 +1,18 @@
 {
-  "blocking_probe_ids": [
-    "q1_structural_shock_coverage_gate",
-    "q2_structural_shock_identification",
-    "q3_china_comparability"
-  ],
+  "blocking_probe_ids": [],
   "core_results_present": {
     "q1_daily_counterfactual.csv": true,
     "q1_event_effects.csv": true,
     "q1_forecast_metrics.csv": true,
     "q1_monthly_shocks.csv": true,
+    "q1_origin_forecast.csv": true,
     "q1_placebo_distribution.csv": true,
     "q1_robustness.csv": true,
     "q1_structural_shocks.csv": true,
     "q1_summary.json": true,
+    "q1_svar_diagnostics.csv": true,
     "q1_volatility.csv": true,
+    "q1_volatility_summary.csv": true,
     "q2_ardl_baseline.csv": true,
     "q2_asymmetry.csv": true,
     "q2_gdp_validation.csv": true,
@@ -21,10 +20,13 @@
     "q2_robustness.csv": true,
     "q2_summary.csv": true,
     "q2_summary.json": true,
+    "q2_transmission_metrics.csv": true,
     "q3_buffer_interactions.csv": true,
     "q3_country_pass_through.csv": true,
     "q3_panel_irf.csv": true,
     "q3_policy_counterfactual.csv": true,
+    "q3_policy_macro_counterfactual.csv": true,
+    "q3_resilience_metrics.csv": true,
     "q3_robustness.csv": true,
     "q3_summary.csv": true,
     "q3_summary.json": true
@@ -34,17 +36,21 @@
     "data_overview_fuel_panel.png",
     "data_overview_oil_gpr.png",
     "q1_forecast_1m.png",
+    "q1_structural_shocks.png",
     "q1_war_counterfactual.png",
     "q2_irf.png",
+    "q2_transmission_chain.png",
     "q3_panel_irf.png",
     "q3_pass_through_6m.png",
-    "q3_policy_counterfactual.png"
+    "q3_policy_counterfactual.png",
+    "q3_policy_macro_counterfactual.png",
+    "q3_resilience_metrics.png"
   ],
-  "input_hash_count": 26,
-  "model_code_hash_count": 18,
-  "output_hash_count": 23,
-  "overall_status": "CONDITIONAL",
-  "paper_finalize_allowed": false,
+  "input_hash_count": 28,
+  "model_code_hash_count": 19,
+  "output_hash_count": 29,
+  "overall_status": "PASS",
+  "paper_finalize_allowed": true,
   "probes": [
     {
       "evidence_files": [
@@ -124,18 +130,18 @@
       "message": "Reduced-form oil returns do not substitute for full structural coverage. Q2/Q3 structural interpretation remains conditional until the three structural shock series cover enough history.",
       "metric": {
         "core_structural_counts": {
-          "aggregate_demand_shock": 52,
-          "oil_specific_risk_shock": 52,
-          "supply_shock": 52
+          "aggregate_demand_shock": 186,
+          "oil_specific_risk_shock": 186,
+          "supply_shock": 186
         },
-        "core_structural_months": 52,
+        "core_structural_months": 186,
         "has_columns": true,
         "minimum_core_structural_months": 120,
         "reduced_form_months": 197
       },
       "probe_id": "q1_structural_shock_coverage_gate",
       "severity": "blocking",
-      "status": "CONDITIONAL",
+      "status": "PASS",
       "threshold": "supply, aggregate-demand and oil-specific-risk shocks each have at least 120 nonmissing monthly observations"
     },
     {
@@ -146,18 +152,53 @@
       "message": "Q2/Q3 use structural shock columns when available and retain reduced-form OilShock only as robustness. Current EIA STEO decomposition is too short for full-history structural claims.",
       "metric": {
         "core_structural_counts": {
-          "aggregate_demand_shock": 52,
-          "oil_specific_risk_shock": 52,
-          "supply_shock": 52
+          "aggregate_demand_shock": 186,
+          "oil_specific_risk_shock": 186,
+          "supply_shock": 186
         },
-        "core_structural_months": 52,
+        "core_structural_months": 186,
         "has_columns": true,
         "reduced_form_months": 197
       },
       "probe_id": "q2_structural_shock_identification",
       "severity": "blocking",
-      "status": "CONDITIONAL",
+      "status": "PASS",
       "threshold": "Q1 exports supply, aggregate-demand and oil-specific-risk shocks for Q2/Q3; each core structural shock has at least 120 months"
+    },
+    {
+      "evidence_files": [
+        "results/q1_svar_diagnostics.csv",
+        "results/q1_structural_shocks.csv"
+      ],
+      "message": "SVAR shocks must be generated from the full-history ex-post input rather than the short STEO residual proxy.",
+      "metric": {
+        "core_structural_months": 186,
+        "selected_is_stable": true,
+        "selected_lag": 6,
+        "selected_rows": 1
+      },
+      "probe_id": "q1_svar_identification_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q1 historical recursive VAR has one selected stable specification and enough structural-shock coverage"
+    },
+    {
+      "evidence_files": [
+        "results/q1_origin_forecast.csv"
+      ],
+      "message": "The competition cutoff is 2026-06-30, so the six-month target from 2026-02 must be retained as a forecast-only row rather than removed.",
+      "metric": {
+        "horizons": [
+          1,
+          3,
+          6
+        ],
+        "rows": 3
+      },
+      "probe_id": "q1_origin_forecast_completeness_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q1 2026-02 origin forecast table contains 1, 3 and 6 month horizons, with 2026-08 marked forecast-only"
     },
     {
       "evidence_files": [
@@ -184,7 +225,7 @@
       "metric": {
         "guardrail_present": true,
         "has_required_inference_columns": true,
-        "irf_rows": 181,
+        "irf_rows": 224,
         "structural_shocks_present": true
       },
       "probe_id": "q2_claim_strength_gate",
@@ -200,10 +241,30 @@
       ],
       "message": "Q3 remains conditional until China has enough official regulated fuel-price history to enter the main fuel ranking with the six control countries.",
       "metric": {
-        "china_official_main": false,
-        "china_official_price_months": 5,
-        "china_rows": [],
+        "china_official_main": true,
+        "china_official_price_months": 160,
+        "china_rows": [
+          {
+            "horizon": 1,
+            "included_in_main_comparison": true,
+            "observed_or_regulated": "regulated_official",
+            "price_measure_type": "official_regulated_standard_gasoline_cap"
+          },
+          {
+            "horizon": 3,
+            "included_in_main_comparison": true,
+            "observed_or_regulated": "regulated_official",
+            "price_measure_type": "official_regulated_standard_gasoline_cap"
+          },
+          {
+            "horizon": 6,
+            "included_in_main_comparison": true,
+            "observed_or_regulated": "regulated_official",
+            "price_measure_type": "official_regulated_standard_gasoline_cap"
+          }
+        ],
         "main_countries": [
+          "CHN",
           "DEU",
           "ESP",
           "FRA",
@@ -215,8 +276,30 @@
       },
       "probe_id": "q3_china_comparability",
       "severity": "blocking",
-      "status": "CONDITIONAL",
+      "status": "PASS",
       "threshold": "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable"
+    },
+    {
+      "evidence_files": [
+        "results/q2_irf.csv",
+        "results/q2_transmission_metrics.csv"
+      ],
+      "message": "Q2 may remain substantively inconclusive, but the inference source and response horizons must be internally consistent.",
+      "metric": {
+        "all_irf_bootstrap": true,
+        "iav_horizons": [
+          0,
+          3,
+          6,
+          12
+        ],
+        "irf_rows": 224,
+        "transmission_metric_rows": 21
+      },
+      "probe_id": "q2_inference_consistency_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q2 LP intervals, p-values/FDR family and transmission metrics use the bootstrap interface, and IAV uses the fixed 0/3/6/12 month grid"
     },
     {
       "evidence_files": [
@@ -225,9 +308,10 @@
       ],
       "message": "Q3 has a policy-buffer interaction interface. Current fuel and industrial-activity interactions may be unidentifiable until China fuel/IAV data are official and comparable.",
       "metric": {
-        "buffer_rows": 26,
+        "buffer_rows": 156,
         "outcomes": [
           "cpi",
+          "fuel",
           "ip"
         ]
       },
@@ -270,6 +354,97 @@
     },
     {
       "evidence_files": [
+        "results/q3_policy_macro_counterfactual.csv",
+        "results/q3_policy_counterfactual.csv"
+      ],
+      "message": "The policy counterfactual must operate on the finished-fuel price layer and quantify macro paths, not only the fuel-price gap.",
+      "metric": {
+        "has_interval_columns": true,
+        "outcomes": [
+          "china_cpi_yoy_pct",
+          "china_iav_yoy_pct",
+          "china_ppi_yoy_pct"
+        ],
+        "rows": 15
+      },
+      "probe_id": "q3_policy_macro_propagation_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q3 policy-close counterfactual propagates official fuel-price gaps to PPI, CPI and IAV with intervals"
+    },
+    {
+      "evidence_files": [
+        "data/processed/country_policy_buffers_annual.csv",
+        "results/q3_buffer_interactions.csv"
+      ],
+      "message": "The panel cannot claim policy-buffer evidence if the continuous annual buffer variables are empty or overwritten by blanks.",
+      "metric": {
+        "buffer_interaction_rows": 156,
+        "buffer_table_rows": 119,
+        "buffers_in_results": [
+          "fuel_price_regulation",
+          "import_source_hhi",
+          "oil_import_dependency",
+          "oil_intensity"
+        ],
+        "required_buffers": [
+          "oil_import_dependency",
+          "oil_intensity",
+          "import_source_hhi",
+          "fuel_price_regulation"
+        ]
+      },
+      "probe_id": "q3_buffer_data_completeness_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q3 annual buffer table has nonmissing continuous variables and all four buffers appear in interaction outputs"
+    },
+    {
+      "evidence_files": [
+        "results/q3_panel_irf.csv"
+      ],
+      "message": "With year-month fixed effects, country absolute shock slopes are not separately interpretable; the formal panel output must be relative to a reference country.",
+      "metric": {
+        "countries": [
+          "DEU",
+          "ESP",
+          "FRA",
+          "ITA",
+          "JPN",
+          "KOR"
+        ],
+        "panel_rows": 234,
+        "reference_country_values": [
+          "CHN"
+        ]
+      },
+      "probe_id": "q3_panel_identification_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q3 panel LP identifies control-country responses relative to China under full time fixed effects"
+    },
+    {
+      "evidence_files": [
+        "results/q3_resilience_metrics.csv"
+      ],
+      "message": "The third question needs a synthesis metric rather than separate tables with no final judgement.",
+      "metric": {
+        "dimensions": [
+          "cpi_peak_response",
+          "fuel_pass_through",
+          "industrial_activity_trough",
+          "policy_counterfactual_macro"
+        ],
+        "overall": "PARTIAL",
+        "rows": 8
+      },
+      "probe_id": "q3_resilience_output_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q3 exports fuel, CPI, industrial-activity and policy-scenario resilience metrics plus an overall China judgement"
+    },
+    {
+      "evidence_files": [
         "figures",
         "code/problem1/run_q1.py",
         "code/problem2/run_q2.py",
@@ -282,11 +457,15 @@
           "data_overview_fuel_panel.png",
           "data_overview_oil_gpr.png",
           "q1_forecast_1m.png",
+          "q1_structural_shocks.png",
           "q1_war_counterfactual.png",
           "q2_irf.png",
+          "q2_transmission_chain.png",
           "q3_panel_irf.png",
           "q3_pass_through_6m.png",
-          "q3_policy_counterfactual.png"
+          "q3_policy_counterfactual.png",
+          "q3_policy_macro_counterfactual.png",
+          "q3_resilience_metrics.png"
         ],
         "large_title_painted_inside_figure": false,
         "old_visible_terms": []
@@ -338,9 +517,9 @@
       ],
       "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
-        "input_hash_count": 26,
-        "model_code_hash_count": 18,
-        "output_hash_count": 23
+        "input_hash_count": 28,
+        "model_code_hash_count": 19,
+        "output_hash_count": 29
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",

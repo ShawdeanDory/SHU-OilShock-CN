@@ -1,74 +1,27 @@
 {
-  "status": "CONDITIONAL",
+  "status": "PASS",
+  "execution_status": "PASS",
+  "evidence_status": "PARTIAL",
+  "allowed_claims": [
+    "China enters the main fuel comparison only through an official regulated fuel-price layer",
+    "Panel LP coefficients are relative to China under full year-month fixed effects",
+    "Policy counterfactuals remove 2026 temporary-control gaps on the regulated finished-fuel price layer and propagate to PPI/CPI/IAV"
+  ],
+  "forbidden_claims": [
+    "China is better solely because Brent-CNY proxy pass-through is lower",
+    "fuel price smoothing is welfare-improving without considering cumulative policy gap costs",
+    "fuel_price_regulation interaction is a general causal effect when China is the single strong treatment country"
+  ],
   "random_seed": 20260730,
   "comparability_guardrail": "China uses the official regulated fuel-price layer when available, but it enters the main cross-country fuel ranking only after the official series has sufficient history.",
-  "warnings": [
-    {
-      "code": "q3_pass_through_limited",
-      "message": "CHN: insufficient fuel observations."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=0: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=1: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=2: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=3: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=4: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=5: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=6: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=7: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=8: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=9: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=10: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=11: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_buffer_lp_skipped",
-      "message": "fuel h=12: buffer interaction is not identifiable with current comparable data."
-    },
-    {
-      "code": "q3_policy_macro_elasticity_missing",
-      "message": "Too few China official regulated fuel observations for CPI propagation."
-    }
-  ],
+  "warnings": [],
   "rows": {
-    "q3_country_pass_through.csv": 18,
-    "q3_panel_irf.csv": 208,
-    "q3_buffer_interactions.csv": 26,
+    "q3_country_pass_through.csv": 21,
+    "q3_panel_irf.csv": 234,
+    "q3_buffer_interactions.csv": 156,
     "q3_policy_counterfactual.csv": 5,
-    "q3_robustness.csv": 35
+    "q3_policy_macro_counterfactual.csv": 15,
+    "q3_resilience_metrics.csv": 8,
+    "q3_robustness.csv": 42
   }
 }

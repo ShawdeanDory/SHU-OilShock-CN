@@ -27,6 +27,7 @@ cn_gasoline_adjustment_cny_t,Q3,SRC_NDRC_FUEL,policy_event,monthly,2013-01/2026-
 cn_diesel_adjustment_cny_t,Q3,SRC_NDRC_FUEL,policy_event,monthly,2013-01/2026-06,发布日24时生效,policy_date<=2026-06-30,PASS,按来源实际公告或登记规则使用,rule_based
 cn_gasoline_policy_gap_cny_t,Q3,SRC_NDRC_FUEL,policy_event,monthly,2013-01/2026-06,与政策公告同日可用,policy_date<=2026-06-30,DERIVED,按来源实际公告或登记规则使用,rule_based
 cn_diesel_policy_gap_cny_t,Q3,SRC_NDRC_FUEL,policy_event,monthly,2013-01/2026-06,与政策公告同日可用,policy_date<=2026-06-30,DERIVED,按来源实际公告或登记规则使用,rule_based
+china_regulated_gasoline_cny_l,Q3,SRC_NDRC_FUEL,policy_event,monthly,2013-01/2026-06,调价日24时生效,period<=2026-06,CONDITIONAL,按来源实际公告或登记规则使用,rule_based
 jp_regular_gasoline_jpy_l_m,Q3,SRC_JP_METI_FUEL,weekly,monthly,2010-01/2026-06,通常周一调查周三发布,week_date<=2026-06-30,PASS,按来源实际公告或登记规则使用,rule_based
 de_eurosuper95_eur_l_m,Q3,SRC_EC_WOB,weekly,monthly,2010-01/2026-06,每周提交并于周四发布,week_date<=2026-06-30,PASS,按来源实际公告或登记规则使用,rule_based
 kr_regular_gasoline_krw_l_m,Q3,SRC_KR_KOSIS_FUEL,monthly,monthly,2010-01/2026-06,KOSIS表资料更新日2026-07-29,period<=2026-06,PASS,按来源实际公告或登记规则使用,rule_based

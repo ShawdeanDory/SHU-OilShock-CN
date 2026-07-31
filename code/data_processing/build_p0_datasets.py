@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
+import io
 import json
 import re
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -13,6 +16,7 @@ from typing import Any
 
 import openpyxl
 import pandas as pd
+import requests
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +34,16 @@ EU_FUEL_COUNTRIES = {
     "ITA": ("IT", "Italy", "italy"),
     "ESP": ("ES", "Spain", "spain"),
 }
+EIA_INTL_BULK_URL = "https://www.eia.gov/opendata/bulk/INTL.zip"
+EIA_WORLD_LIQUIDS_SERIES_ID = "INTL.53-1-WORL-TBPD.M"
+DALLAS_FED_IGREA_URL = "https://www.dallasfed.org/-/media/documents/research/igrea/igrea.xlsx"
+FRED_US_CPI_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL"
+OECD_US_CPI_URL = (
+    "https://sdmx.oecd.org/public/rest/data/"
+    "OECD.SDD.TPS,DSD_G20_PRICES@DF_G20_PRICES,1.0/"
+    "USA.M...IX...?startPeriod=2010-01&endPeriod=2026-06"
+    "&dimensionAtObservation=AllDimensions&format=csvfile"
+)
 
 
 @dataclass
@@ -67,6 +81,21 @@ def source_path(manifest: dict[str, dict[str, Any]], artifact_id: str) -> Path:
 def save_csv(frame: pd.DataFrame, filename: str) -> Path:
     path = PROCESSED_DIR / filename
     frame.to_csv(path, index=False, encoding="utf-8")
+    return path
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def download_cached(url: str, filename: str, timeout: int = 60) -> Path:
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    path = RAW_DIR / filename
+    if path.exists() and path.stat().st_size > 0:
+        return path
+    response = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
+    response.raise_for_status()
+    path.write_bytes(response.content)
     return path
 
 
@@ -326,6 +355,131 @@ def build_steo_data(
         missing=int(frame["value"].isna().sum()),
         duplicates=int(frame.duplicated(["variable_id", "period"]).sum()),
         note="当前单一版本仅覆盖2022年起，且2026-02至06为估计值；不能回填2010年起的实时滚动预测",
+    )
+
+
+def parse_eia_world_liquids(path: Path) -> pd.DataFrame:
+    with zipfile.ZipFile(path) as archive:
+        with archive.open("INTL.txt") as handle:
+            for raw_line in handle:
+                record = json.loads(raw_line)
+                if record.get("series_id") != EIA_WORLD_LIQUIDS_SERIES_ID:
+                    continue
+                rows = []
+                for period_code, value in record.get("data", []):
+                    period_text = str(period_code)
+                    if len(period_text) != 6:
+                        continue
+                    rows.append(
+                        {
+                            "period": f"{period_text[:4]}-{period_text[4:]}",
+                            "world_liquids_supply": float(value) / 1000.0,
+                            "world_liquids_supply_unit": "million barrels per day",
+                            "eia_series_id": record["series_id"],
+                            "eia_last_updated": record.get("last_updated", ""),
+                        }
+                    )
+                frame = pd.DataFrame(rows)
+                frame["month_start"] = pd.to_datetime(frame["period"] + "-01", errors="coerce")
+                frame = frame.loc[frame["month_start"].between(START_MONTHLY, CUTOFF)].copy()
+                return frame.drop(columns=["month_start"]).sort_values("period").reset_index(drop=True)
+    raise ValueError(f"{path.name} does not contain {EIA_WORLD_LIQUIDS_SERIES_ID}")
+
+
+def parse_dallas_fed_igrea(path: Path) -> pd.DataFrame:
+    raw = pd.read_excel(path, sheet_name="Kilian Index", header=None)
+    frame = raw.iloc[1:, [0, 1]].copy()
+    frame.columns = ["date", "global_real_activity"]
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame["global_real_activity"] = pd.to_numeric(frame["global_real_activity"], errors="coerce")
+    frame = frame.dropna(subset=["date", "global_real_activity"]).copy()
+    frame["period"] = frame["date"].dt.to_period("M").astype(str)
+    frame = frame.loc[pd.to_datetime(frame["period"] + "-01").between(START_MONTHLY, CUTOFF)]
+    return frame[["period", "global_real_activity"]].sort_values("period").reset_index(drop=True)
+
+
+def load_us_cpi_deflator() -> tuple[pd.DataFrame, Path, str, str]:
+    try:
+        fred_path = download_cached(FRED_US_CPI_URL, "fred_us_cpi_cpiaucsl_20260731.csv", timeout=45)
+        fred = pd.read_csv(fred_path, na_values=[".", ""])
+        if {"observation_date", "CPIAUCSL"}.issubset(fred.columns):
+            frame = fred[["observation_date", "CPIAUCSL"]].rename(
+                columns={"observation_date": "date", "CPIAUCSL": "us_cpi"}
+            )
+            frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+            frame["us_cpi"] = pd.to_numeric(frame["us_cpi"], errors="coerce")
+            frame = frame.dropna(subset=["date", "us_cpi"]).copy()
+            frame["period"] = frame["date"].dt.to_period("M").astype(str)
+            frame = frame.loc[pd.to_datetime(frame["period"] + "-01").between(START_MONTHLY, CUTOFF)]
+            return frame[["period", "us_cpi"]], fred_path, FRED_US_CPI_URL, "FRED_CPIAUCSL"
+    except requests.RequestException:
+        pass
+
+    oecd_path = download_cached(OECD_US_CPI_URL, "oecd_us_cpi_index_20260731.csv", timeout=60)
+    raw = pd.read_csv(oecd_path)
+    required = {"REF_AREA", "TIME_PERIOD", "OBS_VALUE"}
+    missing = required - set(raw.columns)
+    if missing:
+        raise ValueError(f"{oecd_path.name} missing columns {sorted(missing)}")
+    frame = raw.loc[raw["REF_AREA"].eq("USA"), ["TIME_PERIOD", "OBS_VALUE"]].copy()
+    frame = frame.rename(columns={"TIME_PERIOD": "period", "OBS_VALUE": "us_cpi"})
+    frame["us_cpi"] = pd.to_numeric(frame["us_cpi"], errors="coerce")
+    frame = frame.dropna(subset=["period", "us_cpi"])
+    return frame[["period", "us_cpi"]].sort_values("period").reset_index(drop=True), oecd_path, OECD_US_CPI_URL, "OECD_US_CPI_INDEX"
+
+
+def build_global_oil_svar_input(monthly_market: pd.DataFrame) -> tuple[pd.DataFrame, QualityRow]:
+    eia_path = download_cached(EIA_INTL_BULK_URL, "eia_intl_bulk_20260731.zip", timeout=120)
+    igrea_path = download_cached(DALLAS_FED_IGREA_URL, "dallasfed_igrea_20260731.xlsx", timeout=90)
+    supply = parse_eia_world_liquids(eia_path)
+    activity = parse_dallas_fed_igrea(igrea_path)
+    cpi, cpi_path, cpi_url, cpi_source = load_us_cpi_deflator()
+    market = monthly_market[["period", "month_end", "brent_usd_bbl"]].copy()
+    frame = (
+        pd.DataFrame({"period": pd.period_range("2010-01", "2026-06", freq="M").astype(str)})
+        .merge(supply, on="period", how="left")
+        .merge(activity, on="period", how="left")
+        .merge(cpi, on="period", how="left")
+        .merge(market, on="period", how="left")
+    )
+    cpi_base = float(frame.loc[frame["period"].eq("2026-06"), "us_cpi"].dropna().iloc[0])
+    frame["real_brent"] = frame["brent_usd_bbl"] * cpi_base / frame["us_cpi"]
+    frame["source_vintage"] = "downloaded_2026-07-31_ex_post"
+    frame["release_date"] = ""
+    frame["source_url"] = ";".join([EIA_INTL_BULK_URL, DALLAS_FED_IGREA_URL, cpi_url])
+    frame["raw_sha256"] = ";".join(
+        [
+            f"eia={sha256_file(eia_path)}",
+            f"igrea={sha256_file(igrea_path)}",
+            f"{cpi_source.lower()}={sha256_file(cpi_path)}",
+        ]
+    )
+    output = frame[
+        [
+            "period",
+            "world_liquids_supply",
+            "global_real_activity",
+            "us_cpi",
+            "real_brent",
+            "source_vintage",
+            "release_date",
+            "source_url",
+            "raw_sha256",
+        ]
+    ]
+    save_csv(output, "global_oil_svar_monthly.csv")
+    usable = output[["world_liquids_supply", "global_real_activity", "real_brent"]].dropna()
+    usable_periods = output.loc[output[["world_liquids_supply", "global_real_activity", "real_brent"]].notna().all(axis=1), "period"]
+    status = "PASS" if len(usable) >= 120 else "CONDITIONAL"
+    return output, QualityRow(
+        dataset="global_oil_svar_monthly",
+        status=status,
+        rows=len(output),
+        start=str(usable_periods.min()) if not usable_periods.empty else "",
+        end=str(usable_periods.max()) if not usable_periods.empty else "",
+        missing=int(output[["world_liquids_supply", "global_real_activity", "us_cpi", "real_brent"]].isna().sum().sum()),
+        duplicates=int(output["period"].duplicated().sum()),
+        note=f"SVAR ex-post input from EIA INTL world liquids, Dallas Fed IGREA and {cpi_source}; not used for real-time forecast backtests.",
     )
 
 
@@ -906,6 +1060,9 @@ def main() -> int:
             note="2010-01至2026-06主市场面板；未对缺失值做插值",
         )
     )
+
+    _, svar_quality = build_global_oil_svar_input(monthly_market)
+    quality_rows.append(svar_quality)
 
     _, steo_quality = build_steo_data(manifest)
     quality_rows.append(steo_quality)

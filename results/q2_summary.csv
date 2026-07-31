@@ -1,6 +1,6 @@
 component,rows,status,note
-ARDL,12,PASS,available monthly outcomes only; OilShock is reduced-form innovation
-LocalProjection,181,PASS,horizons 0..12 where estimable; reports FDR and zero-crossing flags
-GDPValidation,1,INCONCLUSIVE,quarterly GDP check; no monthly interpolation
-Asymmetry,8,PASS,positive and negative shock split; not a full NARDL
-LagCovidRobustness,18,PASS,lag 3/6/12 and exclude-COVID specifications
+ARDL,15,PASS,available monthly outcomes only; OilShock is reduced-form innovation
+LocalProjection,224,PASS,horizons 0..12 where estimable; reports FDR and zero-crossing flags
+GDPValidation,1,SUPPORTED,quarterly GDP check; no monthly interpolation
+Asymmetry,10,PASS,positive and negative shock split; not a full NARDL
+LagCovidRobustness,30,PASS,lag 3/6/12 and exclude-COVID specifications
