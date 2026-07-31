@@ -11,15 +11,16 @@
 - 比赛提交日：2026-08-01
 - 子问题数量：3
 - 建模方案：B 档平衡方案
-- 当前阶段：建模口径已锁定，准备核验并采集 P0 数据
+- 当前阶段：三问阶段性模型与图表已完成，风险门禁为 `CONDITIONAL`，尚未放行论文定稿
 
 题面文件：[A题：国际油价预测建模.docx](./A题：国际油价预测建模.docx)
 
 ## 已锁定的研究主线
 
 ```text
-月度 Brent 基线与 ARIMAX 预测
-  + 日度多阶段事件研究和战前反事实
+月度 Brent no-change 基线预测
+  + ARIMA/SARIMAX 解释性补充
+  + 日度多阶段事件研究和 AR 基准情景差额
   -> 月度中国 Local Projection / ARDL
   -> 跨国价格传导比较
   -> 关闭中国临时调控的反事实
@@ -27,8 +28,8 @@
 
 需要特别区分：
 
-- 预测模型用于回答油价未来如何变化。
-- 冲击识别用于回答战争额外造成了多大影响。
+- 预测模型用于回答油价未来如何变化；当前滚动评估选择 no-change 为主预测。
+- 事件研究用于报告事件窗口内的异常变化，AR 基准情景差额不解释为严格战争因果贡献。
 - 相关性、预测误差和特征重要性不能单独证明因果关系。
 
 主频率为月度，日度只用于问题一事件证据，季度 GDP 只作问题二验证。问题三主指标为燃油价格传导率、CPI 响应、工业增加值损失与恢复时间；主对照为日本、韩国、德国，印度为扩展样本。
@@ -66,6 +67,32 @@
 - [B 档执行方案](./plan.md)
 - [阶段待办清单](./todo.md)
 - [战争与政策事件表](./data/event_timeline.csv)
+- [阶段性结果报告](./reports/RESULTS_REPORT.md)
+- [风险探针汇总](./results/risk_probe_summary.json)
+
+## 当前门禁与复现
+
+- Q1：no-change 主预测通过；ARIMA/SARIMAX 未稳定战胜基线，复杂模型结论保持 `CONDITIONAL/FAIL`。
+- Q2：国家统计局工业增加值与 PPI 月度历史尚未进入处理层，论文定稿继续阻塞。
+- Q3：中国 Brent-CNY 构造代理值只用于政策情景，不参与跨国燃油传导主排名。
+- `results/frozen_numbers.json` 使用 `3coding-visual` 标准数值冻结格式。
+- 风险状态、运行环境以及代码/输入/输出哈希保存在 `results/reproducibility_manifest.json`。
+
+项目级检查：
+
+```powershell
+python code/utils/verify_freeze.py
+```
+
+该命令会把与锁定回放环境（Python 3.11.9）的差异列为 warning；只有在精确回放环境中才使用 `--strict-environment`。
+
+使用 `3coding-visual` 标准脚本检查数值冻结：
+
+```powershell
+python "<SKILL_DIR>/scripts/freeze_results.py" check --source results/final_numbers.json --freeze results/frozen_numbers.json
+```
+
+只有风险门禁全部为 `PASS` 后，才能运行论文定稿和最终验收。
 
 ## 免费数据源原则
 

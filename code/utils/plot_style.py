@@ -100,11 +100,16 @@ def finish_figure(
     title: str,
     subtitle: str,
     source: str,
-    rect: tuple[float, float, float, float] = (0.08, 0.11, 0.98, 0.86),
+    rect: tuple[float, float, float, float] = (0.08, 0.11, 0.98, 0.98),
 ) -> None:
+    """Finish a paper figure while leaving its title to the LaTeX caption.
+
+    ``title`` and ``subtitle`` remain required as generation metadata for the
+    calling code, but they are deliberately not painted into the figure.
+    """
     fig.tight_layout(rect=rect)
-    fig.text(rect[0], 0.965, title, ha="left", va="top", fontsize=14, fontweight="normal", color=INK)
-    fig.text(rect[0], 0.927, subtitle, ha="left", va="top", fontsize=9.6, color=MUTED)
+    fig._shu_caption = title  # type: ignore[attr-defined]
+    fig._shu_subtitle = subtitle  # type: ignore[attr-defined]
     fig.text(rect[0], 0.035, source, ha="left", va="bottom", fontsize=8.4, color=MUTED)
 
 

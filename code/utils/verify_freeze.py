@@ -1,4 +1,4 @@
-"""Verify frozen modeling outputs without mutating the repository."""
+"""Verify the standard numerical freeze and the project reproducibility manifest."""
 
 from __future__ import annotations
 
@@ -21,20 +21,30 @@ PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-FROZEN_REQUIRED = [
+STANDARD_FROZEN_REQUIRED = [
     "schema_version",
-    "freeze_hash",
-    "freeze_mode",
+    "frozen_at",
+    "source_file",
+    "source_sha256",
+    "values",
+]
+MANIFEST_REQUIRED = [
+    "schema_version",
+    "snapshot_mode",
     "overall_status",
     "paper_finalize_allowed",
     "git_commit",
     "cutoff",
     "random_seed",
-    "environment",
+    "replay_environment",
+    "packaging_environment",
+    "code_hashes",
     "processed_input_hashes",
     "core_result_hashes",
     "risk_gate_hash",
-    "candidate_numbers",
+    "final_numbers_source_sha256",
+    "standard_freeze_file",
+    "manifest_hash",
 ]
 RISK_REQUIRED = [
     "schema_version",
@@ -52,15 +62,14 @@ RISK_REQUIRED = [
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    payload = path.read_bytes()
+    if path.suffix.lower() in {".csv", ".json", ".md", ".py", ".txt"}:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(payload).hexdigest()
 
 
-def sha256_json(payload: dict[str, Any]) -> str:
-    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def sha256_json(payload: Any) -> str:
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -91,18 +100,18 @@ def bool_series(series: pd.Series) -> pd.Series:
     return series.astype(str).str.lower().isin(["true", "1", "yes"])
 
 
-def verify_environment(frozen: dict[str, Any], errors: list[str]) -> None:
-    env = frozen.get("environment", {})
+def verify_environment(manifest: dict[str, Any], messages: list[str]) -> None:
+    env = manifest.get("replay_environment", {})
     if env.get("python_version") != platform.python_version():
-        errors.append(f"python version mismatch: frozen={env.get('python_version')} current={platform.python_version()}")
+        messages.append(f"replay python mismatch: required={env.get('python_version')} current={platform.python_version()}")
     packages = env.get("packages", {})
-    for package, frozen_version in packages.items():
+    for package, manifest_version in packages.items():
         try:
             current = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             current = "NOT_INSTALLED"
-        if current != frozen_version:
-            errors.append(f"package version mismatch: {package} frozen={frozen_version} current={current}")
+        if current != manifest_version:
+            messages.append(f"replay package mismatch: {package} required={manifest_version} current={current}")
 
 
 def verify_key_result_shapes(errors: list[str]) -> None:
@@ -110,66 +119,95 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     required_q1 = {"model", "horizon", "relative_RMSE_vs_no_change", "model_status"}
     if not required_q1.issubset(q1_metrics.columns):
         errors.append("q1_forecast_metrics.csv lacks forecast gate columns")
-    advanced_bad = q1_metrics.loc[q1_metrics["model"].ne("no_change") & q1_metrics["model_status"].eq("PASS")]
-    advanced_worse = q1_metrics.loc[q1_metrics["model"].ne("no_change") & q1_metrics["relative_RMSE_vs_no_change"].gt(1.0)]
-    if not advanced_bad.merge(advanced_worse[["model", "horizon"]], on=["model", "horizon"], how="inner").empty:
-        errors.append("advanced Q1 model with RMSE worse than no-change is still marked PASS")
+    else:
+        advanced_pass = q1_metrics.loc[q1_metrics["model"].ne("no_change") & q1_metrics["model_status"].eq("PASS")]
+        advanced_worse = q1_metrics.loc[q1_metrics["model"].ne("no_change") & q1_metrics["relative_RMSE_vs_no_change"].gt(1.0)]
+        if not advanced_pass.merge(advanced_worse[["model", "horizon"]], on=["model", "horizon"], how="inner").empty:
+            errors.append("advanced Q1 model with RMSE worse than no-change is still marked PASS")
+
+    q1_events = pd.read_csv(RESULTS_DIR / "q1_event_effects.csv")
+    empirical = pd.to_numeric(
+        q1_events.loc[q1_events["model"].eq("brent_usd_bbl_event_car"), "pvalue_empirical"],
+        errors="coerce",
+    ).dropna()
+    if empirical.empty or not empirical.between(0.0, 1.0, inclusive="right").all() or empirical.eq(0.0).any():
+        errors.append("Q1 empirical placebo p-values are missing, outside (0, 1], or still report zero")
 
     q3_pass = pd.read_csv(RESULTS_DIR / "q3_country_pass_through.csv")
     required_q3 = {"price_measure_type", "observed_or_regulated", "included_in_main_comparison", "comparability_note"}
     if not required_q3.issubset(q3_pass.columns):
         errors.append("q3_country_pass_through.csv lacks comparability columns")
-    chn = bool_series(q3_pass.loc[q3_pass["country"].eq("CHN"), "included_in_main_comparison"])
-    if chn.any():
-        errors.append("China proxy is included in the main Q3 fuel comparison")
+    else:
+        chn = bool_series(q3_pass.loc[q3_pass["country"].eq("CHN"), "included_in_main_comparison"])
+        if chn.any():
+            errors.append("China proxy is included in the main Q3 fuel comparison")
 
     policy = pd.read_csv(RESULTS_DIR / "q3_policy_counterfactual.csv")
     april = policy.loc[policy["period"].eq("2026-04")]
     if april.empty:
         errors.append("q3_policy_counterfactual.csv lacks 2026-04 row")
     else:
-        inc = float(april["incremental_gasoline_gap_cny_t"].iloc[0])
-        cum = float(april["cumulative_gasoline_gap_cny_t"].iloc[0])
-        if abs(inc - 380.0) > 1e-6 or abs(cum - 1425.0) > 1e-6:
+        incremental = float(april["incremental_gasoline_gap_cny_t"].iloc[0])
+        cumulative = float(april["cumulative_gasoline_gap_cny_t"].iloc[0])
+        if abs(incremental - 380.0) > 1e-6 or abs(cumulative - 1425.0) > 1e-6:
             errors.append("Q3 April policy gap no longer matches incremental 380 and cumulative 1425")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--require-final", action="store_true", help="Return nonzero unless the risk gate allows paper finalization.")
+    parser.add_argument("--strict-environment", action="store_true", help="Treat replay-environment differences as errors.")
     args = parser.parse_args()
 
     errors: list[str] = []
+    environment_messages: list[str] = []
+    final_path = RESULTS_DIR / "final_numbers.json"
     frozen_path = RESULTS_DIR / "frozen_numbers.json"
     risk_path = RESULTS_DIR / "risk_probe_summary.json"
+    manifest_path = RESULTS_DIR / "reproducibility_manifest.json"
+
+    final_numbers = load_json(final_path)
     frozen = load_json(frozen_path)
     risk = load_json(risk_path)
+    manifest = load_json(manifest_path)
 
-    require_keys(frozen, FROZEN_REQUIRED, "frozen_numbers.json", errors)
+    require_keys(frozen, STANDARD_FROZEN_REQUIRED, "frozen_numbers.json", errors)
+    require_keys(manifest, MANIFEST_REQUIRED, "reproducibility_manifest.json", errors)
     require_keys(risk, RISK_REQUIRED, "risk_probe_summary.json", errors)
 
-    freeze_source = {key: frozen[key] for key in FROZEN_REQUIRED if key != "freeze_hash" and key in frozen}
-    expected_freeze_hash = sha256_json(freeze_source)
-    if frozen.get("freeze_hash") != expected_freeze_hash:
-        errors.append("freeze_hash does not match canonical frozen payload")
+    expected_source_hash = sha256_json(final_numbers)
+    if frozen.get("schema_version") != 1:
+        errors.append(f"frozen_numbers.json schema_version must be 1, got {frozen.get('schema_version')!r}")
+    if frozen.get("source_file") != "results/final_numbers.json":
+        errors.append("frozen_numbers.json source_file is not results/final_numbers.json")
+    if frozen.get("source_sha256") != expected_source_hash:
+        errors.append("frozen_numbers.json source_sha256 does not match final_numbers.json")
+    if frozen.get("values") != final_numbers:
+        errors.append("frozen_numbers.json values do not match final_numbers.json")
 
-    if frozen.get("risk_gate_hash") != sha256_file(risk_path):
+    manifest_source = {key: manifest[key] for key in MANIFEST_REQUIRED if key != "manifest_hash" and key in manifest}
+    if manifest.get("manifest_hash") != sha256_json(manifest_source):
+        errors.append("manifest_hash does not match canonical reproducibility manifest")
+    if manifest.get("risk_gate_hash") != sha256_file(risk_path):
         errors.append("risk_gate_hash does not match risk_probe_summary.json")
+    if manifest.get("final_numbers_source_sha256") != expected_source_hash:
+        errors.append("manifest final_numbers_source_sha256 does not match final_numbers.json")
 
-    verify_hashes(RESULTS_DIR, frozen.get("core_result_hashes", {}), "result", errors)
-    verify_hashes(PROCESSED_DIR, frozen.get("processed_input_hashes", {}), "processed input", errors)
-    verify_environment(frozen, errors)
+    verify_hashes(RESULTS_DIR, manifest.get("core_result_hashes", {}), "result", errors)
+    verify_hashes(PROCESSED_DIR, manifest.get("processed_input_hashes", {}), "processed input", errors)
+    verify_hashes(REPO_ROOT, manifest.get("code_hashes", {}), "code", errors)
+    verify_environment(manifest, errors if args.strict_environment else environment_messages)
     verify_key_result_shapes(errors)
 
     if risk.get("paper_finalize_allowed") != (risk.get("overall_status") == "PASS"):
         errors.append("risk paper_finalize_allowed is inconsistent with overall_status")
-    if frozen.get("paper_finalize_allowed") != risk.get("paper_finalize_allowed"):
-        errors.append("frozen paper_finalize_allowed differs from risk gate")
-    if frozen.get("overall_status") != risk.get("overall_status"):
-        errors.append("frozen overall_status differs from risk gate")
+    if manifest.get("paper_finalize_allowed") != risk.get("paper_finalize_allowed"):
+        errors.append("manifest paper_finalize_allowed differs from risk gate")
+    if manifest.get("overall_status") != risk.get("overall_status"):
+        errors.append("manifest overall_status differs from risk gate")
 
     if errors:
-        print(json.dumps({"status": "FAIL", "errors": errors}, ensure_ascii=False, indent=2))
+        print(json.dumps({"status": "FAIL", "errors": errors, "environment_warnings": environment_messages}, ensure_ascii=False, indent=2))
         return 1
     if args.require_final and not risk.get("paper_finalize_allowed"):
         print(
@@ -178,13 +216,24 @@ def main() -> int:
                     "status": risk.get("overall_status"),
                     "paper_finalize_allowed": False,
                     "blocking_probe_ids": risk.get("blocking_probe_ids", []),
+                    "environment_warnings": environment_messages,
                 },
                 ensure_ascii=False,
                 indent=2,
             )
         )
         return 2
-    print(json.dumps({"status": risk.get("overall_status"), "paper_finalize_allowed": risk.get("paper_finalize_allowed")}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "status": risk.get("overall_status"),
+                "paper_finalize_allowed": risk.get("paper_finalize_allowed"),
+                "environment_warnings": environment_messages,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 

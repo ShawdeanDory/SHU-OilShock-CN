@@ -40,33 +40,41 @@
 - [x] 在下载与处理脚本中区分 EIA STEO 历史、估计与预测区间
 - [x] 保存并校验韩国 KOSIS 2010-01 至 2026-06 普通汽油月度快照
 - [x] 生成 P0 市场月度面板和日度市场数据
-- [ ] 合并人工宏观数据和事件阶段，生成最终建模面板（德日韩燃油价格已完成）
+- [x] 合并现有宏观数据和事件阶段，生成阶段性建模面板（IAV/PPI 缺口单独保留为阻塞项）
 - [x] 输出数据质量报告并通过独立校验
 
 ### 风险探针
 
-- [ ] 运行 Q1 ARIMAX、基线和事件模型探针
-- [ ] 运行 Q2 LP、ARDL 探针
-- [ ] 运行 Q3 跨国可比性、面板和规则反事实探针
-- [ ] 写入 `results/risk_probe_summary.json`
-- [ ] 对 `CONDITIONAL` 项满足条件后再实现，对 `FAIL` 项执行回退
+- [x] 运行 Q1 ARIMA/SARIMAX、no-change 基线和事件模型探针
+- [x] 运行 Q2 LP、ARDL 探针
+- [x] 运行 Q3 跨国可比性、面板和规则反事实探针
+- [x] 写入 `results/risk_probe_summary.json`
+- [x] 执行已触发的回退：Q1 选择 no-change；Q2 保持 `CONDITIONAL`；Q3 中国代理值退出主排名
 
 ### 完整实现
 
-- [ ] Q1：no-change/随机游走与 ARIMAX 滚动预测
-- [ ] Q1：多阶段日度事件研究和无战争反事实
-- [ ] Q1：WTI 或 EGARCH 稳健性
-- [ ] Q2：ARDL 基线
-- [ ] Q2：Local Projection 及 0—12 月响应
-- [ ] Q2：NARDL 或季度 GDP 验证
-- [ ] Q3：分国传导率基线
-- [ ] Q3：跨国面板 LP 与政策交互
-- [ ] Q3：中国临时调控关闭反事实
-- [ ] Q3：逐个删除对照国稳健性
-- [ ] 生成 `reports/RESULTS_REPORT.md`
-- [ ] 生成论文数据图表 PDF
-- [ ] 写入 `results/final_numbers.json`
-- [ ] 生成并检查 `results/frozen_numbers.json`
+- [x] Q1：no-change、ARIMA、SARIMAX 滚动预测与统一基线比较
+- [x] Q1：多阶段日度事件研究和描述性 AR 基准情景差额
+- [x] Q1：WTI 稳健性
+- [x] Q1：匹配周末 placebo，并采用有限样本经验 p 值修正
+- [x] Q2：ARDL 基线
+- [x] Q2：Local Projection 及 0—12 月响应
+- [x] Q2：NARDL 代理或季度 GDP 验证
+- [x] Q3：分国传导率基线
+- [x] Q3：跨国面板 LP（中国构造代理值剔除主比较）
+- [x] Q3：中国临时调控关闭反事实
+- [x] Q3：逐个删除对照国稳健性
+- [x] 生成 `reports/RESULTS_REPORT.md`
+- [x] 生成中文论文数据图表 PDF，并将大标题交给 LaTeX caption
+- [x] 写入 `results/final_numbers.json`
+- [x] 使用标准格式生成并检查 `results/frozen_numbers.json`
+- [x] 生成并检查 `results/reproducibility_manifest.json`
+
+### 当前阻塞项
+
+- [ ] 补齐国家统计局工业增加值、PPI 月度历史后重跑 Q2
+- [ ] 决定是否继续开发能够稳定战胜 no-change 的 Q1 预测模型
+- [ ] 风险门禁全部 `PASS` 后允许论文数值定稿
 
 ## 3. 流程与架构图 - `4drawio`
 

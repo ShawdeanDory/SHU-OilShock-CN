@@ -8,6 +8,7 @@ import json
 import platform
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +35,9 @@ RESULTS_DIR = REPO_ROOT / "results"
 FIGURES_DIR = REPO_ROOT / "figures"
 REPORTS_DIR = REPO_ROOT / "reports"
 CUTOFF = "2026-06-30"
-SCHEMA_VERSION = "1.0"
+RISK_SCHEMA_VERSION = "1.0"
+MANIFEST_SCHEMA_VERSION = "1.0"
+STANDARD_FREEZE_SCHEMA_VERSION = 1
 RANDOM_SEED = 20260730
 
 CORE_RESULT_FILES = [
@@ -78,7 +81,23 @@ PROCESSED_INPUT_FILES = [
     "china_fuel_proxy_monthly.csv",
 ]
 
+CODE_FILES = [
+    "code/data_processing/build_model_panels.py",
+    "code/problem1/run_q1.py",
+    "code/problem2/run_q2.py",
+    "code/problem3/run_q3.py",
+    "code/schemas/frozen_numbers.schema.json",
+    "code/schemas/reproducibility_manifest.schema.json",
+    "code/schemas/risk_probe_summary.schema.json",
+    "code/utils/freeze_results.py",
+    "code/utils/plot_style.py",
+    "code/utils/verify_freeze.py",
+    "requirements.in",
+    "requirements.lock.txt",
+]
+
 COUNTRY_LABEL_ZH = {"CHN": "中国（代理）", "DEU": "德国", "JPN": "日本", "KOR": "韩国"}
+CORE_PACKAGES = ["numpy", "pandas", "scipy", "statsmodels", "linearmodels", "matplotlib", "requests", "openpyxl", "xlrd"]
 
 
 def read_csv(filename: str) -> pd.DataFrame:
@@ -100,11 +119,10 @@ def sha256_bytes(payload: bytes) -> str:
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    payload = path.read_bytes()
+    if path.suffix.lower() in {".csv", ".json", ".md", ".py", ".txt"}:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def sha256_json(payload: dict[str, Any]) -> str:
@@ -149,7 +167,7 @@ def git_commit() -> str:
 
 def environment_snapshot() -> dict[str, Any]:
     packages: dict[str, str] = {}
-    for package in ["numpy", "pandas", "scipy", "statsmodels", "linearmodels", "matplotlib", "requests", "openpyxl", "xlrd"]:
+    for package in CORE_PACKAGES:
         try:
             packages[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -159,6 +177,26 @@ def environment_snapshot() -> dict[str, Any]:
         "python_version": platform.python_version(),
         "python_executable": sys.executable,
         "platform": platform.platform(),
+        "packages": packages,
+        "requirements_lock_sha256": sha256_file(lock_path) if lock_path.exists() else None,
+    }
+
+
+def replay_environment_snapshot() -> dict[str, Any]:
+    lock_path = REPO_ROOT / "requirements.lock.txt"
+    lock_text = lock_path.read_text(encoding="utf-8") if lock_path.exists() else ""
+    python_version = None
+    packages: dict[str, str] = {}
+    for line in lock_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# Python:"):
+            python_version = stripped.split(":", 1)[1].strip()
+        elif stripped and not stripped.startswith("#") and "==" in stripped:
+            package, version = stripped.split("==", 1)
+            if package.strip().lower() in CORE_PACKAGES:
+                packages[package.strip().lower()] = version.strip()
+    return {
+        "python_version": python_version,
         "packages": packages,
         "requirements_lock_sha256": sha256_file(lock_path) if lock_path.exists() else None,
     }
@@ -251,7 +289,7 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
 
     placebos = read_csv("q1_placebo_distribution.csv")
     empirical_p = q1_summary.get("placebo_min_empirical_pvalue")
-    if placebos.empty or empirical_p is None:
+    if placebos.empty or empirical_p is None or not 0.0 < float(empirical_p) <= 1.0:
         placebo_status = "FAIL"
     else:
         placebo_status = "PASS"
@@ -260,9 +298,9 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             "q1_placebo_distribution_gate",
             placebo_status,
             {"placebo_rows": int(len(placebos)), "min_empirical_pvalue": empirical_p},
-            "matched weekend placebo distribution exists and empirical p-values are reported",
+            "matched weekend placebo distribution exists and finite-sample corrected empirical p-values lie in (0, 1]",
             ["results/q1_placebo_distribution.csv", "results/q1_summary.json"],
-            "Matched weekend placebo evidence is available. Small empirical p-values indicate the actual event window is unusual relative to pseudo-events; causal language is still constrained by the counterfactual-language gate.",
+            "Matched weekend placebo evidence uses the add-one correction, so a finite pseudo-event sample cannot report an empirical p-value of exactly zero.",
         )
     )
 
@@ -372,28 +410,41 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         text = path.read_text(encoding="utf-8")
         leftovers.extend([term for term in old_terms if term in text])
     figures = collect_figures()
+    style_source = (REPO_ROOT / "code" / "utils" / "plot_style.py").read_text(encoding="utf-8")
+    title_painted = "fig.text(rect[0], 0.965, title" in style_source or "fig.suptitle(" in style_source
     probes.append(
         probe(
             "figure_localization_gate",
-            "PASS" if len(figures) >= 8 and not leftovers else "FAIL",
-            {"figure_pngs": figures, "old_visible_terms": sorted(set(leftovers))},
-            "eight figure PNGs exist and old English visible chart terms are absent from plot code",
-            ["figures", "code/problem1/run_q1.py", "code/problem2/run_q2.py", "code/problem3/run_q3.py"],
-            "Figure titles, axes, legends and captions are localized to Chinese while model acronyms and source names are retained.",
+            "PASS" if len(figures) >= 8 and not leftovers and not title_painted else "FAIL",
+            {
+                "figure_pngs": figures,
+                "old_visible_terms": sorted(set(leftovers)),
+                "large_title_painted_inside_figure": title_painted,
+            },
+            "eight figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions",
+            ["figures", "code/problem1/run_q1.py", "code/problem2/run_q2.py", "code/problem3/run_q3.py", "code/utils/plot_style.py"],
+            "Figure axes and legends are localized to Chinese; large titles are not painted into the figure canvas.",
         )
     )
 
     lock_path = REPO_ROOT / "requirements.lock.txt"
     env = environment_snapshot()
-    env_ok = lock_path.exists() and env["python_version"] == "3.11.9"
+    lock_text = lock_path.read_text(encoding="utf-8") if lock_path.exists() else ""
+    pinned_lines = [line.strip() for line in lock_text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    env_ok = "# Python: 3.11.9" in lock_text and bool(pinned_lines) and all("==" in line for line in pinned_lines)
     probes.append(
         probe(
             "environment_lock_gate",
             "PASS" if env_ok else "CONDITIONAL",
-            {"python_version": env["python_version"], "requirements_lock_sha256": env["requirements_lock_sha256"]},
+            {
+                "target_python_version": "3.11.9",
+                "generation_python_version": env["python_version"],
+                "exact_package_pins": len(pinned_lines),
+                "requirements_lock_sha256": env["requirements_lock_sha256"],
+            },
             "Python 3.11.9 and exact dependency lock are recorded",
             ["requirements.in", "requirements.lock.txt"],
-            "Environment versions are pinned for replay; package artifact hashes are represented by the lock-file hash and verifier version checks.",
+            "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
         )
     )
 
@@ -404,14 +455,14 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             "PASS" if hash_ok else "FAIL",
             {"output_hash_count": len(output_hashes), "input_hash_count": len(input_hashes)},
             "all core result files and processed model inputs are hashed",
-            ["results/frozen_numbers.json"],
-            "The freeze records both model outputs and processed inputs so raw snapshots that cannot be redistributed do not prevent reproducibility checks.",
+            ["results/reproducibility_manifest.json", "results/frozen_numbers.json"],
+            "The reproducibility manifest hashes model outputs and processed inputs, while frozen_numbers.json follows the standard numerical-freeze schema.",
         )
     )
 
     overall = combined_status(probes)
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": RISK_SCHEMA_VERSION,
         "overall_status": overall,
         "paper_finalize_allowed": overall == "PASS",
         "cutoff": CUTOFF,
@@ -546,17 +597,29 @@ def build_data_overview_figures() -> None:
 
 def summarize_warnings() -> list[dict[str, Any]]:
     warnings_list: list[dict[str, Any]] = []
+    seen: dict[tuple[str, str], dict[str, Any]] = {}
     for filename in ["data_warnings.json", "q1_summary.json", "q2_summary.json", "q3_summary.json", "model_panel_summary.json"]:
         payload = load_json(filename)
         for warning in payload.get("warnings", []):
             row = dict(warning)
-            row["source"] = filename
-            warnings_list.append(row)
+            key = (str(row.get("code", "warning")), str(row.get("message", "")))
+            if key not in seen:
+                row["sources"] = [filename]
+                seen[key] = row
+                warnings_list.append(row)
+            elif filename not in seen[key]["sources"]:
+                seen[key]["sources"].append(filename)
         for stage, stage_warnings in payload.get("stage_warnings", {}).items():
             for warning in stage_warnings:
                 row = dict(warning)
-                row["source"] = f"{filename}:{stage}"
-                warnings_list.append(row)
+                source = f"{filename}:{stage}"
+                key = (str(row.get("code", "warning")), str(row.get("message", "")))
+                if key not in seen:
+                    row["sources"] = [source]
+                    seen[key] = row
+                    warnings_list.append(row)
+                elif source not in seen[key]["sources"]:
+                    seen[key]["sources"].append(source)
     return warnings_list
 
 
@@ -604,8 +667,8 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 ## Material Passport
 
-- Origin Skill: `academic-research-suite / experiment-agent`
-- Execution Mode: `goal`
+- Origin Skill: `3coding-visual`
+- Execution Mode: `staged modeling audit`
 - Verification Status: `{risk_summary['overall_status']}`
 - Paper Finalize Allowed: `{str(risk_summary['paper_finalize_allowed']).lower()}`
 - Cutoff: `{CUTOFF}`
@@ -627,7 +690,7 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 {markdown_table(q1_metrics.sort_values(['horizon', 'model']) if not q1_metrics.empty else q1_metrics, ['model', 'horizon', 'RMSE', 'relative_RMSE_vs_no_change', 'dm_hln_pvalue_rmse_loss', 'model_status'])}
 
-E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。
+E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。经验 p 值采用 \\((b+1)/(B+1)\\) 的有限样本修正，不报告严格的 0。
 
 {markdown_table(q1_events.loc[q1_events['model'].isin(['brent_usd_bbl_stage_dummy', 'brent_usd_bbl_event_car'])].sort_values(['model', 'stage_id']) if not q1_events.empty else q1_events, ['model', 'stage_id', 'estimate_log_return', 'std_error', 'lower_95', 'upper_95', 'pvalue', 'pvalue_empirical', 'event_observations'])}
 
@@ -660,6 +723,9 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 - `results/final_numbers.json`
 - `results/frozen_numbers.json`
 - `results/risk_probe_summary.json`
+- `results/reproducibility_manifest.json`
+
+其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
 ## 6. Warnings
 
@@ -671,6 +737,53 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 """
 
 
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def standard_freeze_payload(final_numbers: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": STANDARD_FREEZE_SCHEMA_VERSION,
+        "frozen_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "source_file": "results/final_numbers.json",
+        "source_sha256": sha256_json(final_numbers),
+        "values": final_numbers,
+    }
+
+
+def reproducibility_manifest(
+    risk_summary: dict[str, Any],
+    final_numbers: dict[str, Any],
+    risk_hash: str,
+    output_hashes: dict[str, str],
+    input_hashes: dict[str, str],
+    code_hashes: dict[str, str],
+) -> dict[str, Any]:
+    source = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "snapshot_mode": "paper_final" if risk_summary["paper_finalize_allowed"] else "stage_snapshot_not_paper_final",
+        "overall_status": risk_summary["overall_status"],
+        "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
+        "git_commit": git_commit(),
+        "cutoff": CUTOFF,
+        "random_seed": RANDOM_SEED,
+        "replay_environment": replay_environment_snapshot(),
+        "packaging_environment": environment_snapshot(),
+        "code_hashes": code_hashes,
+        "processed_input_hashes": input_hashes,
+        "core_result_hashes": output_hashes,
+        "risk_gate_hash": risk_hash,
+        "final_numbers_source_sha256": sha256_json(final_numbers),
+        "standard_freeze_file": "results/frozen_numbers.json",
+    }
+    manifest = dict(source)
+    manifest["manifest_hash"] = sha256_json(source)
+    return manifest
+
+
 def main() -> int:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -678,44 +791,35 @@ def main() -> int:
 
     output_hashes = hash_existing(RESULTS_DIR, CORE_RESULT_FILES)
     input_hashes = hash_existing(REPO_ROOT / "data" / "processed", PROCESSED_INPUT_FILES)
+    code_hashes = hash_existing(REPO_ROOT, CODE_FILES)
     risk_summary = build_risk_probe_summary(output_hashes, input_hashes)
     risk_path = RESULTS_DIR / "risk_probe_summary.json"
-    risk_path.write_text(json.dumps(risk_summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    write_json(risk_path, risk_summary)
     risk_hash = sha256_file(risk_path)
 
     final_numbers = extract_final_numbers()
     final_path = RESULTS_DIR / "final_numbers.json"
-    final_path.write_text(json.dumps(final_numbers, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    write_json(final_path, final_numbers)
 
-    frozen_source = {
-        "schema_version": SCHEMA_VERSION,
-        "freeze_mode": "paper_final" if risk_summary["paper_finalize_allowed"] else "stage_snapshot_not_paper_final",
-        "overall_status": risk_summary["overall_status"],
-        "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
-        "git_commit": git_commit(),
-        "cutoff": CUTOFF,
-        "random_seed": RANDOM_SEED,
-        "environment": environment_snapshot(),
-        "processed_input_hashes": input_hashes,
-        "core_result_hashes": output_hashes,
-        "risk_gate_hash": risk_hash,
-        "candidate_numbers": final_numbers,
-    }
-    frozen = dict(frozen_source)
-    frozen["freeze_hash"] = sha256_json(frozen_source)
     frozen_path = RESULTS_DIR / "frozen_numbers.json"
-    frozen_path.write_text(json.dumps(frozen, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    frozen = standard_freeze_payload(final_numbers)
+    write_json(frozen_path, frozen)
+
+    manifest = reproducibility_manifest(risk_summary, final_numbers, risk_hash, output_hashes, input_hashes, code_hashes)
+    manifest_path = RESULTS_DIR / "reproducibility_manifest.json"
+    write_json(manifest_path, manifest)
 
     warnings_list = summarize_warnings()
     report = build_report(risk_summary, final_numbers, warnings_list)
-    (REPORTS_DIR / "RESULTS_REPORT.md").write_text(report, encoding="utf-8")
+    (REPORTS_DIR / "RESULTS_REPORT.md").write_text(report.rstrip() + "\n", encoding="utf-8")
 
     print(
         json.dumps(
             {
                 "status": risk_summary["overall_status"],
                 "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
-                "freeze_hash": frozen["freeze_hash"],
+                "source_sha256": frozen["source_sha256"],
+                "manifest_hash": manifest["manifest_hash"],
                 "blocking_probe_ids": risk_summary["blocking_probe_ids"],
             },
             ensure_ascii=False,

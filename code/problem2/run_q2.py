@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -428,16 +429,26 @@ def plot_irf(irf: pd.DataFrame) -> None:
         title="问题二：中国宏观变量对约化形式油价冲击的响应",
         subtitle="月度中国变量；阴影为95% bootstrap/HAC区间，h=0..12；不解释为结构性供给冲击。",
         source="来源：问题一 OilShock 接口、OECD CPI、FRED 汇率/美元/GPR；由 code/problem2/run_q2.py 生成。",
-        rect=(0.09, 0.12, 0.98, 0.84),
+        rect=(0.09, 0.12, 0.98, 0.97),
     )
     save_figure(fig, FIGURES_DIR / "q2_irf")
     plt.close(fig)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--plots-only", action="store_true", help="Regenerate Q2 figures from saved result tables.")
+    args = parser.parse_args(argv)
+
     np.random.seed(RANDOM_SEED)
     apply_paper_style()
     ensure_dirs()
+    if args.plots_only:
+        irf = pd.read_csv(RESULTS_DIR / "q2_irf.csv")
+        plot_irf(irf)
+        print(json.dumps({"status": "PASS", "mode": "plots-only", "figures": 1}, ensure_ascii=False, indent=2))
+        return 0
+
     warnings_log: list[dict[str, Any]] = []
     monthly = pd.read_csv(PROCESSED_DIR / "model_monthly_cn.csv")
     quarterly = pd.read_csv(PROCESSED_DIR / "model_quarterly_cn.csv")

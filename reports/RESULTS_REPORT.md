@@ -2,8 +2,8 @@
 
 ## Material Passport
 
-- Origin Skill: `academic-research-suite / experiment-agent`
-- Execution Mode: `goal`
+- Origin Skill: `3coding-visual`
+- Execution Mode: `staged modeling audit`
 - Verification Status: `CONDITIONAL`
 - Paper Finalize Allowed: `false`
 - Cutoff: `2026-06-30`
@@ -36,13 +36,13 @@
 | SARIMAX | 6.0000 | 0.3394 | 1.1014 | 0.2651 | FAIL |
 | no_change | 6.0000 | 0.3082 | 1.0000 |  | PASS |
 
-E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。
+E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。经验 p 值采用 \((b+1)/(B+1)\) 的有限样本修正，不报告严格的 0。
 
 | model | stage_id | estimate_log_return | std_error | lower_95 | upper_95 | pvalue | pvalue_empirical | event_observations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| brent_usd_bbl_event_car | E1_CAR_0 | 0.0788 | 0.0195 | 0.0406 | 0.1169 | 0.0001 | 0.0000 | 1.0000 |
-| brent_usd_bbl_event_car | E1_CAR_0_1 | 0.1540 | 0.0275 | 0.1000 | 0.2080 | 0.0000 | 0.0000 | 2.0000 |
-| brent_usd_bbl_event_car | E1_CAR_0_2 | 0.1319 | 0.0337 | 0.0658 | 0.1980 | 0.0001 | 0.0109 | 3.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0 | 0.0788 | 0.0195 | 0.0406 | 0.1169 | 0.0001 | 0.0119 | 1.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0_1 | 0.1540 | 0.0275 | 0.1000 | 0.2080 | 0.0000 | 0.0108 | 2.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0_2 | 0.1319 | 0.0337 | 0.0658 | 0.1980 | 0.0001 | 0.0215 | 3.0000 |
 | brent_usd_bbl_stage_dummy | E1 | 0.0684 | 0.0037 | 0.0612 | 0.0756 | 0.0000 |  | 1.0000 |
 | brent_usd_bbl_stage_dummy | E2 | 0.0049 | 0.0062 | -0.0071 | 0.0170 | 0.4234 |  | 58.0000 |
 | brent_usd_bbl_stage_dummy | E3 | -0.0148 | 0.0045 | -0.0235 | -0.0060 | 0.0009 |  | 8.0000 |
@@ -95,6 +95,9 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 - `results/final_numbers.json`
 - `results/frozen_numbers.json`
 - `results/risk_probe_summary.json`
+- `results/reproducibility_manifest.json`
+
+其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
 ## 6. Warnings
 
@@ -112,10 +115,6 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 - `china_fuel_price_proxy`：China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.
 - `q2_outcome_skipped`：中国规模以上工业增加值同比，百分点 skipped: insufficient usable monthly history.
 - `q2_outcome_skipped`：中国PPI同比，百分点 skipped: insufficient usable monthly history.
-- `nbs_gdp_yoy_manual_supplement`：OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.
-- `optional_china_macro_missing`：nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.
-- `optional_china_macro_missing`：nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.
-- `china_fuel_price_proxy`：China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.
 
 ## 7. 论文使用建议
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import warnings as py_warnings
@@ -16,8 +17,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from linearmodels.panel import PanelOLS
-from linearmodels.panel.utility import AbsorbingEffectWarning
 from scipy.stats import norm
 
 
@@ -55,6 +54,11 @@ def save_csv(frame: pd.DataFrame, filename: str) -> Path:
     path = RESULTS_DIR / filename
     frame.to_csv(path, index=False, encoding="utf-8")
     return path
+
+
+def read_csv_result(filename: str) -> pd.DataFrame:
+    path = RESULTS_DIR / filename
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
 
 def log_positive(series: pd.Series) -> pd.Series:
@@ -159,6 +163,8 @@ def panel_design(frame: pd.DataFrame, outcome: str, horizon: int) -> tuple[pd.Se
 
 
 def fit_panel_lp(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
+    from linearmodels.panel import PanelOLS
+
     rows: list[dict[str, Any]] = []
     for outcome in ["fuel", "cpi", "ip"]:
         outcome_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if outcome == "fuel" and "included_in_main_comparison" in panel else panel.copy()
@@ -282,6 +288,8 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
 
 
 def robustness_checks(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
+    from linearmodels.panel import PanelOLS
+
     rows: list[dict[str, Any]] = []
     main_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if "included_in_main_comparison" in panel else panel.copy()
     main_countries = [country for country in COUNTRY_ORDER if country in set(main_panel["country"])]
@@ -449,22 +457,38 @@ def plot_policy(counterfactual: pd.DataFrame) -> None:
                 label = f"累计差额 {row.cumulative_gasoline_gap_cny_t:.0f}\n4月新增 {row.incremental_gasoline_gap_cny_t:.0f}"
             ax.text(tick, max(row.actual, row.prediction), label, ha="center", va="bottom", fontsize=8.4, color=PALETTE["muted"])
     style_axis(ax, ylabel="元/吨代理值")
-    ax.legend(loc="upper left", ncol=2, handlelength=2.6)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=2, handlelength=2.6)
     finish_figure(
         fig,
         title="问题三：中国成品油调控代理情景",
         subtitle="阴影代表累计政策差额；代理值只用于政策情景，不用于跨国主排名。",
         source="来源：Brent-CNY 代理值与国家发展改革委调价事件；由 code/problem3/run_q3.py 生成。",
-        rect=(0.10, 0.13, 0.98, 0.84),
+        rect=(0.10, 0.13, 0.98, 0.94),
     )
     save_figure(fig, FIGURES_DIR / "q3_policy_counterfactual")
     plt.close(fig)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--plots-only", action="store_true", help="Regenerate Q3 figures from saved result tables.")
+    args = parser.parse_args(argv)
+
     np.random.seed(RANDOM_SEED)
     apply_paper_style()
     ensure_dirs()
+    if args.plots_only:
+        pass_through = read_csv_result("q3_country_pass_through.csv")
+        panel_irf = read_csv_result("q3_panel_irf.csv")
+        counterfactual = read_csv_result("q3_policy_counterfactual.csv")
+        plot_pass_through(pass_through)
+        plot_panel_irf(panel_irf)
+        plot_policy(counterfactual)
+        print(json.dumps({"status": "PASS", "mode": "plots-only", "figures": 3}, ensure_ascii=False, indent=2))
+        return 0
+
+    from linearmodels.panel.utility import AbsorbingEffectWarning
+
     warnings_log: list[dict[str, Any]] = []
     panel = pd.read_csv(PROCESSED_DIR / "model_country_monthly.csv")
     panel["fuel_log"] = log_positive(panel["fuel_price_local"])

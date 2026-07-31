@@ -47,7 +47,7 @@
       "model_status": "FAIL"
     }
   ],
-  "placebo_min_empirical_pvalue": 0.0,
+  "placebo_min_empirical_pvalue": 0.010752688172043012,
   "forecast_rows": 702,
   "metric_rows": 9,
   "event_effect_rows": 12,

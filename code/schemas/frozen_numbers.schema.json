@@ -1,36 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.local/shu-oilshock/frozen_numbers.schema.json",
-  "title": "SHU OilShock frozen numbers",
+  "title": "3coding-visual standard frozen numbers",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "schema_version",
-    "freeze_hash",
-    "freeze_mode",
-    "overall_status",
-    "paper_finalize_allowed",
-    "git_commit",
-    "cutoff",
-    "random_seed",
-    "environment",
-    "processed_input_hashes",
-    "core_result_hashes",
-    "risk_gate_hash",
-    "candidate_numbers"
+    "frozen_at",
+    "source_file",
+    "source_sha256",
+    "values"
   ],
   "properties": {
-    "schema_version": { "type": "string" },
-    "freeze_hash": { "type": "string" },
-    "freeze_mode": { "enum": ["paper_final", "stage_snapshot_not_paper_final"] },
-    "overall_status": { "enum": ["PASS", "CONDITIONAL", "FAIL"] },
-    "paper_finalize_allowed": { "type": "boolean" },
-    "git_commit": { "type": "string" },
-    "cutoff": { "type": "string" },
-    "random_seed": { "type": "integer" },
-    "environment": { "type": "object" },
-    "processed_input_hashes": { "type": "object" },
-    "core_result_hashes": { "type": "object" },
-    "risk_gate_hash": { "type": "string" },
-    "candidate_numbers": { "type": "object" }
+    "schema_version": {
+      "const": 1
+    },
+    "frozen_at": {
+      "type": "string"
+    },
+    "source_file": {
+      "const": "results/final_numbers.json"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "values": {
+      "type": "object"
+    }
   }
 }

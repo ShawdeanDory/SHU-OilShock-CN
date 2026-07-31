@@ -83,15 +83,15 @@
         "results/q1_placebo_distribution.csv",
         "results/q1_summary.json"
       ],
-      "message": "Matched weekend placebo evidence is available. Small empirical p-values indicate the actual event window is unusual relative to pseudo-events; causal language is still constrained by the counterfactual-language gate.",
+      "message": "Matched weekend placebo evidence uses the add-one correction, so a finite pseudo-event sample cannot report an empirical p-value of exactly zero.",
       "metric": {
-        "min_empirical_pvalue": 0.0,
+        "min_empirical_pvalue": 0.010752688172043012,
         "placebo_rows": 267
       },
       "probe_id": "q1_placebo_distribution_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "matched weekend placebo distribution exists and empirical p-values are reported"
+      "threshold": "matched weekend placebo distribution exists and finite-sample corrected empirical p-values lie in (0, 1]"
     },
     {
       "evidence_files": [
@@ -245,9 +245,10 @@
         "figures",
         "code/problem1/run_q1.py",
         "code/problem2/run_q2.py",
-        "code/problem3/run_q3.py"
+        "code/problem3/run_q3.py",
+        "code/utils/plot_style.py"
       ],
-      "message": "Figure titles, axes, legends and captions are localized to Chinese while model acronyms and source names are retained.",
+      "message": "Figure axes and legends are localized to Chinese; large titles are not painted into the figure canvas.",
       "metric": {
         "figure_pngs": [
           "data_overview_fuel_panel.png",
@@ -259,22 +260,25 @@
           "q3_pass_through_6m.png",
           "q3_policy_counterfactual.png"
         ],
+        "large_title_painted_inside_figure": false,
         "old_visible_terms": []
       },
       "probe_id": "figure_localization_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "eight figure PNGs exist and old English visible chart terms are absent from plot code"
+      "threshold": "eight figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions"
     },
     {
       "evidence_files": [
         "requirements.in",
         "requirements.lock.txt"
       ],
-      "message": "Environment versions are pinned for replay; package artifact hashes are represented by the lock-file hash and verifier version checks.",
+      "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
-        "python_version": "3.11.9",
-        "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea"
+        "exact_package_pins": 36,
+        "generation_python_version": "3.13.9",
+        "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea",
+        "target_python_version": "3.11.9"
       },
       "probe_id": "environment_lock_gate",
       "severity": "blocking",
@@ -283,9 +287,10 @@
     },
     {
       "evidence_files": [
+        "results/reproducibility_manifest.json",
         "results/frozen_numbers.json"
       ],
-      "message": "The freeze records both model outputs and processed inputs so raw snapshots that cannot be redistributed do not prevent reproducibility checks.",
+      "message": "The reproducibility manifest hashes model outputs and processed inputs, while frozen_numbers.json follows the standard numerical-freeze schema.",
       "metric": {
         "input_hash_count": 15,
         "output_hash_count": 20

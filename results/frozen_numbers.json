@@ -1,5 +1,9 @@
 {
-  "candidate_numbers": {
+  "frozen_at": "2026-07-31T04:45:45.278936Z",
+  "schema_version": 1,
+  "source_file": "results/final_numbers.json",
+  "source_sha256": "b9d664712180ebc71deb533fa51e48915ac00ce54e2026cf231dd319fcb33aba",
+  "values": {
     "cutoff": "2026-06-30",
     "q1": {
       "ar_baseline_gap_months": [
@@ -38,7 +42,7 @@
           "model": "brent_usd_bbl_event_car",
           "n": 520,
           "pvalue": 5.223e-05,
-          "pvalue_empirical": 0.0,
+          "pvalue_empirical": 0.01190476,
           "sample_end": "2026-02-27",
           "sample_start": "2023-09-26",
           "specification": "AR(3)+USD expected-return event study; E1 mapped to first common trading day",
@@ -60,7 +64,7 @@
           "model": "brent_usd_bbl_event_car",
           "n": 520,
           "pvalue": 2e-08,
-          "pvalue_empirical": 0.0,
+          "pvalue_empirical": 0.01075269,
           "sample_end": "2026-02-27",
           "sample_start": "2023-09-26",
           "specification": "AR(3)+USD expected-return event study; E1 mapped to first common trading day",
@@ -82,7 +86,7 @@
           "model": "brent_usd_bbl_event_car",
           "n": 520,
           "pvalue": 9.231e-05,
-          "pvalue_empirical": 0.01086957,
+          "pvalue_empirical": 0.02150538,
           "sample_end": "2026-02-27",
           "sample_start": "2023-09-26",
           "specification": "AR(3)+USD expected-return event study; E1 mapped to first common trading day",
@@ -1602,70 +1606,5 @@
       ]
     },
     "status_note": "stage snapshot; not a paper-final causal freeze unless risk gate passes"
-  },
-  "core_result_hashes": {
-    "q1_daily_counterfactual.csv": "e982fa31b5763cb5254265d277756d76348edfa5aaf52d32148ac64f51d502ff",
-    "q1_event_effects.csv": "cbde92d51657298f477916e18284a6cdea7fa53ba1734a749c4b45e304f90f6c",
-    "q1_forecast_metrics.csv": "82c18c4ee463da59c496634f07b75b4a5309a4f7d5eb778977d2f075c5270af7",
-    "q1_monthly_shocks.csv": "376791bc6b6bcc01215fa25dc3ca6d1b6af198e0538e28a9f54677ba75d3e0d8",
-    "q1_placebo_distribution.csv": "a768b360fde66df1dd1448206f5a70e2b197a5bb5526717e83652ef1e5588461",
-    "q1_robustness.csv": "34e26b6610fb3c951b243a668b3212e33fd09182998a6e06d4cc35dd6102fb74",
-    "q1_summary.json": "bc52ccb8e9bf4338f3fe50fdc9cc86b6c165f700d2e5a090d29686613caeab20",
-    "q2_ardl_baseline.csv": "2515b917ec4578737d5274a3c3ca35a70b064ef9c9d6a14b87590e991f84c388",
-    "q2_asymmetry.csv": "5b1ab17c8aaf7ed8b83deb7a0653cdebf803d06de2ab661ac9c94e563f38c924",
-    "q2_gdp_validation.csv": "8edd254c4067be0200457a66c9790a66bab86e656854867e42743c19e044dd05",
-    "q2_irf.csv": "eda2c4776101a0a6457bb771dc1e5fc87bdb55f5c96a7c3074ec11a3c8ba5617",
-    "q2_robustness.csv": "00dac0581d710b34b125186d5d7b3e48c6ab6173ba3683cb0dbb4c2b9b72f371",
-    "q2_summary.csv": "295bcbe91b4dbf8586c869cf46813ad7a4e61cfa30f42aa3ac414bdc0d7e3ae6",
-    "q2_summary.json": "4e761781355a953155238a8ecd97b699de6f776f59cc47fd63ba9b97279dfa52",
-    "q3_country_pass_through.csv": "6f2ad87517568b50ca4379414cfe89c27086efdf9495332bd42d51dcbf7bbfc1",
-    "q3_panel_irf.csv": "cbd25963d67aa3a5f20cdc9f6854fcc3d59c42619fe1c32c2fc7d620c4d54024",
-    "q3_policy_counterfactual.csv": "2fd24dc1da739bce8f76786f238ee7d5b38415710c5e98e05e74c42409c90413",
-    "q3_robustness.csv": "5a6a9d45f6ad15e2af324e8c5a0e8fc44fbeae6dda482741f31595899d4d2ef8",
-    "q3_summary.csv": "b8417950701f8898d2610b164448ee22e2de878ed172a7631fb89dc921a66fee",
-    "q3_summary.json": "a6248edbecec108507b08c7fa660e41ae1ce38a3eb6c0d47072ceb8ff80103f5"
-  },
-  "cutoff": "2026-06-30",
-  "environment": {
-    "packages": {
-      "linearmodels": "6.1",
-      "matplotlib": "3.11.1",
-      "numpy": "2.4.6",
-      "openpyxl": "3.1.5",
-      "pandas": "2.3.3",
-      "requests": "2.34.2",
-      "scipy": "1.17.1",
-      "statsmodels": "0.14.6",
-      "xlrd": "2.0.2"
-    },
-    "platform": "Windows-10-10.0.26200-SP0",
-    "python_executable": "D:\\L_File\\Py311\\python.exe",
-    "python_version": "3.11.9",
-    "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea"
-  },
-  "freeze_hash": "5d6bbb1eccc1512682e6ce4fe64123618c10fb17bfe2161e70388177f4bbeff9",
-  "freeze_mode": "stage_snapshot_not_paper_final",
-  "git_commit": "ac8b8a0611eab0aa58d5ab0addf60287c3f9ed06",
-  "overall_status": "CONDITIONAL",
-  "paper_finalize_allowed": false,
-  "processed_input_hashes": {
-    "china_fuel_policy_monthly.csv": "82408bf1b48cff0e57c80398d8dc728fcb8f51cf184c0fdd28e67f5724641891",
-    "china_fuel_proxy_monthly.csv": "6b4e7574bf8d831368f634350f80d7c2e4e4573777139c43fe0ba840ec4bd898",
-    "cn_fuel_policy_events.csv": "83974d977887aa85d9e52d5f03f019d1e7fd6617537aaf58df5e0e5f26935909",
-    "germany_eurosuper95_monthly.csv": "61d98a4ee274ba85cf35a7fd6db27c3ac930f0625a79665cf5268340c55c953a",
-    "japan_regular_gasoline_monthly.csv": "378d44eb3b79a121a7f92dd8eecd8d5704dc2e93ac727bca8733ef535186800b",
-    "korea_regular_gasoline_monthly.csv": "4320ea8acac7d24bbd7a4b7fb14f2db3a439c32825be2f883f0bafaf7ed6f5bb",
-    "model_country_monthly.csv": "b5e2c83755509d11fc93b25713e2e73c8c4c24a6a0ad26cc1aa8feba07aff3f1",
-    "model_daily_q1.csv": "8548f1058d952160124b049f81eb9745857e675319d2bdc6af614a77096e05ed",
-    "model_monthly_cn.csv": "af0f269d5a89c808e9742e93e3cda3e5e34cbce637215eb4387fbed4e5f8c714",
-    "model_monthly_q1.csv": "ac4535904cbe9b0e2a54a240900340882206876d409a513add6971e03e2eb6b2",
-    "model_quarterly_cn.csv": "473bedf70ce24ec262b540c33dc296857133ac24e765bc99bb72148e693e048d",
-    "oecd_g20_cpi_monthly.csv": "d94424107095ef2e74ae882c91db9efbd7526fbf14dbb6483ca7d8a4ee8abbd6",
-    "oecd_kei_ip_monthly.csv": "64544d17ebddc4306cad3e89e077d5855b7d79d0a3f8e15a70265db221dc447c",
-    "p0_daily_market.csv": "90b737ca28867783c12e2204001f69c0e3429f7aee758505a92dc5488dda5240",
-    "p0_monthly_market.csv": "d448502bf2a86ecbc683c48d461edeae68e611f96afe62e83acb610ab3c800c1"
-  },
-  "random_seed": 20260730,
-  "risk_gate_hash": "862696132cc1a2ae52b1f3f77fcb7b79c1867af181b111198243dbb7ef2cd3a8",
-  "schema_version": "1.0"
+  }
 }

@@ -36,11 +36,11 @@
 ## 3. 贯通三问的模型链
 
 ```text
-月度 Brent 基线与 ARIMAX 预测
+月度 Brent no-change 主预测与 ARIMA/SARIMAX 补充
         +
-日度多阶段事件研究和战前反事实
+日度多阶段事件研究和 AR 基准情景差额
         ↓
-OilShock、WarPremium、VolatilityShock
+OilShock、ARBaselineGap
         ↓
 中国月度 Local Projection / ARDL
         ↓
@@ -68,11 +68,12 @@ OilShock、WarPremium、VolatilityShock
 | 角色 | 方法 | 主要输出 |
 | --- | --- | --- |
 | 可用基线 | no-change/随机游走预测 + 简单事件窗口比较 | 基线油价预测、事件前后价格与波动差 |
-| 主方法 | 月度 ARIMAX + 日度多阶段事件反事实 | 1/3/6 月预测、战争异常缺口和区间 |
+| 当前主方法 | no-change 月度滚动预测 + 日度交易日事件研究 | 1/3/6 月预测、事件 CAR 和区间 |
+| 解释性补充 | 月度 ARIMA/SARIMAX + 日度 AR 基准情景 | 相对基线误差、描述性事件后路径差额 |
 | 稳健性 | EGARCH 或更换 WTI | 波动效应或替代油价结果 |
 | 失败回退 | ARIMA/动态回归缩减变量 | 保留可解释预测和事件模块 |
 
-ARIMAX 外生变量原则上只保留全球供需、库存、美元和 GPR 四类；必须按真实发布日期滞后。
+ARIMA/SARIMAX 当前未稳定战胜 no-change，不能作为主预测宣称优势。后续若继续尝试外生变量，原则上只保留全球供需、库存、美元和 GPR 四类，并按真实发布日期滞后。
 
 ### 4.3 风险探针
 
@@ -89,7 +90,7 @@ ARIMAX 外生变量原则上只保留全球供需、库存、美元和 GPR 四�
 - 月度增长代理：工业增加值。
 - 传导变量：人民币原油进口成本、PPI、CPI、人民币汇率。
 - 季度实际 GDP：方向和量级验证，不插值成月度 GDP。
-- 冲击输入：问题一生成的 `OilShock` 和 `WarPremium`。
+- 冲击输入：问题一生成的约化形式 `OilShock`；`ARBaselineGap` 只作描述性情景证据，不作为结构性供给冲击。
 
 ### 5.2 方法配置
 

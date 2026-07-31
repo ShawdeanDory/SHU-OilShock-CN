@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/shu-oilshock/reproducibility_manifest.schema.json",
+  "title": "SHU OilShock reproducibility manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "snapshot_mode",
+    "overall_status",
+    "paper_finalize_allowed",
+    "git_commit",
+    "cutoff",
+    "random_seed",
+    "replay_environment",
+    "packaging_environment",
+    "code_hashes",
+    "processed_input_hashes",
+    "core_result_hashes",
+    "risk_gate_hash",
+    "final_numbers_source_sha256",
+    "standard_freeze_file",
+    "manifest_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "snapshot_mode": {
+      "enum": [
+        "paper_final",
+        "stage_snapshot_not_paper_final"
+      ]
+    },
+    "overall_status": {
+      "enum": [
+        "PASS",
+        "CONDITIONAL",
+        "FAIL"
+      ]
+    },
+    "paper_finalize_allowed": {
+      "type": "boolean"
+    },
+    "git_commit": {
+      "type": "string"
+    },
+    "cutoff": {
+      "type": "string"
+    },
+    "random_seed": {
+      "type": "integer"
+    },
+    "replay_environment": {
+      "type": "object"
+    },
+    "packaging_environment": {
+      "type": "object"
+    },
+    "code_hashes": {
+      "type": "object"
+    },
+    "processed_input_hashes": {
+      "type": "object"
+    },
+    "core_result_hashes": {
+      "type": "object"
+    },
+    "risk_gate_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "final_numbers_source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "standard_freeze_file": {
+      "const": "results/frozen_numbers.json"
+    },
+    "manifest_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

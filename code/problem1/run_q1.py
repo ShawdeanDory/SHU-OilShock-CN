@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -497,6 +498,14 @@ def event_car_rows(daily: pd.DataFrame, price_prefix: str, event_start: pd.Times
     return pd.DataFrame(rows)
 
 
+def finite_sample_empirical_pvalue(distribution: pd.Series, threshold: float) -> float:
+    values = pd.to_numeric(distribution, errors="coerce").dropna().abs()
+    if values.empty:
+        return np.nan
+    exceedances = int(values.ge(abs(threshold)).sum())
+    return float((exceedances + 1) / (len(values) + 1))
+
+
 def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.DataFrame:
     frame = daily.copy()
     frame["date"] = pd.to_datetime(frame["date"])
@@ -524,7 +533,7 @@ def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.Da
         if actual_row.empty:
             continue
         threshold = abs(float(actual_row["estimate_log_return"].iloc[0]))
-        empirical[stage_id] = float((group["estimate_log_return"].abs() >= threshold).mean())
+        empirical[stage_id] = finite_sample_empirical_pvalue(group["estimate_log_return"], threshold)
     placebo["actual_empirical_pvalue"] = placebo["stage_id"].map(empirical)
     save_csv(placebo, "q1_placebo_distribution.csv")
     return placebo
@@ -541,7 +550,8 @@ def add_empirical_pvalues(actual_car: pd.DataFrame, placebo: pd.DataFrame) -> pd
         dist = placebo.loc[placebo["stage_id"].eq(row["stage_id"]), "estimate_log_return"].dropna()
         if dist.empty:
             continue
-        result.loc[idx, "pvalue_empirical"] = float((dist.abs() >= abs(float(row["estimate_log_return"]))).mean())
+        threshold = abs(float(row["estimate_log_return"]))
+        result.loc[idx, "pvalue_empirical"] = finite_sample_empirical_pvalue(dist, threshold)
     return result
 
 
@@ -756,12 +766,83 @@ def plot_counterfactual(counterfactual: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def main() -> int:
+def refresh_placebo_pvalues() -> dict[str, Any]:
+    placebo_path = RESULTS_DIR / "q1_placebo_distribution.csv"
+    effects_path = RESULTS_DIR / "q1_event_effects.csv"
+    summary_path = RESULTS_DIR / "q1_summary.json"
+    robustness_path = RESULTS_DIR / "q1_robustness.csv"
+    if not placebo_path.exists() or not effects_path.exists() or not summary_path.exists():
+        raise FileNotFoundError("Saved Q1 placebo, event-effect, and summary outputs are required.")
+
+    placebos = pd.read_csv(placebo_path)
+    effects = pd.read_csv(effects_path)
+    actual = effects.loc[effects["model"].eq("brent_usd_bbl_event_car")].copy()
+    empirical: dict[str, float] = {}
+    for stage_id, group in placebos.groupby("stage_id"):
+        actual_row = actual.loc[actual["stage_id"].eq(stage_id)]
+        if actual_row.empty:
+            continue
+        empirical[stage_id] = finite_sample_empirical_pvalue(
+            group["estimate_log_return"],
+            float(actual_row["estimate_log_return"].iloc[0]),
+        )
+
+    placebos["actual_empirical_pvalue"] = placebos["stage_id"].map(empirical)
+    event_mask = effects["model"].eq("brent_usd_bbl_event_car")
+    effects.loc[event_mask, "pvalue_empirical"] = effects.loc[event_mask, "stage_id"].map(empirical)
+    save_csv(placebos, "q1_placebo_distribution.csv")
+    save_csv(effects, "q1_event_effects.csv")
+
+    if robustness_path.exists():
+        robustness = pd.read_csv(robustness_path)
+        placebo_mask = robustness.get("robustness_type", pd.Series(index=robustness.index, dtype=object)).eq(
+            "matched_weekend_placebo_distribution"
+        )
+        if "actual_empirical_pvalue" in robustness.columns:
+            robustness.loc[placebo_mask, "actual_empirical_pvalue"] = robustness.loc[placebo_mask, "stage_id"].map(empirical)
+            save_csv(robustness, "q1_robustness.csv")
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["placebo_min_empirical_pvalue"] = min(empirical.values()) if empirical else None
+    summary_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "status": "PASS",
+        "mode": "refresh-placebo-only",
+        "empirical_pvalues": empirical,
+        "placebo_rows": int(len(placebos)),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--refresh-placebo-only",
+        action="store_true",
+        help="Apply finite-sample empirical-p corrections to saved Q1 outputs without refitting models.",
+    )
+    parser.add_argument("--plots-only", action="store_true", help="Regenerate Q1 figures from saved result tables.")
+    args = parser.parse_args(argv)
+
     np.random.seed(RANDOM_SEED)
     apply_paper_style()
     py_warnings.filterwarnings("ignore", category=ValueWarning)
     py_warnings.filterwarnings("ignore", category=FutureWarning, message="No supported index*")
     ensure_dirs()
+    if args.refresh_placebo_only:
+        payload = refresh_placebo_pvalues()
+        print(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
+        return 0
+    if args.plots_only:
+        forecasts = pd.read_csv(RESULTS_DIR / "q1_forecasts.csv")
+        counterfactual = pd.read_csv(RESULTS_DIR / "q1_daily_counterfactual.csv")
+        plot_forecasts(forecasts)
+        plot_counterfactual(counterfactual)
+        print(json.dumps({"status": "PASS", "mode": "plots-only", "figures": 2}, ensure_ascii=False, indent=2))
+        return 0
+
     warnings_log: list[dict[str, Any]] = []
     monthly = pd.read_csv(PROCESSED_DIR / "model_monthly_q1.csv", parse_dates=["month_end"])
     daily = pd.read_csv(PROCESSED_DIR / "model_daily_q1.csv", parse_dates=["date"])
