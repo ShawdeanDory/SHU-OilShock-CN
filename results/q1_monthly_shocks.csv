@@ -1,4 +1,4 @@
-period,month_end,brent_usd_bbl,log_brent,brent_usd_bbl_log_return,OilShock_raw,OilShock,OilShock_source,WarPremium,WarPremium_days,random_seed
+period,month_end,brent_usd_bbl,log_brent,brent_usd_bbl_log_return,OilShock_raw,OilShock,OilShock_source,ARBaselineGap,ARBaselineGap_days,random_seed
 2010-01,2010-01-31,76.16736842105263,4.332933135029212,,,,ARX_one_step_residual_lagged_information,0.0,0,20260730
 2010-02,2010-02-28,73.75210526315789,4.300709540753625,-0.0322235942755861,,,ARX_one_step_residual_lagged_information,0.0,0,20260730
 2010-03,2010-03-31,78.82739130434783,4.367260541848203,0.0665510010945773,0.06954392283578859,0.6649089715350993,ARX_one_step_residual_lagged_information,0.0,0,20260730

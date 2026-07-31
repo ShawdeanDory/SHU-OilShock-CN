@@ -1,18 +1,20 @@
 {
-  "status": "WARN",
+  "status": "CONDITIONAL",
   "random_seed": 20260730,
   "outcomes": [
     "china_cpi_yoy_pct",
     "china_fx_log_change_pct"
   ],
+  "shock_identification": "OilShock is a reduced-form ARX oil-price innovation, not a Kilian structural supply shock.",
+  "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
   "warnings": [
     {
       "code": "q2_outcome_skipped",
-      "message": "China industrial value-added yoy, pct skipped: insufficient usable monthly history."
+      "message": "中国规模以上工业增加值同比，百分点 skipped: insufficient usable monthly history."
     },
     {
       "code": "q2_outcome_skipped",
-      "message": "China PPI yoy, pct skipped: insufficient usable monthly history."
+      "message": "中国PPI同比，百分点 skipped: insufficient usable monthly history."
     }
   ],
   "rows": {

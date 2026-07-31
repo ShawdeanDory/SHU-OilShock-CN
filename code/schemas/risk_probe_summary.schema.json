@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/shu-oilshock/risk_probe_summary.schema.json",
+  "title": "SHU OilShock risk probe summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "overall_status",
+    "paper_finalize_allowed",
+    "cutoff",
+    "random_seed",
+    "probes",
+    "blocking_probe_ids",
+    "core_results_present",
+    "figure_pngs",
+    "output_hash_count",
+    "input_hash_count"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "overall_status": { "enum": ["PASS", "CONDITIONAL", "FAIL"] },
+    "paper_finalize_allowed": { "type": "boolean" },
+    "cutoff": { "type": "string" },
+    "random_seed": { "type": "integer" },
+    "probes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["probe_id", "status", "severity", "metric", "threshold", "evidence_files", "message"],
+        "properties": {
+          "probe_id": { "type": "string" },
+          "status": { "enum": ["PASS", "CONDITIONAL", "FAIL"] },
+          "severity": { "type": "string" },
+          "metric": {},
+          "threshold": { "type": "string" },
+          "evidence_files": { "type": "array", "items": { "type": "string" } },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "blocking_probe_ids": { "type": "array", "items": { "type": "string" } },
+    "core_results_present": { "type": "object" },
+    "figure_pngs": { "type": "array", "items": { "type": "string" } },
+    "output_hash_count": { "type": "integer" },
+    "input_hash_count": { "type": "integer" }
+  }
+}

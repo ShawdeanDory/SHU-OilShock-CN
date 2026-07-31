@@ -1,18 +1,30 @@
 {
+  "blocking_probe_ids": [
+    "q1_forecast_baseline_gate",
+    "q1_placebo_distribution_gate",
+    "q2_nbs_macro_completeness_gate"
+  ],
   "core_results_present": {
+    "q1_daily_counterfactual.csv": true,
     "q1_event_effects.csv": true,
     "q1_forecast_metrics.csv": true,
     "q1_monthly_shocks.csv": true,
+    "q1_placebo_distribution.csv": true,
     "q1_robustness.csv": true,
+    "q1_summary.json": true,
     "q2_ardl_baseline.csv": true,
+    "q2_asymmetry.csv": true,
     "q2_gdp_validation.csv": true,
     "q2_irf.csv": true,
     "q2_robustness.csv": true,
+    "q2_summary.csv": true,
+    "q2_summary.json": true,
     "q3_country_pass_through.csv": true,
     "q3_panel_irf.csv": true,
     "q3_policy_counterfactual.csv": true,
     "q3_robustness.csv": true,
-    "q3_summary.csv": true
+    "q3_summary.csv": true,
+    "q3_summary.json": true
   },
   "cutoff": "2026-06-30",
   "figure_pngs": [
@@ -25,157 +37,266 @@
     "q3_pass_through_6m.png",
     "q3_policy_counterfactual.png"
   ],
-  "freeze_hash": "e99e0414aed40cefd1e54d3c7eccaccb934bc2b90de88597aef129fb10a02354",
-  "random_seed": 20260730,
-  "status": "EXECUTION_SUMMARY",
-  "warnings": [
+  "input_hash_count": 15,
+  "output_hash_count": 20,
+  "overall_status": "CONDITIONAL",
+  "paper_finalize_allowed": false,
+  "probes": [
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_brent_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_brent_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q1_forecast_metrics.csv",
+        "results/q1_summary.json"
+      ],
+      "message": "No-change is selected as the main forecast. ARIMA/SARIMAX are not allowed to claim PASS when they do not beat the baseline.",
+      "metric": {
+        "advanced_non_pass_rows": 6,
+        "no_change_rows": 3,
+        "selected_model": "no_change"
+      },
+      "probe_id": "q1_forecast_baseline_gate",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "no-change rows exist; ARIMA/SARIMAX must be non-PASS when they fail the baseline"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_cny_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_cny_per_usd_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q1_event_effects.csv",
+        "results/q1_summary.json"
+      ],
+      "message": "E1 weekend event has been remapped to the first common trading day and the zero-variance dummy problem is removed.",
+      "metric": {
+        "e1_identified_rows": 2,
+        "event_calendar": {
+          "e1_calendar_start": "2026-02-28",
+          "e1_car_end_0_2": "2026-03-04",
+          "e1_trading_start": "2026-03-02",
+          "e2_trading_start": "2026-03-05",
+          "e3_trading_start": "2026-06-17"
+        }
+      },
+      "probe_id": "q1_event_trading_day_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "E1 maps to 2026-03-02 and has identifiable nonzero trading observations"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_jpy_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_jpy_per_usd_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q1_placebo_distribution.csv",
+        "results/q1_summary.json"
+      ],
+      "message": "Matched weekend placebo evidence is available, but any low empirical p-value keeps causal event language conditional.",
+      "metric": {
+        "min_empirical_pvalue": 0.0,
+        "placebo_rows": 267
+      },
+      "probe_id": "q1_placebo_distribution_gate",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "matched weekend placebo distribution exists; empirical p >= 0.10 for clean event claims"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_krw_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_krw_per_usd_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q1_monthly_shocks.csv",
+        "results/q1_daily_counterfactual.csv"
+      ],
+      "message": "The event-path gap is labeled as ARBaselineGap rather than a war premium or causal no-war contribution.",
+      "metric": {
+        "has_ARBaselineGap": true,
+        "has_WarPremium": false
+      },
+      "probe_id": "q1_counterfactual_language_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "descriptive AR baseline field exists and old causal premium field is absent"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_usd_broad_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_usd_broad_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "data/processed/nbs_iav_monthly.csv",
+        "data/processed/nbs_ppi_monthly.csv",
+        "results/q2_summary.json"
+      ],
+      "message": "Q2 remains conditional until official IAV and PPI histories enter the processed layer; no interpolation is used to fill the gap.",
+      "metric": {
+        "nbs_iav_monthly": false,
+        "nbs_ppi_monthly": false
+      },
+      "probe_id": "q2_nbs_macro_completeness_gate",
+      "severity": "blocking",
+      "status": "CONDITIONAL",
+      "threshold": "NBS IAV and PPI monthly histories are present with enough observations"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_usd_per_eur_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_usd_per_eur_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q2_irf.csv",
+        "results/q2_summary.json"
+      ],
+      "message": "Q2 output distinguishes reduced-form association from structural oil-supply transmission and blocks unsupported growth-loss wording.",
+      "metric": {
+        "guardrail_present": true,
+        "irf_rows": 26
+      },
+      "probe_id": "q2_claim_strength_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "LP inference flags and reduced-form shock wording are present"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_wti_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_wti_daily_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q3_country_pass_through.csv",
+        "data/processed/model_country_monthly.csv"
+      ],
+      "message": "The Brent-CNY China proxy is retained only as a sensitivity/policy-scenario input, not as main cross-country evidence.",
+      "metric": [
+        {
+          "country": "CHN",
+          "horizon": 1,
+          "included_in_main_comparison": false,
+          "price_measure_type": "constructed_brent_cny_policy_proxy"
+        },
+        {
+          "country": "CHN",
+          "horizon": 3,
+          "included_in_main_comparison": false,
+          "price_measure_type": "constructed_brent_cny_policy_proxy"
+        },
+        {
+          "country": "CHN",
+          "horizon": 6,
+          "included_in_main_comparison": false,
+          "price_measure_type": "constructed_brent_cny_policy_proxy"
+        },
+        {
+          "country": "DEU",
+          "horizon": 1,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "DEU",
+          "horizon": 3,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "DEU",
+          "horizon": 6,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "JPN",
+          "horizon": 1,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "JPN",
+          "horizon": 3,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "JPN",
+          "horizon": 6,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "KOR",
+          "horizon": 1,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "KOR",
+          "horizon": 3,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        },
+        {
+          "country": "KOR",
+          "horizon": 6,
+          "included_in_main_comparison": true,
+          "price_measure_type": "observed_retail_gasoline"
+        }
+      ],
+      "probe_id": "q3_china_proxy_exclusion_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "China proxy is excluded from the main fuel pass-through comparison"
     },
     {
-      "code": "raw_hash_mismatch",
-      "message": "kosis_kr_gasoline_monthly SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/kosis_kr_gasoline_monthly_20260730.csv",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "results/q3_policy_counterfactual.csv",
+        "figures/q3_policy_counterfactual.png"
+      ],
+      "message": "Policy scenario fields distinguish incremental and cumulative gaps, matching the revised chart annotation.",
+      "metric": {
+        "april_cumulative": 1425.0,
+        "april_incremental": 380.0,
+        "april_response": 1425.0
+      },
+      "probe_id": "q3_policy_gap_annotation_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "April annotation separates incremental 380 from cumulative 1425 CNY/tonne"
     },
     {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_cpi_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_cpi_202606_release_20260730.html",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "figures",
+        "code/problem1/run_q1.py",
+        "code/problem2/run_q2.py",
+        "code/problem3/run_q3.py"
+      ],
+      "message": "Figure titles, axes, legends and captions are localized to Chinese while model acronyms and source names are retained.",
+      "metric": {
+        "figure_pngs": [
+          "data_overview_fuel_panel.png",
+          "data_overview_oil_gpr.png",
+          "q1_forecast_1m.png",
+          "q1_war_counterfactual.png",
+          "q2_irf.png",
+          "q3_panel_irf.png",
+          "q3_pass_through_6m.png",
+          "q3_policy_counterfactual.png"
+        ],
+        "old_visible_terms": []
+      },
+      "probe_id": "figure_localization_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "eight figure PNGs exist and old English visible chart terms are absent from plot code"
     },
     {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_gdp_2026q2_release raw snapshot is absent",
-      "path": "data/raw/nbs_gdp_2026q2_release_20260730.html",
-      "source": "data_warnings.json"
+      "evidence_files": [
+        "requirements.in",
+        "requirements.lock.txt"
+      ],
+      "message": "Environment versions are pinned for replay; package artifact hashes are represented by the lock-file hash and verifier version checks.",
+      "metric": {
+        "python_version": "3.11.9",
+        "requirements_lock_sha256": "d15285b5d437ed603d07fba2c6bf334fc67d400ecdcc1ff08417a491fbd2ccea"
+      },
+      "probe_id": "environment_lock_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Python 3.11.9 and exact dependency lock are recorded"
     },
     {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_iav_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_iav_202606_release_20260730.html",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_ppi_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_ppi_202606_release_20260730.html",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "ndrc_fuel_control_20260323 raw snapshot is absent",
-      "path": "data/raw/ndrc_fuel_control_20260323_20260730.html",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "ndrc_fuel_control_20260407 raw snapshot is absent",
-      "path": "data/raw/ndrc_fuel_control_20260407_20260730.html",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "oecd_g20_cpi_monthly raw snapshot is absent",
-      "path": "data/raw/oecd_g20_cpi_monthly_20260730.csv",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "oecd_kei_ip_monthly raw snapshot is absent",
-      "path": "data/raw/oecd_kei_ip_monthly_20260730.csv",
-      "source": "data_warnings.json"
-    },
-    {
-      "code": "nbs_gdp_yoy_manual_supplement",
-      "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
-      "source": "data_warnings.json:build_model_panels",
-      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
-    },
-    {
-      "code": "optional_china_macro_missing",
-      "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
-      "source": "data_warnings.json:build_model_panels"
-    },
-    {
-      "code": "optional_china_macro_missing",
-      "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
-      "source": "data_warnings.json:build_model_panels"
-    },
-    {
-      "code": "china_fuel_price_proxy",
-      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.",
-      "source": "data_warnings.json:build_model_panels"
-    },
-    {
-      "code": "q2_outcome_skipped",
-      "message": "China industrial value-added yoy, pct skipped: insufficient usable monthly history.",
-      "source": "q2_summary.json"
-    },
-    {
-      "code": "q2_outcome_skipped",
-      "message": "China PPI yoy, pct skipped: insufficient usable monthly history.",
-      "source": "q2_summary.json"
-    },
-    {
-      "code": "nbs_gdp_yoy_manual_supplement",
-      "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
-      "source": "model_panel_summary.json",
-      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
-    },
-    {
-      "code": "optional_china_macro_missing",
-      "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
-      "source": "model_panel_summary.json"
-    },
-    {
-      "code": "optional_china_macro_missing",
-      "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.",
-      "source": "model_panel_summary.json"
-    },
-    {
-      "code": "china_fuel_price_proxy",
-      "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.",
-      "source": "model_panel_summary.json"
+      "evidence_files": [
+        "results/frozen_numbers.json"
+      ],
+      "message": "The freeze records both model outputs and processed inputs so raw snapshots that cannot be redistributed do not prevent reproducibility checks.",
+      "metric": {
+        "input_hash_count": 15,
+        "output_hash_count": 20
+      },
+      "probe_id": "freeze_hash_coverage_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "all core result files and processed model inputs are hashed"
     }
-  ]
+  ],
+  "random_seed": 20260730,
+  "schema_version": "1.0"
 }

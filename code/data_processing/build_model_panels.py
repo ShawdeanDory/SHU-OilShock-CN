@@ -25,6 +25,8 @@ CUTOFF = pd.Timestamp("2026-06-30")
 START_MONTH = "2010-01"
 RANDOM_SEED = 20260730
 BARREL_TO_TONNE = 0.1364
+EVENT_E1_CALENDAR_START = pd.Timestamp("2026-02-28")
+EVENT_E3_CALENDAR_START = pd.Timestamp("2026-06-17")
 
 OECD_GDP_URLS = {
     "china_real_gdp_yoy_pct": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......GY.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile",
@@ -89,14 +91,33 @@ def quarter_label(dates: pd.Series) -> pd.Series:
 def add_event_stage(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     date = pd.to_datetime(result["date"])
+    trade_mask = date.ge(EVENT_E1_CALENDAR_START) & result["brent_usd_bbl"].notna() & result["wti_usd_bbl"].notna()
+    trading_dates = date.loc[trade_mask].drop_duplicates().sort_values().tolist()
+    if len(trading_dates) < 4:
+        raise ValueError("Cannot map E1 weekend event to at least four post-event common trading days.")
+    e1_start = pd.Timestamp(trading_dates[0])
+    e1_car_end = pd.Timestamp(trading_dates[2])
+    e2_start = pd.Timestamp(trading_dates[3])
+    e3_candidates = date.loc[
+        date.ge(EVENT_E3_CALENDAR_START) & result["brent_usd_bbl"].notna() & result["wti_usd_bbl"].notna()
+    ]
+    if e3_candidates.empty:
+        raise ValueError("Cannot map E3 easing event to a common trading day.")
+    e3_start = pd.Timestamp(e3_candidates.min())
+
     result["war_stage"] = "prewar"
-    result.loc[date >= pd.Timestamp("2026-02-28"), "war_stage"] = "E1_conflict"
-    result.loc[date >= pd.Timestamp("2026-03-02"), "war_stage"] = "E2_disruption"
-    result.loc[date >= pd.Timestamp("2026-06-17"), "war_stage"] = "E3_easing"
-    result["war_on"] = (date >= pd.Timestamp("2026-02-28")).astype(int)
-    result["stage_E1"] = (result["war_stage"].eq("E1_conflict")).astype(int)
+    result.loc[date.eq(e1_start), "war_stage"] = "E1_first_trading_day"
+    result.loc[date.between(e2_start, e3_start - pd.Timedelta(days=1)), "war_stage"] = "E2_disruption"
+    result.loc[date >= e3_start, "war_stage"] = "E3_easing"
+    result["war_on"] = (date >= e1_start).astype(int)
+    result["stage_E1"] = date.eq(e1_start).astype(int)
     result["stage_E2"] = (result["war_stage"].eq("E2_disruption")).astype(int)
     result["stage_E3"] = (result["war_stage"].eq("E3_easing")).astype(int)
+    result["event_e1_calendar_start"] = EVENT_E1_CALENDAR_START.strftime("%Y-%m-%d")
+    result["event_e1_trading_start"] = e1_start.strftime("%Y-%m-%d")
+    result["event_e1_car_end_0_2"] = e1_car_end.strftime("%Y-%m-%d")
+    result["event_e2_trading_start"] = e2_start.strftime("%Y-%m-%d")
+    result["event_e3_trading_start"] = e3_start.strftime("%Y-%m-%d")
     return result
 
 
@@ -193,6 +214,11 @@ def build_daily_q1() -> pd.DataFrame:
         "stage_E1",
         "stage_E2",
         "stage_E3",
+        "event_e1_calendar_start",
+        "event_e1_trading_start",
+        "event_e1_car_end_0_2",
+        "event_e2_trading_start",
+        "event_e3_trading_start",
     ]
     output = daily[columns]
     save_processed(output, "model_daily_q1.csv")
@@ -288,12 +314,14 @@ def load_china_macro(monthly_q1: pd.DataFrame, warnings: list[dict[str, Any]]) -
     q1_shocks_path = RESULTS_DIR / "q1_monthly_shocks.csv"
     if q1_shocks_path.exists():
         shocks = pd.read_csv(q1_shocks_path)
-        shock_columns = [column for column in ["period", "OilShock", "WarPremium", "OilShock_source"] if column in shocks.columns]
+        shock_columns = [column for column in ["period", "OilShock", "ARBaselineGap", "OilShock_source"] if column in shocks.columns]
         macro = macro.merge(shocks[shock_columns], on="period", how="left")
         macro["OilShock_source"] = macro.get("OilShock_source", pd.Series(index=macro.index, dtype=object)).fillna("q1_monthly_forecast_residual")
+        if "ARBaselineGap" not in macro.columns:
+            macro["ARBaselineGap"] = 0.0
     else:
         macro["OilShock"] = zscore(macro["brent_usd_bbl_log_return"])
-        macro["WarPremium"] = 0.0
+        macro["ARBaselineGap"] = 0.0
         macro["OilShock_source"] = "proxy_brent_log_return_until_q1_runs"
         warnings.append({"code": "q1_shocks_not_yet_available", "message": "Using standardized Brent monthly log return as temporary OilShock proxy."})
 
@@ -310,7 +338,7 @@ def build_quarterly_cn(monthly_cn: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataFr
             quarter_end=("month_end", "max"),
             OilShock_sum=("OilShock", "sum"),
             OilShock_mean=("OilShock", "mean"),
-            WarPremium_mean=("WarPremium", "mean"),
+            ARBaselineGap_mean=("ARBaselineGap", "mean"),
             brent_log_return_sum=("brent_usd_bbl_log_return", "sum"),
             china_cpi_yoy_pct_mean=("china_cpi_yoy_pct", "mean"),
             china_fx_log_change_pct_sum=("china_fx_log_change_pct", "sum"),
@@ -370,6 +398,10 @@ def make_country_rows(
     fuel_unit: str,
     brent_local: pd.Series,
     fuel_source: str,
+    price_measure_type: str,
+    observed_or_regulated: str,
+    included_in_main_comparison: bool,
+    comparability_note: str,
 ) -> pd.DataFrame:
     rows = monthly_q1[["period", "month_end", "brent_usd_bbl", "GPR", "cny_per_usd", "jpy_per_usd", "krw_per_usd"]].copy()
     rows = rows.merge(fuel[["period", fuel_column]], on="period", how="left")
@@ -378,6 +410,10 @@ def make_country_rows(
     rows["country_name"] = country_name
     rows["fuel_unit"] = fuel_unit
     rows["fuel_source"] = fuel_source
+    rows["price_measure_type"] = price_measure_type
+    rows["observed_or_regulated"] = observed_or_regulated
+    rows["included_in_main_comparison"] = included_in_main_comparison
+    rows["comparability_note"] = comparability_note
     rows["brent_local_per_bbl"] = brent_local.to_numpy()
     rows["fuel_log"] = log_positive(rows["fuel_price_local"])
     rows["fuel_log_return"] = rows["fuel_log"].diff()
@@ -424,6 +460,10 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "CNY/tonne proxy",
             monthly_q1["brent_usd_bbl"] * monthly_q1["cny_per_usd"],
             "Brent-CNY proxy net of NDRC policy gaps",
+            "constructed_brent_cny_policy_proxy",
+            "proxy_not_observed",
+            False,
+            "China fuel price is constructed from Brent-CNY minus cumulative NDRC policy gaps; excluded from the main cross-country fuel-price ranking.",
         ),
         make_country_rows(
             "DEU",
@@ -434,6 +474,10 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "EUR/litre",
             monthly_q1["brent_usd_bbl"] * monthly_q1["eur_per_usd"],
             "European Commission Weekly Oil Bulletin",
+            "observed_retail_gasoline",
+            "observed_retail",
+            True,
+            "Observed Euro-super 95 retail price, monthly average of official weekly data.",
         ),
         make_country_rows(
             "JPN",
@@ -444,6 +488,10 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "JPY/litre",
             monthly_q1["brent_usd_bbl"] * monthly_q1["jpy_per_usd"],
             "Japan METI weekly fuel survey monthly average",
+            "observed_retail_gasoline",
+            "observed_retail",
+            True,
+            "Observed regular gasoline retail price, monthly average of official weekly data.",
         ),
         make_country_rows(
             "KOR",
@@ -454,6 +502,10 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "KRW/litre",
             monthly_q1["brent_usd_bbl"] * monthly_q1["krw_per_usd"],
             "KOSIS / Korea National Oil Corporation monthly gasoline",
+            "observed_retail_gasoline",
+            "observed_retail",
+            True,
+            "Observed regular gasoline national monthly average from KOSIS/KNOC.",
         ),
     ]
     panel = pd.concat(rows, ignore_index=True)
@@ -465,7 +517,7 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
     panel["ip_log"] = log_positive(panel["ip_index"])
     panel["ip_yoy_log_change_pct"] = panel.groupby("country")["ip_log"].diff(12) * 100.0
     panel = panel.merge(
-        monthly_cn[["period", "OilShock", "WarPremium", "OilShock_source"]],
+        monthly_cn[["period", "OilShock", "ARBaselineGap", "OilShock_source"]],
         on="period",
         how="left",
     )
@@ -478,6 +530,10 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "fuel_price_local",
             "fuel_unit",
             "fuel_source",
+            "price_measure_type",
+            "observed_or_regulated",
+            "included_in_main_comparison",
+            "comparability_note",
             "fuel_log_return",
             "brent_local_per_bbl",
             "brent_local_log_return",
@@ -486,7 +542,7 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
             "ip_yoy_log_change_pct",
             "activity_yoy_pct",
             "OilShock",
-            "WarPremium",
+            "ARBaselineGap",
             "OilShock_source",
             "GPR",
         ]

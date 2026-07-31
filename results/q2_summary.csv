@@ -1,6 +1,6 @@
 component,rows,status,note
-ARDL,6,PASS,available monthly outcomes only
-LocalProjection,26,PASS,horizons 0..12 where estimable
+ARDL,6,CONDITIONAL,available monthly outcomes only; OilShock is reduced-form innovation
+LocalProjection,26,CONDITIONAL,horizons 0..12 where estimable; reports FDR and zero-crossing flags
 GDPValidation,1,PASS,quarterly GDP check; no monthly interpolation
 Asymmetry,4,PASS,positive and negative shock split
 LagCovidRobustness,12,PASS,lag 3/6/12 and exclude-COVID specifications

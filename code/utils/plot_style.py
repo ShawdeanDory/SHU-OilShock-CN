@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -45,9 +46,10 @@ def apply_paper_style() -> None:
             "axes.facecolor": "white",
             "savefig.facecolor": "white",
             "savefig.edgecolor": "white",
-            "font.family": "serif",
-            "font.serif": ["Times New Roman", "STIXGeneral", "DejaVu Serif"],
+            "font.family": ["Times New Roman", "SimSun", "FangSong", "DejaVu Serif"],
+            "font.serif": ["Times New Roman", "SimSun", "FangSong", "STIXGeneral", "DejaVu Serif"],
             "mathtext.fontset": "stix",
+            "axes.unicode_minus": False,
             "text.color": INK,
             "axes.labelcolor": INK,
             "axes.edgecolor": SPINE,
@@ -101,11 +103,24 @@ def finish_figure(
     rect: tuple[float, float, float, float] = (0.08, 0.11, 0.98, 0.86),
 ) -> None:
     fig.tight_layout(rect=rect)
-    fig.text(rect[0], 0.965, title, ha="left", va="top", fontsize=14, fontweight="bold", color=INK)
+    fig.text(rect[0], 0.965, title, ha="left", va="top", fontsize=14, fontweight="normal", color=INK)
     fig.text(rect[0], 0.927, subtitle, ha="left", va="top", fontsize=9.6, color=MUTED)
     fig.text(rect[0], 0.035, source, ha="left", va="bottom", fontsize=8.4, color=MUTED)
 
 
 def save_figure(fig: plt.Figure, path_stem: Path, *, dpi: int = 300) -> None:
-    for suffix in ["png", "pdf"]:
-        fig.savefig(path_stem.with_suffix(f".{suffix}"), dpi=dpi, bbox_inches="tight", pad_inches=0.08)
+    fig.savefig(path_stem.with_suffix(".png"), dpi=dpi, bbox_inches="tight", pad_inches=0.08)
+    fixed_time = datetime(2026, 7, 30, tzinfo=timezone.utc)
+    pdf_metadata = {
+        "Creator": "SHU-OilShock-CN",
+        "Producer": "Matplotlib",
+        "CreationDate": fixed_time,
+        "ModDate": fixed_time,
+    }
+    fig.savefig(
+        path_stem.with_suffix(".pdf"),
+        dpi=dpi,
+        bbox_inches="tight",
+        pad_inches=0.08,
+        metadata=pdf_metadata,
+    )

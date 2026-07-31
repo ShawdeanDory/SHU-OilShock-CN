@@ -1,20 +1,23 @@
-"""Freeze modeling outputs into paper-ready candidate numbers and a report."""
+"""Freeze stage outputs and run paper-finalization risk probes."""
 
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
+import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
 import matplotlib
 
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,27 +27,58 @@ if str(CODE_DIR) not in sys.path:
 
 from utils.plot_style import PALETTE, apply_paper_style, finish_figure, save_figure, style_axis
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 RESULTS_DIR = REPO_ROOT / "results"
 FIGURES_DIR = REPO_ROOT / "figures"
 REPORTS_DIR = REPO_ROOT / "reports"
 CUTOFF = "2026-06-30"
-
+SCHEMA_VERSION = "1.0"
+RANDOM_SEED = 20260730
 
 CORE_RESULT_FILES = [
     "q1_forecast_metrics.csv",
     "q1_event_effects.csv",
+    "q1_placebo_distribution.csv",
+    "q1_daily_counterfactual.csv",
     "q1_monthly_shocks.csv",
     "q1_robustness.csv",
+    "q1_summary.json",
     "q2_ardl_baseline.csv",
     "q2_irf.csv",
     "q2_gdp_validation.csv",
+    "q2_asymmetry.csv",
     "q2_robustness.csv",
+    "q2_summary.csv",
+    "q2_summary.json",
     "q3_country_pass_through.csv",
     "q3_panel_irf.csv",
     "q3_policy_counterfactual.csv",
     "q3_robustness.csv",
     "q3_summary.csv",
+    "q3_summary.json",
 ]
+
+PROCESSED_INPUT_FILES = [
+    "p0_daily_market.csv",
+    "p0_monthly_market.csv",
+    "model_daily_q1.csv",
+    "model_monthly_q1.csv",
+    "model_monthly_cn.csv",
+    "model_quarterly_cn.csv",
+    "model_country_monthly.csv",
+    "oecd_g20_cpi_monthly.csv",
+    "oecd_kei_ip_monthly.csv",
+    "germany_eurosuper95_monthly.csv",
+    "japan_regular_gasoline_monthly.csv",
+    "korea_regular_gasoline_monthly.csv",
+    "cn_fuel_policy_events.csv",
+    "china_fuel_policy_monthly.csv",
+    "china_fuel_proxy_monthly.csv",
+]
+
+COUNTRY_LABEL_ZH = {"CHN": "中国（代理）", "DEU": "德国", "JPN": "日本", "KOR": "韩国"}
 
 
 def read_csv(filename: str) -> pd.DataFrame:
@@ -54,12 +88,27 @@ def read_csv(filename: str) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def load_json(filename: str) -> dict[str, Any]:
+    path = RESULTS_DIR / filename
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_json(payload: dict[str, Any]) -> str:
+    return sha256_bytes(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"))
 
 
 def clean_value(value: Any) -> Any:
@@ -78,6 +127,306 @@ def records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return [{key: clean_value(value) for key, value in row.items()} for row in frame.to_dict("records")]
 
 
+def hash_existing(base_dir: Path, filenames: list[str]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for filename in filenames:
+        path = base_dir / filename
+        if path.exists():
+            hashes[filename] = sha256_file(path)
+    return hashes
+
+
+def collect_figures() -> list[str]:
+    if not FIGURES_DIR.exists():
+        return []
+    return sorted(path.name for path in FIGURES_DIR.glob("*.png") if path.name.startswith(("q", "data_")))
+
+
+def git_commit() -> str:
+    result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True, capture_output=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else "UNKNOWN"
+
+
+def environment_snapshot() -> dict[str, Any]:
+    packages: dict[str, str] = {}
+    for package in ["numpy", "pandas", "scipy", "statsmodels", "linearmodels", "matplotlib", "requests", "openpyxl", "xlrd"]:
+        try:
+            packages[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            packages[package] = "NOT_INSTALLED"
+    lock_path = REPO_ROOT / "requirements.lock.txt"
+    return {
+        "python_version": platform.python_version(),
+        "python_executable": sys.executable,
+        "platform": platform.platform(),
+        "packages": packages,
+        "requirements_lock_sha256": sha256_file(lock_path) if lock_path.exists() else None,
+    }
+
+
+def probe(
+    probe_id: str,
+    status: str,
+    metric: Any,
+    threshold: str,
+    evidence_files: list[str],
+    message: str,
+    severity: str = "blocking",
+) -> dict[str, Any]:
+    return {
+        "probe_id": probe_id,
+        "status": status,
+        "severity": severity,
+        "metric": metric,
+        "threshold": threshold,
+        "evidence_files": evidence_files,
+        "message": message,
+    }
+
+
+def combined_status(probes: list[dict[str, Any]]) -> str:
+    statuses = {row["status"] for row in probes}
+    if "FAIL" in statuses:
+        return "FAIL"
+    if "CONDITIONAL" in statuses:
+        return "CONDITIONAL"
+    return "PASS"
+
+
+def has_rows(path: Path, minimum: int) -> bool:
+    if not path.exists():
+        return False
+    frame = pd.read_csv(path)
+    return len(frame.dropna(how="all")) >= minimum
+
+
+def bool_series(series: pd.Series) -> pd.Series:
+    if pd.api.types.is_bool_dtype(series):
+        return series
+    return series.astype(str).str.lower().isin(["true", "1", "yes"])
+
+
+def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[str, str]) -> dict[str, Any]:
+    probes: list[dict[str, Any]] = []
+
+    metrics = read_csv("q1_forecast_metrics.csv")
+    if metrics.empty or "model_status" not in metrics.columns:
+        probes.append(probe("q1_forecast_baseline_gate", "FAIL", "missing model_status", "all forecast metrics carry model_status", ["results/q1_forecast_metrics.csv"], "Q1 forecast metrics cannot prove that advanced models were downgraded."))
+    else:
+        advanced_non_pass = metrics.loc[metrics["model"].ne("no_change") & metrics["model_status"].ne("PASS")]
+        no_change_rows = metrics.loc[metrics["model"].eq("no_change")]
+        status = "CONDITIONAL" if not advanced_non_pass.empty else "PASS"
+        if no_change_rows.empty:
+            status = "FAIL"
+        probes.append(
+            probe(
+                "q1_forecast_baseline_gate",
+                status,
+                {
+                    "selected_model": "no_change",
+                    "advanced_non_pass_rows": int(len(advanced_non_pass)),
+                    "no_change_rows": int(len(no_change_rows)),
+                },
+                "no-change rows exist; ARIMA/SARIMAX must be non-PASS when they fail the baseline",
+                ["results/q1_forecast_metrics.csv", "results/q1_summary.json"],
+                "No-change is selected as the main forecast. ARIMA/SARIMAX are not allowed to claim PASS when they do not beat the baseline.",
+            )
+        )
+
+    q1_summary = load_json("q1_summary.json")
+    event_calendar = q1_summary.get("event_calendar", {})
+    event_ok = event_calendar.get("e1_trading_start") == "2026-03-02" and event_calendar.get("e2_trading_start") == "2026-03-05"
+    effects = read_csv("q1_event_effects.csv")
+    e1_rows = effects.loc[(effects.get("stage_id", pd.Series(dtype=str)).eq("E1")) & effects.get("identification_status", pd.Series(dtype=str)).eq("PASS")] if not effects.empty else pd.DataFrame()
+    probes.append(
+        probe(
+            "q1_event_trading_day_gate",
+            "PASS" if event_ok and not e1_rows.empty else "FAIL",
+            {"event_calendar": event_calendar, "e1_identified_rows": int(len(e1_rows))},
+            "E1 maps to 2026-03-02 and has identifiable nonzero trading observations",
+            ["results/q1_event_effects.csv", "results/q1_summary.json"],
+            "E1 weekend event has been remapped to the first common trading day and the zero-variance dummy problem is removed.",
+        )
+    )
+
+    placebos = read_csv("q1_placebo_distribution.csv")
+    empirical_p = q1_summary.get("placebo_min_empirical_pvalue")
+    if placebos.empty or empirical_p is None:
+        placebo_status = "FAIL"
+    elif empirical_p < 0.10:
+        placebo_status = "CONDITIONAL"
+    else:
+        placebo_status = "PASS"
+    probes.append(
+        probe(
+            "q1_placebo_distribution_gate",
+            placebo_status,
+            {"placebo_rows": int(len(placebos)), "min_empirical_pvalue": empirical_p},
+            "matched weekend placebo distribution exists; empirical p >= 0.10 for clean event claims",
+            ["results/q1_placebo_distribution.csv", "results/q1_summary.json"],
+            "Matched weekend placebo evidence is available, but any low empirical p-value keeps causal event language conditional.",
+        )
+    )
+
+    shocks = read_csv("q1_monthly_shocks.csv")
+    language_ok = not shocks.empty and "ARBaselineGap" in shocks.columns and "WarPremium" not in shocks.columns
+    probes.append(
+        probe(
+            "q1_counterfactual_language_gate",
+            "PASS" if language_ok else "FAIL",
+            {"has_ARBaselineGap": bool("ARBaselineGap" in shocks.columns), "has_WarPremium": bool("WarPremium" in shocks.columns)},
+            "descriptive AR baseline field exists and old causal premium field is absent",
+            ["results/q1_monthly_shocks.csv", "results/q1_daily_counterfactual.csv"],
+            "The event-path gap is labeled as ARBaselineGap rather than a war premium or causal no-war contribution.",
+        )
+    )
+
+    nbs_iav_ok = has_rows(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv", 120)
+    nbs_ppi_ok = has_rows(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv", 120)
+    probes.append(
+        probe(
+            "q2_nbs_macro_completeness_gate",
+            "PASS" if nbs_iav_ok and nbs_ppi_ok else "CONDITIONAL",
+            {"nbs_iav_monthly": nbs_iav_ok, "nbs_ppi_monthly": nbs_ppi_ok},
+            "NBS IAV and PPI monthly histories are present with enough observations",
+            ["data/processed/nbs_iav_monthly.csv", "data/processed/nbs_ppi_monthly.csv", "results/q2_summary.json"],
+            "Q2 remains conditional until official IAV and PPI histories enter the processed layer; no interpolation is used to fill the gap.",
+        )
+    )
+
+    q2_summary = load_json("q2_summary.json")
+    q2_irf = read_csv("q2_irf.csv")
+    q2_guard_ok = (
+        q2_summary.get("shock_identification", "").startswith("OilShock is a reduced-form")
+        and not q2_irf.empty
+        and {"ci95_contains_zero", "fdr_qvalue", "supports_growth_loss_language"}.issubset(q2_irf.columns)
+    )
+    probes.append(
+        probe(
+            "q2_claim_strength_gate",
+            "PASS" if q2_guard_ok else "FAIL",
+            {"irf_rows": int(len(q2_irf)), "guardrail_present": bool(q2_summary.get("conclusion_guardrail"))},
+            "LP inference flags and reduced-form shock wording are present",
+            ["results/q2_irf.csv", "results/q2_summary.json"],
+            "Q2 output distinguishes reduced-form association from structural oil-supply transmission and blocks unsupported growth-loss wording.",
+        )
+    )
+
+    q3_pass = read_csv("q3_country_pass_through.csv")
+    if q3_pass.empty or "included_in_main_comparison" not in q3_pass.columns:
+        q3_comp_status = "FAIL"
+        q3_metric: Any = "missing comparability fields"
+    else:
+        chn_main = bool_series(q3_pass.loc[q3_pass["country"].eq("CHN"), "included_in_main_comparison"])
+        q3_comp_status = "PASS" if not chn_main.empty and not bool(chn_main.any()) else "FAIL"
+        q3_metric = q3_pass[["country", "horizon", "included_in_main_comparison", "price_measure_type"]].to_dict("records")
+    probes.append(
+        probe(
+            "q3_china_proxy_exclusion_gate",
+            q3_comp_status,
+            q3_metric,
+            "China proxy is excluded from the main fuel pass-through comparison",
+            ["results/q3_country_pass_through.csv", "data/processed/model_country_monthly.csv"],
+            "The Brent-CNY China proxy is retained only as a sensitivity/policy-scenario input, not as main cross-country evidence.",
+        )
+    )
+
+    q3_policy = read_csv("q3_policy_counterfactual.csv")
+    april = q3_policy.loc[q3_policy.get("period", pd.Series(dtype=str)).eq("2026-04")] if not q3_policy.empty else pd.DataFrame()
+    policy_ok = False
+    policy_metric: dict[str, Any] = {}
+    if not april.empty:
+        inc = float(april["incremental_gasoline_gap_cny_t"].iloc[0])
+        cum = float(april["cumulative_gasoline_gap_cny_t"].iloc[0])
+        response = float(april["response"].iloc[0])
+        policy_metric = {"april_incremental": inc, "april_cumulative": cum, "april_response": response}
+        policy_ok = abs(inc - 380.0) < 1e-6 and abs(cum - 1425.0) < 1e-6 and abs(response - 1425.0) < 1e-6
+    probes.append(
+        probe(
+            "q3_policy_gap_annotation_gate",
+            "PASS" if policy_ok else "FAIL",
+            policy_metric,
+            "April annotation separates incremental 380 from cumulative 1425 CNY/tonne",
+            ["results/q3_policy_counterfactual.csv", "figures/q3_policy_counterfactual.png"],
+            "Policy scenario fields distinguish incremental and cumulative gaps, matching the revised chart annotation.",
+        )
+    )
+
+    chart_sources = [
+        REPO_ROOT / "code" / "problem1" / "run_q1.py",
+        REPO_ROOT / "code" / "problem2" / "run_q2.py",
+        REPO_ROOT / "code" / "problem3" / "run_q3.py",
+    ]
+    old_terms = [
+        "Actual Brent",
+        "No-war counterfactual",
+        "Q1 war-premium counterfactual",
+        "USD per barrel",
+        "95% interval",
+        "Months after oil shock",
+        "Cumulative coefficient",
+        "Actual proxy",
+        "No-control proxy",
+        "Data overview:",
+    ]
+    leftovers: list[str] = []
+    for path in chart_sources:
+        text = path.read_text(encoding="utf-8")
+        leftovers.extend([term for term in old_terms if term in text])
+    figures = collect_figures()
+    probes.append(
+        probe(
+            "figure_localization_gate",
+            "PASS" if len(figures) >= 8 and not leftovers else "FAIL",
+            {"figure_pngs": figures, "old_visible_terms": sorted(set(leftovers))},
+            "eight figure PNGs exist and old English visible chart terms are absent from plot code",
+            ["figures", "code/problem1/run_q1.py", "code/problem2/run_q2.py", "code/problem3/run_q3.py"],
+            "Figure titles, axes, legends and captions are localized to Chinese while model acronyms and source names are retained.",
+        )
+    )
+
+    lock_path = REPO_ROOT / "requirements.lock.txt"
+    env = environment_snapshot()
+    env_ok = lock_path.exists() and env["python_version"] == "3.11.9"
+    probes.append(
+        probe(
+            "environment_lock_gate",
+            "PASS" if env_ok else "CONDITIONAL",
+            {"python_version": env["python_version"], "requirements_lock_sha256": env["requirements_lock_sha256"]},
+            "Python 3.11.9 and exact dependency lock are recorded",
+            ["requirements.in", "requirements.lock.txt"],
+            "Environment versions are pinned for replay; package artifact hashes are represented by the lock-file hash and verifier version checks.",
+        )
+    )
+
+    hash_ok = len(output_hashes) == len(CORE_RESULT_FILES) and len(input_hashes) >= 10
+    probes.append(
+        probe(
+            "freeze_hash_coverage_gate",
+            "PASS" if hash_ok else "FAIL",
+            {"output_hash_count": len(output_hashes), "input_hash_count": len(input_hashes)},
+            "all core result files and processed model inputs are hashed",
+            ["results/frozen_numbers.json"],
+            "The freeze records both model outputs and processed inputs so raw snapshots that cannot be redistributed do not prevent reproducibility checks.",
+        )
+    )
+
+    overall = combined_status(probes)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "overall_status": overall,
+        "paper_finalize_allowed": overall == "PASS",
+        "cutoff": CUTOFF,
+        "random_seed": RANDOM_SEED,
+        "probes": probes,
+        "blocking_probe_ids": [row["probe_id"] for row in probes if row["status"] != "PASS" and row["severity"] == "blocking"],
+        "core_results_present": {filename: (RESULTS_DIR / filename).exists() for filename in CORE_RESULT_FILES},
+        "figure_pngs": collect_figures(),
+        "output_hash_count": len(output_hashes),
+        "input_hash_count": len(input_hashes),
+    }
+
+
 def extract_final_numbers() -> dict[str, Any]:
     q1_metrics = read_csv("q1_forecast_metrics.csv")
     q1_events = read_csv("q1_event_effects.csv")
@@ -92,26 +441,24 @@ def extract_final_numbers() -> dict[str, Any]:
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     q3_robust = read_csv("q3_robustness.csv")
 
-    final: dict[str, Any] = {
-        "cutoff": CUTOFF,
-        "q1": {},
-        "q2": {},
-        "q3": {},
-    }
+    final: dict[str, Any] = {"cutoff": CUTOFF, "status_note": "stage snapshot; not a paper-final causal freeze unless risk gate passes", "q1": {}, "q2": {}, "q3": {}}
     if not q1_metrics.empty:
-        best = q1_metrics.sort_values(["RMSE", "MAE"]).head(3)
-        final["q1"]["forecast_best_by_rmse"] = records(best)
+        final["q1"]["selected_forecast_model"] = "no_change"
+        final["q1"]["forecast_best_by_rmse"] = records(q1_metrics.sort_values(["RMSE", "MAE"]).head(3))
         final["q1"]["forecast_metrics"] = records(q1_metrics.sort_values(["horizon", "model"]))
     if not q1_events.empty:
-        final["q1"]["brent_event_effects"] = records(
+        final["q1"]["brent_event_stage_effects"] = records(
             q1_events.loc[q1_events["model"].eq("brent_usd_bbl_stage_dummy")].sort_values("stage_id")
+        )
+        final["q1"]["brent_event_car"] = records(
+            q1_events.loc[q1_events["model"].eq("brent_usd_bbl_event_car")].sort_values("stage_id")
         )
         final["q1"]["wti_robustness_effects"] = records(
             q1_events.loc[q1_events["model"].eq("wti_usd_bbl_stage_dummy")].sort_values("stage_id")
         )
     if not q1_shocks.empty:
-        event_months = q1_shocks.loc[q1_shocks["WarPremium"].abs().gt(0)]
-        final["q1"]["war_premium_months"] = records(event_months[["period", "WarPremium", "WarPremium_days"]])
+        event_months = q1_shocks.loc[q1_shocks["ARBaselineGap"].abs().gt(0)]
+        final["q1"]["ar_baseline_gap_months"] = records(event_months[["period", "ARBaselineGap", "ARBaselineGap_days"]])
     if not q1_robust.empty:
         final["q1"]["robustness_rows"] = int(len(q1_robust))
         final["q1"]["robustness_types"] = sorted(q1_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q1_robust else []
@@ -128,34 +475,21 @@ def extract_final_numbers() -> dict[str, Any]:
         final["q2"]["robustness"] = records(q2_robust.sort_values(["outcome", "lag_max", "exclude_covid"]))
 
     if not q3_pass.empty:
-        final["q3"]["pass_through_h6"] = records(q3_pass.loc[q3_pass["horizon"].eq(6)].sort_values("country"))
+        main_pass = q3_pass.loc[bool_series(q3_pass["included_in_main_comparison"])] if "included_in_main_comparison" in q3_pass else q3_pass
+        final["q3"]["pass_through_h6_main_comparison"] = records(main_pass.loc[main_pass["horizon"].eq(6)].sort_values("country"))
+        final["q3"]["china_proxy_sensitivity_h6"] = records(q3_pass.loc[q3_pass["country"].eq("CHN") & q3_pass["horizon"].eq(6)])
     if not q3_irf.empty:
         final["q3"]["panel_lp_selected_horizons"] = records(
             q3_irf.loc[q3_irf["horizon"].isin([0, 6, 12])].sort_values(["outcome", "country", "horizon"])
         )
     if not q3_policy.empty:
         final["q3"]["policy_counterfactual"] = records(q3_policy)
-        final["q3"]["policy_max_price_gap_cny_t"] = clean_value(q3_policy["response"].max())
+        final["q3"]["policy_max_cumulative_gap_cny_t"] = clean_value(q3_policy["cumulative_gasoline_gap_cny_t"].max())
         final["q3"]["policy_max_cpi_gap_pctpt"] = clean_value(q3_policy["cpi_counterfactual_gap_pctpt"].max())
     if not q3_robust.empty:
         final["q3"]["robustness_rows"] = int(len(q3_robust))
         final["q3"]["robustness_types"] = sorted(q3_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q3_robust else []
     return final
-
-
-def collect_file_hashes() -> dict[str, str]:
-    hashes: dict[str, str] = {}
-    for filename in CORE_RESULT_FILES:
-        path = RESULTS_DIR / filename
-        if path.exists():
-            hashes[filename] = sha256_file(path)
-    return hashes
-
-
-def collect_figures() -> list[str]:
-    if not FIGURES_DIR.exists():
-        return []
-    return sorted(path.name for path in FIGURES_DIR.glob("*.png") if path.name.startswith(("q", "data_")))
 
 
 def build_data_overview_figures() -> None:
@@ -167,10 +501,10 @@ def build_data_overview_figures() -> None:
         monthly = pd.read_csv(monthly_path, parse_dates=["month_end"])
         fig, ax1 = plt.subplots(figsize=(9.2, 5.1))
         ax1.plot(monthly["month_end"], monthly["brent_usd_bbl"], color=PALETTE["blue"], label="Brent", linewidth=1.8)
-        style_axis(ax1, ylabel="Brent USD/bbl")
+        style_axis(ax1, ylabel="Brent，美元/桶")
         ax2 = ax1.twinx()
-        ax2.plot(monthly["month_end"], monthly["GPR_z"], color=PALETTE["rose"], alpha=0.82, label="GPR z-score", linewidth=1.35, linestyle=(0, (4, 2)))
-        ax2.set_ylabel("GPR z-score")
+        ax2.plot(monthly["month_end"], monthly["GPR_z"], color=PALETTE["rose"], alpha=0.82, label="GPR标准化值", linewidth=1.35, linestyle=(0, (4, 2)))
+        ax2.set_ylabel("GPR标准化值")
         ax2.tick_params(colors=PALETTE["muted"], length=3.2, width=0.65)
         ax2.spines["right"].set_color(PALETTE["muted"])
         ax2.spines["right"].set_linewidth(0.7)
@@ -180,9 +514,9 @@ def build_data_overview_figures() -> None:
         ax1.legend(lines + lines2, labels + labels2, loc="upper left", ncol=2, handlelength=2.8)
         finish_figure(
             fig,
-            title="Data overview: Brent and geopolitical risk",
-            subtitle="Monthly Brent price and standardized GPR index, 2010-01 to 2026-06.",
-            source="Source: FRED Brent and Caldara-Iacoviello GPR processed panel; generated by code/utils/freeze_results.py.",
+            title="数据概览：Brent 油价与地缘政治风险",
+            subtitle="月度 Brent 现货价与标准化 GPR 指数，2010-01 至 2026-06。",
+            source="来源：FRED Brent 与 Caldara-Iacoviello GPR 处理面板；由 code/utils/freeze_results.py 生成。",
         )
         save_figure(fig, FIGURES_DIR / "data_overview_oil_gpr")
         plt.close(fig)
@@ -199,27 +533,17 @@ def build_data_overview_figures() -> None:
         }
         for country, group in panel.groupby("country"):
             color, linestyle = style_map.get(country, (PALETTE["slate"], "solid"))
-            ax.plot(group["month_end"], group["fuel_index"], label=country, color=color, linestyle=linestyle, linewidth=1.55)
-        style_axis(ax, ylabel="Index, 2010-01 = 100")
+            ax.plot(group["month_end"], group["fuel_index"], label=COUNTRY_LABEL_ZH.get(country, country), color=color, linestyle=linestyle, linewidth=1.55)
+        style_axis(ax, ylabel="指数，2010-01=100")
         ax.legend(loc="upper left", ncol=4, handlelength=2.8)
         finish_figure(
             fig,
-            title="Data overview: fuel price indexes",
-            subtitle="Country fuel-price series indexed to 2010-01; China is a Brent-CNY policy proxy.",
-            source="Source: EC Weekly Oil Bulletin, METI, KOSIS and constructed China proxy; generated by code/utils/freeze_results.py.",
+            title="数据概览：燃油价格指数",
+            subtitle="各国燃油价格序列以 2010-01 为100；中国为 Brent-CNY 政策代理值。",
+            source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC 与中国代理值；由 code/utils/freeze_results.py 生成。",
         )
         save_figure(fig, FIGURES_DIR / "data_overview_fuel_panel")
         plt.close(fig)
-
-
-def load_json(filename: str) -> dict[str, Any]:
-    path = RESULTS_DIR / filename
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
 
 
 def summarize_warnings() -> list[dict[str, Any]]:
@@ -240,8 +564,12 @@ def summarize_warnings() -> list[dict[str, Any]]:
 
 def markdown_table(frame: pd.DataFrame, columns: list[str], limit: int = 12) -> str:
     if frame.empty:
-        return "_无可用结果。_"
-    subset = frame[columns].head(limit).copy()
+        return "_暂无可用结果。_"
+    subset = frame.copy()
+    for column in columns:
+        if column not in subset.columns:
+            subset[column] = ""
+    subset = subset[columns].head(limit).copy()
     for column in subset.columns:
         if pd.api.types.is_numeric_dtype(subset[column]):
             subset[column] = subset[column].map(lambda value: "" if pd.isna(value) else f"{float(value):.4f}")
@@ -255,77 +583,81 @@ def markdown_table(frame: pd.DataFrame, columns: list[str], limit: int = 12) -> 
     return "\n".join([header, divider] + body)
 
 
-def build_report(final_numbers: dict[str, Any], warnings_list: list[dict[str, Any]]) -> str:
+def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], warnings_list: list[dict[str, Any]]) -> str:
     q1_metrics = read_csv("q1_forecast_metrics.csv")
     q1_events = read_csv("q1_event_effects.csv")
-    q2_ardl = read_csv("q2_ardl_baseline.csv")
     q2_irf = read_csv("q2_irf.csv")
     q2_gdp = read_csv("q2_gdp_validation.csv")
     q3_pass = read_csv("q3_country_pass_through.csv")
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     figures = collect_figures()
 
+    q3_main = q3_pass.loc[bool_series(q3_pass["included_in_main_comparison"])] if not q3_pass.empty and "included_in_main_comparison" in q3_pass else q3_pass
     warning_lines = []
     for warning in warnings_list[:20]:
         warning_lines.append(f"- `{warning.get('code', 'warning')}`：{warning.get('message', '')}")
     if not warning_lines:
         warning_lines.append("- 暂无模型执行 warning。")
+    blocker_lines = [f"- `{probe_id}`" for probe_id in risk_summary["blocking_probe_ids"]]
+    if not blocker_lines:
+        blocker_lines.append("- 无。")
 
-    report = f"""# 国际油价三问阶段性建模结果报告
+    return f"""# 国际油价三问阶段性建模结果报告
 
 ## Material Passport
 
 - Origin Skill: `academic-research-suite / experiment-agent`
 - Execution Mode: `goal`
-- Verification Status: `ANALYZED`
+- Verification Status: `{risk_summary['overall_status']}`
+- Paper Finalize Allowed: `{str(risk_summary['paper_finalize_allowed']).lower()}`
 - Cutoff: `{CUTOFF}`
-- Random Seed: `20260730`
+- Random Seed: `{RANDOM_SEED}`
 
 ## 1. 总体结论
 
-本轮已经完成三问主线的可复现结果冻结：Q1 生成油价预测、战争事件冲击和月度 `OilShock` 接口；Q2 在中国 IAV/PPI 历史处理层暂缺的情况下，完成 CPI、汇率与季度 GDP 验证；Q3 完成日德韩真实零售汽油价格传导、中国 proxy 价格层反事实和跨国 panel LP。
+本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
 
-关键边界：所有观测截止于 `2026-06-30`；IAV/PPI 暂未进入正式估计；中国燃油零售价使用 Brent-CNY 加 NDRC 政策差额的 proxy，不作为真实零售价格声称。
+当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二的 `OilShock` 是约化形式油价创新；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
 
-## 2. Q1 预测与战争冲击
+阻塞定稿的门禁：
 
-月度预测评估保留 no-change、ARIMA 和 SARIMAX，未按显著性或好看程度筛选。
+{chr(10).join(blocker_lines)}
 
-{markdown_table(q1_metrics.sort_values(['horizon', 'model']) if not q1_metrics.empty else q1_metrics, ['model', 'horizon', 'n', 'MAE', 'RMSE', 'direction_accuracy', 'coverage_80', 'coverage_95'])}
+## 2. 问题一：预测与事件窗口
 
-战争事件效应采用日度 AR(3)+美元收益率与阶段 dummy，标准误为 Newey-West；WTI 和 2025 placebo 作为稳健性/负对照。
+月度预测表已经加入相对基线指标和逐模型状态。当前主预测模型是 `no_change`。
 
-{markdown_table(q1_events.sort_values(['model', 'stage_id']) if not q1_events.empty else q1_events, ['model', 'stage_id', 'estimate_log_return', 'std_error', 'lower_95', 'upper_95', 'pvalue', 'n'])}
+{markdown_table(q1_metrics.sort_values(['horizon', 'model']) if not q1_metrics.empty else q1_metrics, ['model', 'horizon', 'RMSE', 'relative_RMSE_vs_no_change', 'dm_hln_pvalue_rmse_loss', 'model_status'])}
 
-## 3. Q2 中国宏观传导
+E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]、CAR[0,+1]、CAR[0,+2] 和匹配周末 placebo 经验 p 值。
 
-ARDL 基线使用 `OilShock` 的 0-6 阶滞后、结果变量一阶滞后、美元、GPR、月份季节项和疫情阶段。由于 IAV/PPI 缺历史处理层，本轮正式月度输出聚焦 CPI 与汇率。
+{markdown_table(q1_events.loc[q1_events['model'].isin(['brent_usd_bbl_stage_dummy', 'brent_usd_bbl_event_car'])].sort_values(['model', 'stage_id']) if not q1_events.empty else q1_events, ['model', 'stage_id', 'estimate_log_return', 'std_error', 'lower_95', 'upper_95', 'pvalue', 'pvalue_empirical', 'event_observations'])}
 
-{markdown_table(q2_ardl.sort_values(['outcome', 'term']) if not q2_ardl.empty else q2_ardl, ['outcome', 'term', 'estimate', 'std_error', 'lower_95', 'upper_95', 'n'])}
+## 3. 问题二：中国宏观传导
 
-Local Projection 生成 h=0..12 的响应，下表只展示 h=0/6/12 以便开题汇报。
+Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/PPI 官方历史序列尚未进入处理层，CPI、汇率和 GDP 结果均需带区间与识别 caveat 报告。
 
-{markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'horizon', 'response', 'std_error', 'lower_95', 'upper_95', 'n'])}
+{markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'horizon', 'response', 'lower_95', 'upper_95', 'ci95_contains_zero', 'fdr_qvalue', 'shock_identification'])}
 
-季度 GDP 验证不把 GDP 插值到月度。
+季度 GDP 只作低频验证，不插值成月度变量。
 
-{markdown_table(q2_gdp, ['outcome', 'estimate', 'std_error', 'correlation', 'n', 'sample_start', 'sample_end'])}
+{markdown_table(q2_gdp, ['outcome', 'estimate', 'lower_95', 'upper_95', 'pvalue', 'n', 'sample_start', 'sample_end'])}
 
-## 4. Q3 政策缓冲与跨国比较
+## 4. 问题三：政策缓冲与跨国比较
 
-燃油价格传导采用各国本币 Brent 到汽油价格的 0-6 月 distributed lag。日德韩为官方零售燃油价格，中国为 policy-adjusted Brent-CNY proxy。
+跨国燃油主排名现在只纳入德国、日本、韩国的观测官方零售汽油价格。中国 Brent-CNY 代理值保留为政策情景和附录敏感性材料。
 
-{markdown_table(q3_pass.loc[q3_pass['horizon'].eq(6)].sort_values('country') if not q3_pass.empty else q3_pass, ['country', 'horizon', 'response', 'std_error', 'lower_95', 'upper_95', 'fuel_source'])}
+{markdown_table(q3_main.loc[q3_main['horizon'].eq(6)].sort_values('country') if not q3_main.empty else q3_main, ['country', 'horizon', 'response', 'lower_95', 'upper_95', 'price_measure_type', 'included_in_main_comparison'])}
 
-中国调价反事实把 2026-03-23 和 2026-04-07 的政策差额加回，先报告价格层，再用中国 proxy fuel ARDL 传播到 CPI。
+中国政策图与数据表已区分新增差额和累计差额，2026-04 的累计差额为 1425 元/吨，4月新增为 380 元/吨。
 
-{markdown_table(q3_policy, ['period', 'actual', 'prediction', 'response', 'fuel_log_gap', 'cpi_counterfactual_gap_pctpt'])}
+{markdown_table(q3_policy, ['period', 'policy_adjusted_proxy_cny_t', 'no_temporary_control_proxy_cny_t', 'incremental_gasoline_gap_cny_t', 'cumulative_gasoline_gap_cny_t', 'cpi_counterfactual_gap_pctpt'])}
 
-## 5. 图表与文件
+## 5. 图表与冻结文件
 
-核心图表（PNG）：{', '.join(figures) if figures else '暂无图表'}。
+核心 PNG 图表：{', '.join(figures) if figures else '暂无图表'}。
 
-冻结数值文件：
+冻结文件：
 
 - `results/final_numbers.json`
 - `results/frozen_numbers.json`
@@ -337,46 +669,61 @@ Local Projection 生成 h=0..12 的响应，下表只展示 h=0/6/12 以便开�
 
 ## 7. 论文使用建议
 
-正文主线建议按“Q1 可预测部分与战争溢价分离、Q2 CPI/汇率/GDP 动态响应、Q3 跨国传导与中国政策反事实”组织。不要把中国 proxy 燃油价格解释为观测零售价；它适合回答“如果没有 2026 年两次调控，价格层差额有多大”，不适合声称完整历史零售价格传导。
+论文正文应把当前状态写成阶段性结果：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“约化形式冲击下未发现稳健增长损失证据”；第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。
 """
-    return report
 
 
 def main() -> int:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     build_data_overview_figures()
+
+    output_hashes = hash_existing(RESULTS_DIR, CORE_RESULT_FILES)
+    input_hashes = hash_existing(REPO_ROOT / "data" / "processed", PROCESSED_INPUT_FILES)
+    risk_summary = build_risk_probe_summary(output_hashes, input_hashes)
+    risk_path = RESULTS_DIR / "risk_probe_summary.json"
+    risk_path.write_text(json.dumps(risk_summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    risk_hash = sha256_file(risk_path)
+
     final_numbers = extract_final_numbers()
     final_path = RESULTS_DIR / "final_numbers.json"
     final_path.write_text(json.dumps(final_numbers, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
-    file_hashes = collect_file_hashes()
-    freeze_source = json.dumps({"numbers": final_numbers, "hashes": file_hashes}, ensure_ascii=False, sort_keys=True)
-    frozen = {
-        "freeze_hash": hashlib.sha256(freeze_source.encode("utf-8")).hexdigest(),
+    frozen_source = {
+        "schema_version": SCHEMA_VERSION,
+        "freeze_mode": "paper_final" if risk_summary["paper_finalize_allowed"] else "stage_snapshot_not_paper_final",
+        "overall_status": risk_summary["overall_status"],
+        "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
+        "git_commit": git_commit(),
         "cutoff": CUTOFF,
-        "random_seed": 20260730,
-        "core_result_hashes": file_hashes,
-        "final_numbers": final_numbers,
+        "random_seed": RANDOM_SEED,
+        "environment": environment_snapshot(),
+        "processed_input_hashes": input_hashes,
+        "core_result_hashes": output_hashes,
+        "risk_gate_hash": risk_hash,
+        "candidate_numbers": final_numbers,
     }
+    frozen = dict(frozen_source)
+    frozen["freeze_hash"] = sha256_json(frozen_source)
     frozen_path = RESULTS_DIR / "frozen_numbers.json"
     frozen_path.write_text(json.dumps(frozen, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
     warnings_list = summarize_warnings()
-    execution_summary = {
-        "status": "EXECUTION_SUMMARY",
-        "cutoff": CUTOFF,
-        "random_seed": 20260730,
-        "core_results_present": {filename: (RESULTS_DIR / filename).exists() for filename in CORE_RESULT_FILES},
-        "figure_pngs": collect_figures(),
-        "warnings": warnings_list,
-        "freeze_hash": frozen["freeze_hash"],
-    }
-    (RESULTS_DIR / "risk_probe_summary.json").write_text(json.dumps(execution_summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-
-    report = build_report(final_numbers, warnings_list)
+    report = build_report(risk_summary, final_numbers, warnings_list)
     (REPORTS_DIR / "RESULTS_REPORT.md").write_text(report, encoding="utf-8")
-    print(json.dumps({"status": "PASS", "freeze_hash": frozen["freeze_hash"], "warnings": len(warnings_list)}, ensure_ascii=False, indent=2))
+
+    print(
+        json.dumps(
+            {
+                "status": risk_summary["overall_status"],
+                "paper_finalize_allowed": risk_summary["paper_finalize_allowed"],
+                "freeze_hash": frozen["freeze_hash"],
+                "blocking_probe_ids": risk_summary["blocking_probe_ids"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 

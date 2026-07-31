@@ -28,6 +28,9 @@ if str(CODE_DIR) not in sys.path:
 
 from utils.plot_style import PALETTE, apply_paper_style, finish_figure, save_figure, style_axis
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 RESULTS_DIR = REPO_ROOT / "results"
 FIGURES_DIR = REPO_ROOT / "figures"
@@ -35,10 +38,11 @@ RANDOM_SEED = 20260730
 
 
 COUNTRY_ORDER = ["CHN", "DEU", "JPN", "KOR"]
+COUNTRY_LABEL_ZH = {"CHN": "中国", "DEU": "德国", "JPN": "日本", "KOR": "韩国"}
 OUTCOME_LABELS = {
-    "fuel": "Fuel price cumulative log change, pct",
-    "cpi": "CPI yoy, pct",
-    "ip": "Industrial production yoy log change, pct",
+    "fuel": "燃油价格累计对数变化，百分点",
+    "cpi": "CPI同比，百分点",
+    "ip": "工业生产同比对数变化，百分点",
 }
 
 
@@ -68,6 +72,12 @@ def add_lags(frame: pd.DataFrame, column: str, max_lag: int) -> pd.DataFrame:
     return result
 
 
+def bool_series(series: pd.Series) -> pd.Series:
+    if pd.api.types.is_bool_dtype(series):
+        return series
+    return series.astype(str).str.lower().isin(["true", "1", "yes"])
+
+
 def fit_country_pass_through(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for country in COUNTRY_ORDER:
@@ -79,6 +89,10 @@ def fit_country_pass_through(panel: pd.DataFrame, warnings_log: list[dict[str, A
         if len(usable) < 48:
             warnings_log.append({"code": "q3_pass_through_limited", "message": f"{country}: insufficient fuel observations."})
             continue
+        included = bool(bool_series(frame["included_in_main_comparison"]).iloc[0]) if "included_in_main_comparison" in frame else country != "CHN"
+        measure_type = frame["price_measure_type"].iloc[0] if "price_measure_type" in frame else ""
+        observed_or_regulated = frame["observed_or_regulated"].iloc[0] if "observed_or_regulated" in frame else ""
+        comparability_note = frame["comparability_note"].iloc[0] if "comparability_note" in frame else ""
         x = sm.add_constant(usable[regressors + ["fuel_lag1"]].astype(float), has_constant="add")
         fit = sm.OLS(usable["fuel_log_return"], x).fit(cov_type="HAC", cov_kwds={"maxlags": 6})
         for horizon in [1, 3, 6]:
@@ -104,6 +118,10 @@ def fit_country_pass_through(panel: pd.DataFrame, warnings_log: list[dict[str, A
                     "n": int(len(usable)),
                     "fuel_source": frame["fuel_source"].iloc[0],
                     "fuel_unit": frame["fuel_unit"].iloc[0],
+                    "price_measure_type": measure_type,
+                    "observed_or_regulated": observed_or_regulated,
+                    "included_in_main_comparison": included,
+                    "comparability_note": comparability_note,
                 }
             )
     result = pd.DataFrame(rows)
@@ -143,9 +161,10 @@ def panel_design(frame: pd.DataFrame, outcome: str, horizon: int) -> tuple[pd.Se
 def fit_panel_lp(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for outcome in ["fuel", "cpi", "ip"]:
+        outcome_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if outcome == "fuel" and "included_in_main_comparison" in panel else panel.copy()
         for horizon in range(13):
             try:
-                y, x, usable = panel_design(panel, outcome, horizon)
+                y, x, usable = panel_design(outcome_panel, outcome, horizon)
                 if len(y) < x.shape[1] + 20 or y.index.get_level_values(0).nunique() < 3:
                     warnings_log.append({"code": "q3_panel_lp_skipped", "message": f"{outcome} h={horizon}: insufficient panel support."})
                     continue
@@ -217,9 +236,13 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
     )
     frame = frame.loc[frame["period"].between("2026-02", "2026-06")].copy()
     elasticity = china_fuel_to_cpi_elasticity(country_panel, warnings_log)
-    frame["actual"] = frame["china_gasoline_proxy_cny_t"]
-    frame["prediction"] = frame["china_gasoline_rule_proxy_cny_t"]
-    frame["response"] = frame["prediction"] - frame["actual"]
+    frame["policy_adjusted_proxy_cny_t"] = frame["china_gasoline_proxy_cny_t"]
+    frame["no_temporary_control_proxy_cny_t"] = frame["china_gasoline_rule_proxy_cny_t"]
+    frame["incremental_gasoline_gap_cny_t"] = frame["gasoline_policy_gap_cny_t"]
+    frame["cumulative_gasoline_gap_cny_t"] = frame["cum_gasoline_policy_gap_cny_t"]
+    frame["actual"] = frame["policy_adjusted_proxy_cny_t"]
+    frame["prediction"] = frame["no_temporary_control_proxy_cny_t"]
+    frame["response"] = frame["cumulative_gasoline_gap_cny_t"]
     frame["fuel_log_gap"] = np.log(frame["prediction"] / frame["actual"])
     frame["cpi_counterfactual_gap_pctpt"] = frame["fuel_log_gap"] * elasticity["cpi_cumulative_elasticity"]
     se = elasticity["cpi_elasticity_se"]
@@ -227,7 +250,7 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
     frame["upper_95"] = frame["cpi_counterfactual_gap_pctpt"] + norm.ppf(0.975) * np.abs(frame["fuel_log_gap"]) * se
     frame["model"] = "China_policy_counterfactual"
     frame["horizon"] = 6
-    frame["specification"] = "add cumulative NDRC gasoline policy gap back to Brent-CNY proxy; CPI propagation via China proxy fuel ARDL"
+    frame["specification"] = "add cumulative NDRC gasoline policy gap back to Brent-CNY proxy; CPI propagation via China proxy fuel ARDL; descriptive proxy scenario only"
     frame["sample_start"] = "2010-01"
     frame["sample_end"] = "2026-06"
     result = frame[
@@ -236,6 +259,10 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
             "actual",
             "prediction",
             "response",
+            "policy_adjusted_proxy_cny_t",
+            "no_temporary_control_proxy_cny_t",
+            "incremental_gasoline_gap_cny_t",
+            "cumulative_gasoline_gap_cny_t",
             "fuel_log_gap",
             "cpi_counterfactual_gap_pctpt",
             "lower_95",
@@ -256,8 +283,10 @@ def policy_counterfactual(country_panel: pd.DataFrame, warnings_log: list[dict[s
 
 def robustness_checks(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
-    for omitted in COUNTRY_ORDER:
-        subset = panel.loc[panel["country"].ne(omitted)].copy()
+    main_panel = panel.loc[bool_series(panel["included_in_main_comparison"])].copy() if "included_in_main_comparison" in panel else panel.copy()
+    main_countries = [country for country in COUNTRY_ORDER if country in set(main_panel["country"])]
+    for omitted in main_countries:
+        subset = main_panel.loc[main_panel["country"].ne(omitted)].copy()
         try:
             y, x, usable = panel_design(subset, "fuel", 6)
             if len(y) >= x.shape[1] + 20:
@@ -286,8 +315,8 @@ def robustness_checks(panel: pd.DataFrame, warnings_log: list[dict[str, Any]]) -
             warnings_log.append({"code": "q3_leave_one_failed", "message": f"omit {omitted}: {exc}"})
 
     monthly = pd.read_csv(PROCESSED_DIR / "model_monthly_q1.csv")
-    usd_panel = panel.merge(monthly[["period", "brent_usd_bbl_log_return"]], on="period", how="left")
-    for country in COUNTRY_ORDER:
+    usd_panel = main_panel.merge(monthly[["period", "brent_usd_bbl_log_return"]], on="period", how="left")
+    for country in main_countries:
         frame = usd_panel.loc[usd_panel["country"].eq(country)].sort_values("period").copy()
         frame = add_lags(frame, "brent_usd_bbl_log_return", 6)
         frame["fuel_lag1"] = frame["fuel_log_return"].shift(1)
@@ -340,12 +369,15 @@ def plot_pass_through(pass_through: pd.DataFrame) -> None:
     if pass_through.empty:
         return
     frame = pass_through.loc[pass_through["horizon"].eq(6)].copy()
+    if "included_in_main_comparison" in frame:
+        frame = frame.loc[bool_series(frame["included_in_main_comparison"])].copy()
+    frame["country_label"] = frame["country"].map(COUNTRY_LABEL_ZH).fillna(frame["country"])
     frame["err_low"] = frame["response"] - frame["lower_95"]
     frame["err_high"] = frame["upper_95"] - frame["response"]
-    colors = [PALETTE["blue"], PALETTE["gold"], PALETTE["olive"], PALETTE["rose"]]
+    colors = [PALETTE["gold"], PALETTE["olive"], PALETTE["rose"]]
     fig, ax = plt.subplots(figsize=(7.6, 4.8))
     ax.bar(
-        frame["country"],
+        frame["country_label"],
         frame["response"],
         color=colors[: len(frame)],
         edgecolor="white",
@@ -355,12 +387,12 @@ def plot_pass_through(pass_through: pd.DataFrame) -> None:
         error_kw={"ecolor": PALETTE["ink"], "elinewidth": 0.8, "capsize": 3},
     )
     ax.axhline(0, color=PALETTE["muted"], linewidth=0.8)
-    style_axis(ax, ylabel="Cumulative coefficient")
+    style_axis(ax, ylabel="累计传导系数")
     finish_figure(
         fig,
-        title="Q3 six-month fuel pass-through",
-        subtitle="Distributed-lag response of retail/proxy fuel prices to local-currency Brent movements.",
-        source="Source: EC Weekly Oil Bulletin, METI, KOSIS, FRED and constructed China proxy; generated by code/problem3/run_q3.py.",
+        title="问题三：六个月燃油价格传导率",
+        subtitle="仅纳入可观测官方零售汽油价格；中国 Brent-CNY 代理值不参与主排名。",
+        source="来源：欧盟周度油价公报、日本METI、韩国KOSIS/KNOC 与 FRED；由 code/problem3/run_q3.py 生成。",
         rect=(0.10, 0.13, 0.98, 0.84),
     )
     save_figure(fig, FIGURES_DIR / "q3_pass_through_6m")
@@ -385,15 +417,15 @@ def plot_panel_irf(panel_irf: pd.DataFrame) -> None:
         if sub.empty:
             continue
         color, linestyle, marker = style_map[country]
-        ax.plot(sub["horizon"], sub["response"], color=color, linestyle=linestyle, marker=marker, label=country)
+        ax.plot(sub["horizon"], sub["response"], color=color, linestyle=linestyle, marker=marker, label=COUNTRY_LABEL_ZH.get(country, country))
     ax.axhline(0, color=PALETTE["muted"], linewidth=0.8)
-    style_axis(ax, xlabel="Months after oil shock", ylabel="Response")
+    style_axis(ax, xlabel="油价冲击后月份", ylabel="响应")
     ax.legend(loc="upper left", ncol=4, handlelength=2.6)
     finish_figure(
         fig,
-        title="Q3 panel LP responses",
-        subtitle="Fuel-price response to the Q1 OilShock interface with country fixed effects and Driscoll-Kraay SE.",
-        source="Source: model_country_monthly.csv and q1_monthly_shocks.csv; generated by code/problem3/run_q3.py.",
+        title="问题三：跨国面板 LP 响应",
+        subtitle="燃油价格对问题一约化形式 OilShock 的响应；燃油主图剔除中国代理值，标准误为 Driscoll-Kraay。",
+        source="来源：model_country_monthly.csv 与 q1_monthly_shocks.csv；由 code/problem3/run_q3.py 生成。",
     )
     save_figure(fig, FIGURES_DIR / "q3_panel_irf")
     plt.close(fig)
@@ -405,21 +437,24 @@ def plot_policy(counterfactual: pd.DataFrame) -> None:
     frame = counterfactual.copy()
     x = np.arange(len(frame))
     fig, ax = plt.subplots(figsize=(7.8, 4.8))
-    ax.plot(x, frame["actual"], marker="o", color=PALETTE["blue"], label="Actual proxy")
-    ax.plot(x, frame["prediction"], marker="s", color=PALETTE["gold"], linestyle=(0, (4, 2)), label="No-control proxy")
+    ax.plot(x, frame["actual"], marker="o", color=PALETTE["blue"], label="政策调整后代理路径")
+    ax.plot(x, frame["prediction"], marker="s", color=PALETTE["gold"], linestyle=(0, (4, 2)), label="无临时调控规则代理路径")
     ax.fill_between(x, frame["actual"], frame["prediction"], color=PALETTE["gold_light"], alpha=0.26, linewidth=0)
     ax.set_xticks(x)
     ax.set_xticklabels(frame["period"])
     for tick, row in enumerate(frame.itertuples(index=False)):
-        if getattr(row, "gasoline_policy_gap_cny_t") > 0:
-            ax.text(tick, max(row.actual, row.prediction), f"+{row.gasoline_policy_gap_cny_t:.0f}", ha="center", va="bottom", fontsize=8.4, color=PALETTE["muted"])
-    style_axis(ax, ylabel="CNY per tonne proxy")
+        if getattr(row, "cumulative_gasoline_gap_cny_t") > 0:
+            label = f"累计差额 {row.cumulative_gasoline_gap_cny_t:.0f}"
+            if getattr(row, "incremental_gasoline_gap_cny_t") > 0 and row.period == "2026-04":
+                label = f"累计差额 {row.cumulative_gasoline_gap_cny_t:.0f}\n4月新增 {row.incremental_gasoline_gap_cny_t:.0f}"
+            ax.text(tick, max(row.actual, row.prediction), label, ha="center", va="bottom", fontsize=8.4, color=PALETTE["muted"])
+    style_axis(ax, ylabel="元/吨代理值")
     ax.legend(loc="upper left", ncol=2, handlelength=2.6)
     finish_figure(
         fig,
-        title="Q3 China fuel-price policy counterfactual",
-        subtitle="Actual proxy versus no-control proxy after adding back 2026 NDRC gasoline policy gaps.",
-        source="Source: Brent-CNY proxy and NDRC policy events; generated by code/problem3/run_q3.py.",
+        title="问题三：中国成品油调控代理情景",
+        subtitle="阴影代表累计政策差额；代理值只用于政策情景，不用于跨国主排名。",
+        source="来源：Brent-CNY 代理值与国家发展改革委调价事件；由 code/problem3/run_q3.py 生成。",
         rect=(0.10, 0.13, 0.98, 0.84),
     )
     save_figure(fig, FIGURES_DIR / "q3_policy_counterfactual")
@@ -447,14 +482,14 @@ def main() -> int:
             {
                 "component": "CountryPassThrough",
                 "rows": len(pass_through),
-                "status": "PASS" if len(pass_through) else "WARN",
-                "note": "distributed lag, 1/3/6 month cumulative response",
+                "status": "CONDITIONAL" if len(pass_through) else "WARN",
+                "note": "main ranking excludes China proxy; distributed lag, 1/3/6 month cumulative response",
             },
             {
                 "component": "PanelLP",
                 "rows": len(panel_irf),
-                "status": "PASS" if len(panel_irf) else "WARN",
-                "note": "country FE, month seasonality, country trend, OilShock by country",
+                "status": "CONDITIONAL" if len(panel_irf) else "WARN",
+                "note": "fuel LP excludes China proxy from main comparison; country FE, month seasonality, country trend",
             },
             {
                 "component": "ChinaPolicyCounterfactual",
@@ -472,8 +507,9 @@ def main() -> int:
     )
     save_csv(summary, "q3_summary.csv")
     payload = {
-        "status": "WARN" if warnings_log else "PASS",
+        "status": "CONDITIONAL",
         "random_seed": RANDOM_SEED,
+        "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; it remains a policy-scenario sensitivity input.",
         "warnings": warnings_log,
         "rows": {
             "q3_country_pass_through.csv": int(len(pass_through)),

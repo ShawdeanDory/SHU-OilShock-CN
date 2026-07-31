@@ -1,4 +1,4 @@
-quarter,quarter_end,OilShock_sum,OilShock_mean,WarPremium_mean,brent_log_return_sum,china_cpi_yoy_pct_mean,china_fx_log_change_pct_sum,china_real_gdp_yoy_pct,china_real_gdp_qoq_pct,source_note
+quarter,quarter_end,OilShock_sum,OilShock_mean,ARBaselineGap_mean,brent_log_return_sum,china_cpi_yoy_pct_mean,china_fx_log_change_pct_sum,china_real_gdp_yoy_pct,china_real_gdp_qoq_pct,source_note
 2010-Q1,2010-03-31,0.6649089715350993,0.6649089715350993,0.0,0.03432740681899116,2.1999999999999997,-0.010740137620857126,12.2,,OECD DF_QNA_EXPENDITURE_GROWTH_OECD; 2026-Q2 yoy supplemented from NBS when absent
 2010-Q2,2010-06-30,-0.6169560077608927,-0.20565200258696423,0.0,-0.05296539921025456,2.9333333333333336,-0.11347620438761918,10.7,,OECD DF_QNA_EXPENDITURE_GROWTH_OECD; 2026-Q2 yoy supplemented from NBS when absent
 2010-Q3,2010-09-30,-0.48315166675583937,-0.16105055558527978,0.0,0.040366412776025484,3.466666666666667,-1.1623198498908582,9.9,,OECD DF_QNA_EXPENDITURE_GROWTH_OECD; 2026-Q2 yoy supplemented from NBS when absent

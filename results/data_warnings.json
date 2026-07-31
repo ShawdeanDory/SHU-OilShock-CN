@@ -13,46 +13,6 @@
   ],
   "warnings": [
     {
-      "code": "raw_hash_mismatch",
-      "message": "fred_brent_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_brent_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_cny_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_cny_per_usd_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_jpy_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_jpy_per_usd_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_krw_per_usd_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_krw_per_usd_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_usd_broad_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_usd_broad_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_usd_per_eur_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_usd_per_eur_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "fred_wti_daily SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/fred_wti_daily_20260730.csv"
-    },
-    {
-      "code": "raw_hash_mismatch",
-      "message": "kosis_kr_gasoline_monthly SHA-256 mismatch; likely line-ending or refreshed snapshot drift",
-      "path": "data/raw/kosis_kr_gasoline_monthly_20260730.csv"
-    },
-    {
       "code": "missing_raw_snapshot",
       "message": "nbs_cpi_202606_release raw snapshot is absent",
       "path": "data/raw/nbs_cpi_202606_release_20260730.html"

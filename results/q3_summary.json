@@ -1,11 +1,12 @@
 {
-  "status": "PASS",
+  "status": "CONDITIONAL",
   "random_seed": 20260730,
+  "comparability_guardrail": "China fuel proxy is excluded from the main cross-country fuel pass-through ranking; it remains a policy-scenario sensitivity input.",
   "warnings": [],
   "rows": {
     "q3_country_pass_through.csv": 12,
-    "q3_panel_irf.csv": 143,
+    "q3_panel_irf.csv": 130,
     "q3_policy_counterfactual.csv": 5,
-    "q3_robustness.csv": 21
+    "q3_robustness.csv": 14
   }
 }
