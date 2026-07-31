@@ -1,5 +1,5 @@
 {
-  "status": "WARN",
+  "status": "PASS",
   "cutoff": "2026-06-30",
   "checks": [
     "p0_monthly_market rows=198",
@@ -11,68 +11,6 @@
     "korea_regular_gasoline_monthly.csv rows=198",
     "cn_fuel_policy_events.csv rows=2"
   ],
-  "warnings": [
-    {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_cpi_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_cpi_202606_release_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_gdp_2026q2_release raw snapshot is absent",
-      "path": "data/raw/nbs_gdp_2026q2_release_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_iav_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_iav_202606_release_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "nbs_ppi_202606_release raw snapshot is absent",
-      "path": "data/raw/nbs_ppi_202606_release_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "ndrc_fuel_control_20260323 raw snapshot is absent",
-      "path": "data/raw/ndrc_fuel_control_20260323_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "ndrc_fuel_control_20260407 raw snapshot is absent",
-      "path": "data/raw/ndrc_fuel_control_20260407_20260730.html"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "oecd_g20_cpi_monthly raw snapshot is absent",
-      "path": "data/raw/oecd_g20_cpi_monthly_20260730.csv"
-    },
-    {
-      "code": "missing_raw_snapshot",
-      "message": "oecd_kei_ip_monthly raw snapshot is absent",
-      "path": "data/raw/oecd_kei_ip_monthly_20260730.csv"
-    }
-  ],
-  "errors": [],
-  "stage_warnings": {
-    "build_model_panels": [
-      {
-        "code": "nbs_gdp_yoy_manual_supplement",
-        "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
-        "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
-      },
-      {
-        "code": "optional_china_macro_missing",
-        "message": "nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules."
-      },
-      {
-        "code": "optional_china_macro_missing",
-        "message": "nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules."
-      },
-      {
-        "code": "china_fuel_price_proxy",
-        "message": "China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series."
-      }
-    ]
-  }
+  "warnings": [],
+  "errors": []
 }

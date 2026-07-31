@@ -13,9 +13,9 @@ war_stage,Q1,SRC_EVENT_TIMELINE,event,daily,2026-02-28/2026-06-30,事件发生�
 oil_shock_m,Q1/Q2/Q3,DERIVED_Q1,monthly,monthly,2010-01/2026-06,只由当期及此前可用信息生成,MONTH<=2026-06,DERIVED,取全部上游输入中最晚的可用日期,rule_based
 war_premium_d,Q1/Q2/Q3,DERIVED_Q1,daily,daily,2026-02-28/2026-06-30,反事实模型只用战前训练数据,DATE<=2026-06-30,DERIVED,取全部上游输入中最晚的可用日期,rule_based
 volatility_shock_d,Q1/Q2/Q3,DERIVED_Q1,daily,daily,2024-01-01/2026-06-30,只用当时可用数据,DATE<=2026-06-30,DERIVED,取全部上游输入中最晚的可用日期,rule_based
-china_iav_yoy_pct,Q2/Q3,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,通常次月中旬发布,observation_month<=2026-06,CONDITIONAL,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
+china_iav_yoy_pct,Q2/Q3,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,通常次月中旬发布,observation_month<=2026-06,PASS,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
 china_iav_mom_sa_pct,Q2/Q3,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,使用每次发布中的最新修订历史值并记录版本,observation_month<=2026-06,CONDITIONAL,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
-china_ppi_yoy_pct,Q2,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,通常次月上旬发布,observation_month<=2026-06,CONDITIONAL,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
+china_ppi_yoy_pct,Q2,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,通常次月上旬发布,observation_month<=2026-06,PASS,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
 china_cpi_yoy_pct,Q2,SRC_OECD_G20_CPI,monthly,monthly,2010-01/2026-06,按OECD该期发布时间,observation_month<=2026-06,PASS,API未返回逐期发布日期；预测模型中保守滞后1个月，后续补真实发布记录,no
 nbs_china_cpi_yoy_pct,Q2,SRC_NBS_MONTHLY,monthly,monthly,2010-01/2026-06,通常次月上旬发布,observation_month<=2026-06,CONDITIONAL,按国家统计局公告日可用；环比历史修订必须记录下载版本,no
 china_real_gdp_yoy_pct,Q2,SRC_NBS_GDP,quarterly,quarterly,2010-Q1/2026-Q2,季后约两周发布,quarter_end<=2026-06-30,PASS,按来源实际公告或登记规则使用,rule_based

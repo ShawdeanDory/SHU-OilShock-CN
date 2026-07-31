@@ -1,5 +1,5 @@
 {
-  "status": "CONDITIONAL",
+  "status": "PASS",
   "random_seed": 20260730,
   "event_calendar": {
     "e1_calendar_start": "2026-02-28",
@@ -25,25 +25,25 @@
     {
       "model": "ARIMA",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1136961428,
+      "relative_RMSE_vs_no_change": 1.1136961427,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.024748029,
+      "relative_RMSE_vs_no_change": 1.0247459695,
       "model_status": "CONDITIONAL"
     },
     {
       "model": "SARIMAX",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.1044238842,
+      "relative_RMSE_vs_no_change": 1.104421116,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1013714942,
+      "relative_RMSE_vs_no_change": 1.1013692761,
       "model_status": "FAIL"
     }
   ],

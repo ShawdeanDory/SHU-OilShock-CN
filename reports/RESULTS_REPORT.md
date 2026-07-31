@@ -4,21 +4,20 @@
 
 - Origin Skill: `3coding-visual`
 - Execution Mode: `staged modeling audit`
-- Verification Status: `CONDITIONAL`
-- Paper Finalize Allowed: `false`
+- Verification Status: `PASS`
+- Paper Finalize Allowed: `true`
 - Cutoff: `2026-06-30`
 - Random Seed: `20260730`
 
 ## 1. 总体结论
 
-本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
+本轮代码、基线、数据覆盖、稳健性和数值冻结门禁均已通过，结果可以进入论文撰写阶段。这里的 `PASS` 表示计算流程具备定稿条件，不改变约化形式模型的识别边界。
 
 当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二的 `OilShock` 是约化形式油价创新；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
 
 阻塞定稿的门禁：
 
-- `q1_forecast_baseline_gate`
-- `q2_nbs_macro_completeness_gate`
+- 无。
 
 ## 2. 问题一：预测与事件窗口
 
@@ -49,7 +48,9 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 3. 问题二：中国宏观传导
 
-Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/PPI 官方历史序列尚未进入处理层，CPI、汇率和 GDP 结果均需带区间与识别 caveat 报告。
+国家统计局工业增加值与 PPI 完整历史已进入处理层。工业增加值官方 1 月及春节合并发布空值保持为空，不做插值；Q2 使用 167 个工业增加值真实月度观测和 198 个 PPI 月度观测。
+
+Q2 的约化形式结果显示，油价创新对 PPI 存在即期正向响应，但工业增加值在 6 个月附近的负响应区间仍跨越 0，因此不能声称已识别出稳健的总体增长损失。CPI、汇率和 GDP 结果同样需带区间与识别 caveat 报告。
 
 | outcome | horizon | response | lower_95 | upper_95 | ci95_contains_zero | fdr_qvalue | shock_identification |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -59,6 +60,12 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 | china_fx_log_change_pct | 0.0000 | 0.0674 | -0.0816 | 0.1605 | 1.0000 | 0.2913 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
 | china_fx_log_change_pct | 6.0000 | 0.3567 | -0.3289 | 0.6423 | 1.0000 | 0.1772 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
 | china_fx_log_change_pct | 12.0000 | 0.5996 | -0.7634 | 1.1070 | 1.0000 | 0.1866 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_iav_yoy_pct | 0.0000 | 0.0010 | -0.3035 | 0.6046 | 1.0000 | 0.9956 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_iav_yoy_pct | 6.0000 | -0.2570 | -0.7378 | 0.2625 | 1.0000 | 0.7373 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_iav_yoy_pct | 12.0000 | -0.0569 | -0.2899 | 0.5146 | 1.0000 | 0.8425 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_ppi_yoy_pct | 0.0000 | 0.1698 | 0.0262 | 0.3199 | 0.0000 | 0.0250 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_ppi_yoy_pct | 6.0000 | 0.0715 | -0.3183 | 0.6457 | 1.0000 | 0.9406 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
+| china_ppi_yoy_pct | 12.0000 | -0.3065 | -0.7974 | 0.4646 | 1.0000 | 0.4034 | reduced_form_ARX_oil_price_innovation_not_structural_supply_shock |
 
 季度 GDP 只作低频验证，不插值成月度变量。
 
@@ -101,21 +108,9 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 
 ## 6. Warnings
 
-- `missing_raw_snapshot`：nbs_cpi_202606_release raw snapshot is absent
-- `missing_raw_snapshot`：nbs_gdp_2026q2_release raw snapshot is absent
-- `missing_raw_snapshot`：nbs_iav_202606_release raw snapshot is absent
-- `missing_raw_snapshot`：nbs_ppi_202606_release raw snapshot is absent
-- `missing_raw_snapshot`：ndrc_fuel_control_20260323 raw snapshot is absent
-- `missing_raw_snapshot`：ndrc_fuel_control_20260407 raw snapshot is absent
-- `missing_raw_snapshot`：oecd_g20_cpi_monthly raw snapshot is absent
-- `missing_raw_snapshot`：oecd_kei_ip_monthly raw snapshot is absent
 - `nbs_gdp_yoy_manual_supplement`：OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.
-- `optional_china_macro_missing`：nbs_iav_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.
-- `optional_china_macro_missing`：nbs_ppi_monthly.csv absent; Q2 will run available CPI/FX/GDP modules.
 - `china_fuel_price_proxy`：China fuel price uses Brent-CNY tonne proxy adjusted by cumulative NDRC policy gaps; it is not an observed retail gasoline series.
-- `q2_outcome_skipped`：中国规模以上工业增加值同比，百分点 skipped: insufficient usable monthly history.
-- `q2_outcome_skipped`：中国PPI同比，百分点 skipped: insufficient usable monthly history.
 
 ## 7. 论文使用建议
 
-论文正文应把当前状态写成阶段性结果：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“约化形式冲击下未发现稳健增长损失证据”；第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。
+论文可以使用当前冻结数值：第一问主线是“no-change 基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“约化形式冲击下的 PPI 即期响应与缺乏稳健总体增长损失证据”；第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。所有结论继续遵守非因果和代理变量边界。

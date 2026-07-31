@@ -381,7 +381,7 @@ def build_oecd_data(
             end=date_string(ip_dates.max()),
             missing=int(ip["OBS_VALUE"].isna().sum()),
             duplicates=int(ip.duplicated(["REF_AREA", "TIME_PERIOD"]).sum()),
-            note="DEU/JPN/KOR 各197期；中国活动变量仍需国家统计局",
+            note="DEU/JPN/KOR 各197期；中国活动变量使用另行导入的国家统计局序列",
         ),
     ]
     return cpi, ip, quality
@@ -642,6 +642,33 @@ def merge_monthly_market(
     return merged
 
 
+def load_manual_nbs_quality() -> list[QualityRow]:
+    """Profile already-imported NBS manual exports without rewriting them."""
+    ppi_path = PROCESSED_DIR / "nbs_ppi_monthly.csv"
+    iav_path = PROCESSED_DIR / "nbs_iav_monthly.csv"
+    if not ppi_path.exists() or not iav_path.exists():
+        return []
+
+    ppi = pd.read_csv(ppi_path)
+    iav = pd.read_csv(iav_path)
+    return [
+        profile(
+            "nbs_ppi_monthly",
+            ppi,
+            "period",
+            ["china_ppi_yoy_pct"],
+            note="国家统计局官网手工导出；“上年同月=100”减100转为同比百分比",
+        ),
+        profile(
+            "nbs_iav_monthly",
+            iav,
+            "period",
+            ["china_iav_yoy_pct"],
+            note="规模以上工业增加值同比；官方1—2月结构性缺口原样保留",
+        ),
+    ]
+
+
 def quality_report(
     rows: list[QualityRow],
     monthly_market: pd.DataFrame,
@@ -664,6 +691,24 @@ def quality_report(
         .shape[0]
     )
     status_counts = frame["status"].value_counts().to_dict()
+    nbs_ready = {
+        "nbs_ppi_monthly",
+        "nbs_iav_monthly",
+    }.issubset(set(frame["dataset"]))
+    nbs_conclusion = (
+        "- 国家统计局规模以上工业增加值同比和工业生产者出厂价格指数已由官网"
+        "手工导出并进入处理层。PPI 覆盖 198 期且无缺失；工业增加值的空值按"
+        "官方 1—2 月合并发布规则保留，未作插值。"
+        if nbs_ready
+        else "- 国家统计局工业增加值与 PPI 尚未进入处理层，依赖它们的模型不得放行。"
+    )
+    nbs_gate = (
+        "| 国家统计局工业增加值、PPI 完整月表 | `PASS` | "
+        "已进入 Q2 月度 LP；工业增加值官方结构性空值按缺失处理 |"
+        if nbs_ready
+        else "| 国家统计局工业增加值、PPI 完整月表 | `CONDITIONAL` | "
+        "CPI 先用 OECD；IAV/PPI 到位前不运行 Q2 完整 LP |"
+    )
     table_lines = [
         "| 数据集 | 状态 | 行数 | 起点 | 末期 | 缺失单元 | 重复日期 | 说明 |",
         "| --- | --- | ---: | --- | --- | ---: | ---: | --- |",
@@ -675,11 +720,11 @@ def quality_report(
         )
     report = f"""# P0 数据质量报告
 
-> 生成脚本：`code/data_processing/build_p0_datasets.py`
+> 生成脚本：`code/data_processing/build_p0_datasets.py`、`code/data_processing/import_nbs_manual.py`
 >
 > 观测截止日：2026-06-30
 >
-> 本报告只评价数据管线，不代表任何模型已经通过风险探针。
+> 本报告评价数据管线；模型风险探针状态另以 `results/risk_probe_summary.json` 为准。
 
 ## 1. 结论
 
@@ -688,7 +733,7 @@ def quality_report(
 - OECD 整体 CPI 覆盖中、日、韩、德各 198 期；OECD 工业生产覆盖日、韩、德各 197 期。
 - EIA 2026 年 7 月 STEO 当前文件只覆盖 2022 年起，且包含估计/预测区间。它不能直接回填 2010 年起的历史滚动预测，主 ARIMAX 暂按既定回退删除全球供需变量。
 - 德国含税 Euro-super 95、日本普通汽油全国现金价和韩国普通汽油全国月均价均已进入处理层；韩国 KOSIS 序列覆盖 2010-01 至 2026-06 共 198 期。
-- 国家统计局工业增加值与 PPI 的完整历史序列仍未进入处理层，因此 Q2 部分结果变量和 Q3 中国活动变量继续标为 `CONDITIONAL`。
+{nbs_conclusion}
 
 ## 2. 数据集级检查
 
@@ -706,19 +751,19 @@ def quality_report(
 2. GPR 的当月值按次月初版本可用，近期值允许修订。
 3. STEO 单一最新版本不得用于伪造历史实时信息集。
 4. OECD API 未返回逐期发布日期时，预测探针先保守滞后一个月。
-5. 国家统计局环比历史值和其他修订序列必须保存下载版本。
+5. 国家统计局手工导出文件按原始快照、下载日期和 SHA-256 保存；工业增加值结构性空值不得插值。
 
-## 4. 尚未放行
+## 4. 主线放行与回退项
 
 | 条目 | 状态 | 回退 |
 | --- | --- | --- |
-| 国家统计局工业增加值、PPI 完整月表 | `CONDITIONAL` | CPI 先用 OECD；IAV/PPI 到位前不运行 Q2 完整 LP |
+{nbs_gate}
 | 中国原油进口实际单位价值 | `CONDITIONAL` | 主变量使用 Brent 月均价乘人民币兑美元汇率 |
 | STEO 2010 年起实时版本 | `CONDITIONAL` | ARIMAX 主规格删除全球供需，保留实际库存、美元和 GPR |
 
 ## 5. 下一门禁
 
-下一步先运行数据覆盖与低成本模型风险探针，写入 `results/risk_probe_summary.json`。任何 `CONDITIONAL` 项满足条件前，不进入依赖该数据的完整模型。
+数据处理后应重新运行 Q1/Q2/Q3 风险探针并更新 `results/risk_probe_summary.json`；有已验证回退且不承担主线任务的条件项不阻塞论文。
 """
     REPORT_PATH.write_text(report, encoding="utf-8")
 
@@ -777,6 +822,7 @@ def main() -> int:
     quality_rows.append(korea_quality)
     _, policy_quality = build_policy_data(manifest)
     quality_rows.append(policy_quality)
+    quality_rows.extend(load_manual_nbs_quality())
     release_matrix = build_release_matrix()
     quality_report(quality_rows, monthly_market, release_matrix)
 

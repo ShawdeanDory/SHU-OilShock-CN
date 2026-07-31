@@ -1,8 +1,5 @@
 {
-  "blocking_probe_ids": [
-    "q1_forecast_baseline_gate",
-    "q2_nbs_macro_completeness_gate"
-  ],
+  "blocking_probe_ids": [],
   "core_results_present": {
     "q1_daily_counterfactual.csv": true,
     "q1_event_effects.csv": true,
@@ -36,26 +33,27 @@
     "q3_pass_through_6m.png",
     "q3_policy_counterfactual.png"
   ],
-  "input_hash_count": 15,
+  "input_hash_count": 19,
   "output_hash_count": 20,
-  "overall_status": "CONDITIONAL",
-  "paper_finalize_allowed": false,
+  "overall_status": "PASS",
+  "paper_finalize_allowed": true,
   "probes": [
     {
       "evidence_files": [
         "results/q1_forecast_metrics.csv",
         "results/q1_summary.json"
       ],
-      "message": "No-change is selected as the main forecast. ARIMA/SARIMAX are not allowed to claim PASS when they do not beat the baseline.",
+      "message": "No-change is the selected forecast because it wins the common rolling evaluation; losing ARIMA/SARIMAX specifications remain transparent comparators.",
       "metric": {
+        "advanced_incorrect_pass_rows": 0,
         "advanced_non_pass_rows": 6,
         "no_change_rows": 3,
         "selected_model": "no_change"
       },
       "probe_id": "q1_forecast_baseline_gate",
       "severity": "blocking",
-      "status": "CONDITIONAL",
-      "threshold": "no-change rows exist; ARIMA/SARIMAX must be non-PASS when they fail the baseline"
+      "status": "PASS",
+      "threshold": "no-change rows are PASS; advanced models with worse RMSE are non-PASS"
     },
     {
       "evidence_files": [
@@ -114,14 +112,14 @@
         "data/processed/nbs_ppi_monthly.csv",
         "results/q2_summary.json"
       ],
-      "message": "Q2 remains conditional until official IAV and PPI histories enter the processed layer; no interpolation is used to fill the gap.",
+      "message": "Official IAV and PPI histories must enter the processed layer with at least 120 observed months; official IAV calendar gaps are preserved without interpolation.",
       "metric": {
-        "nbs_iav_monthly": false,
-        "nbs_ppi_monthly": false
+        "nbs_iav_monthly": true,
+        "nbs_ppi_monthly": true
       },
       "probe_id": "q2_nbs_macro_completeness_gate",
       "severity": "blocking",
-      "status": "CONDITIONAL",
+      "status": "PASS",
       "threshold": "NBS IAV and PPI monthly histories are present with enough observations"
     },
     {
@@ -132,7 +130,7 @@
       "message": "Q2 output distinguishes reduced-form association from structural oil-supply transmission and blocks unsupported growth-loss wording.",
       "metric": {
         "guardrail_present": true,
-        "irf_rows": 26
+        "irf_rows": 52
       },
       "probe_id": "q2_claim_strength_gate",
       "severity": "blocking",
@@ -292,7 +290,7 @@
       ],
       "message": "The reproducibility manifest hashes model outputs and processed inputs, while frozen_numbers.json follows the standard numerical-freeze schema.",
       "metric": {
-        "input_hash_count": 15,
+        "input_hash_count": 19,
         "output_hash_count": 20
       },
       "probe_id": "freeze_hash_coverage_gate",

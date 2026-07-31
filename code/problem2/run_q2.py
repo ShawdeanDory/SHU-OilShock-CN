@@ -428,7 +428,7 @@ def plot_irf(irf: pd.DataFrame) -> None:
         fig,
         title="问题二：中国宏观变量对约化形式油价冲击的响应",
         subtitle="月度中国变量；阴影为95% bootstrap/HAC区间，h=0..12；不解释为结构性供给冲击。",
-        source="来源：问题一 OilShock 接口、OECD CPI、FRED 汇率/美元/GPR；由 code/problem2/run_q2.py 生成。",
+        source="来源：问题一 OilShock 接口、国家统计局 IAV/PPI、OECD CPI、FRED 汇率/美元/GPR；由 code/problem2/run_q2.py 生成。",
         rect=(0.09, 0.12, 0.98, 0.97),
     )
     save_figure(fig, FIGURES_DIR / "q2_irf")

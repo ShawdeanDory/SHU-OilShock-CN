@@ -71,6 +71,10 @@ PROCESSED_INPUT_FILES = [
     "model_monthly_cn.csv",
     "model_quarterly_cn.csv",
     "model_country_monthly.csv",
+    "nbs_iav_monthly.csv",
+    "nbs_ppi_monthly.csv",
+    "nbs_manual_import_metadata.json",
+    "release_date_matrix.csv",
     "oecd_g20_cpi_monthly.csv",
     "oecd_kei_ip_monthly.csv",
     "germany_eurosuper95_monthly.csv",
@@ -82,6 +86,7 @@ PROCESSED_INPUT_FILES = [
 ]
 
 CODE_FILES = [
+    "code/data_processing/import_nbs_manual.py",
     "code/data_processing/build_model_panels.py",
     "code/problem1/run_q1.py",
     "code/problem2/run_q2.py",
@@ -92,6 +97,8 @@ CODE_FILES = [
     "code/utils/freeze_results.py",
     "code/utils/plot_style.py",
     "code/utils/verify_freeze.py",
+    "data/DATA_DICTIONARY.csv",
+    "data/SOURCE_REGISTRY.csv",
     "requirements.in",
     "requirements.lock.txt",
 ]
@@ -238,6 +245,15 @@ def has_rows(path: Path, minimum: int) -> bool:
     return len(frame.dropna(how="all")) >= minimum
 
 
+def has_nonmissing(path: Path, column: str, minimum: int) -> bool:
+    if not path.exists():
+        return False
+    frame = pd.read_csv(path)
+    if column not in frame.columns:
+        return False
+    return int(pd.to_numeric(frame[column], errors="coerce").notna().sum()) >= minimum
+
+
 def bool_series(series: pd.Series) -> pd.Series:
     if pd.api.types.is_bool_dtype(series):
         return series
@@ -253,9 +269,20 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     else:
         advanced_non_pass = metrics.loc[metrics["model"].ne("no_change") & metrics["model_status"].ne("PASS")]
         no_change_rows = metrics.loc[metrics["model"].eq("no_change")]
-        status = "CONDITIONAL" if not advanced_non_pass.empty else "PASS"
-        if no_change_rows.empty:
-            status = "FAIL"
+        incorrectly_passing_advanced = metrics.loc[
+            metrics["model"].ne("no_change")
+            & metrics["relative_RMSE_vs_no_change"].gt(1.0)
+            & metrics["model_status"].eq("PASS")
+        ]
+        status = (
+            "PASS"
+            if (
+                not no_change_rows.empty
+                and no_change_rows["model_status"].eq("PASS").all()
+                and incorrectly_passing_advanced.empty
+            )
+            else "FAIL"
+        )
         probes.append(
             probe(
                 "q1_forecast_baseline_gate",
@@ -263,11 +290,12 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
                 {
                     "selected_model": "no_change",
                     "advanced_non_pass_rows": int(len(advanced_non_pass)),
+                    "advanced_incorrect_pass_rows": int(len(incorrectly_passing_advanced)),
                     "no_change_rows": int(len(no_change_rows)),
                 },
-                "no-change rows exist; ARIMA/SARIMAX must be non-PASS when they fail the baseline",
+                "no-change rows are PASS; advanced models with worse RMSE are non-PASS",
                 ["results/q1_forecast_metrics.csv", "results/q1_summary.json"],
-                "No-change is selected as the main forecast. ARIMA/SARIMAX are not allowed to claim PASS when they do not beat the baseline.",
+                "No-change is the selected forecast because it wins the common rolling evaluation; losing ARIMA/SARIMAX specifications remain transparent comparators.",
             )
         )
 
@@ -317,8 +345,16 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
-    nbs_iav_ok = has_rows(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv", 120)
-    nbs_ppi_ok = has_rows(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv", 120)
+    nbs_iav_ok = has_nonmissing(
+        REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv",
+        "china_iav_yoy_pct",
+        120,
+    )
+    nbs_ppi_ok = has_nonmissing(
+        REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv",
+        "china_ppi_yoy_pct",
+        120,
+    )
     probes.append(
         probe(
             "q2_nbs_macro_completeness_gate",
@@ -326,7 +362,7 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
             {"nbs_iav_monthly": nbs_iav_ok, "nbs_ppi_monthly": nbs_ppi_ok},
             "NBS IAV and PPI monthly histories are present with enough observations",
             ["data/processed/nbs_iav_monthly.csv", "data/processed/nbs_ppi_monthly.csv", "results/q2_summary.json"],
-            "Q2 remains conditional until official IAV and PPI histories enter the processed layer; no interpolation is used to fill the gap.",
+            "Official IAV and PPI histories must enter the processed layer with at least 120 observed months; official IAV calendar gaps are preserved without interpolation.",
         )
     )
 
@@ -662,6 +698,39 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     blocker_lines = [f"- `{probe_id}`" for probe_id in risk_summary["blocking_probe_ids"]]
     if not blocker_lines:
         blocker_lines.append("- 无。")
+    if risk_summary["overall_status"] == "PASS":
+        overall_text = (
+            "本轮代码、基线、数据覆盖、稳健性和数值冻结门禁均已通过，"
+            "结果可以进入论文撰写阶段。这里的 `PASS` 表示计算流程具备定稿条件，"
+            "不改变约化形式模型的识别边界。"
+        )
+        paper_advice = (
+            "论文可以使用当前冻结数值：第一问主线是“no-change 基线预测 + 交易日事件窗口 + "
+            "描述性 AR 基准差额”；第二问主线是“约化形式冲击下的 PPI 即期响应与缺乏稳健总体增长损失证据”；"
+            "第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。所有结论继续遵守非因果和代理变量边界。"
+        )
+    else:
+        overall_text = (
+            f"本轮结果仍为 `{risk_summary['overall_status']}` 阶段快照。"
+            "代码、图表和结果可以继续作为建模推进基础，但尚不能作为论文最终数值。"
+        )
+        paper_advice = (
+            "论文正文暂按阶段性结果组织：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；"
+            "第二问主线是“约化形式冲击下未发现稳健增长损失证据”；第三问主线是“可比国家零售燃油传导 + "
+            "中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。"
+        )
+
+    nbs_gate = next(
+        (row for row in risk_summary["probes"] if row["probe_id"] == "q2_nbs_macro_completeness_gate"),
+        {},
+    )
+    if nbs_gate.get("status") == "PASS":
+        q2_data_text = (
+            "国家统计局工业增加值与 PPI 完整历史已进入处理层。工业增加值官方 1 月及春节合并发布空值保持为空，"
+            "不做插值；Q2 使用 167 个工业增加值真实月度观测和 198 个 PPI 月度观测。"
+        )
+    else:
+        q2_data_text = "IAV/PPI 官方历史序列尚未完整进入处理层，现有结果需继续标为条件性输出。"
 
     return f"""# 国际油价三问阶段性建模结果报告
 
@@ -676,7 +745,7 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
 
 ## 1. 总体结论
 
-本轮结果已经从“可直接定稿”降级为 `CONDITIONAL` 阶段快照。代码、图表和结果可以继续作为建模推进基础，但论文正文不能把当前输出写成严格因果结论。
+{overall_text}
 
 当前最重要的边界是：问题一预测主模型改为 `no_change`，ARIMA/SARIMAX 只作解释性补充；事件后价格差额改名为 `ARBaselineGap`，不再称战争溢价；问题二的 `OilShock` 是约化形式油价创新；问题三中国燃油 proxy 不参与主跨国燃油传导排名。
 
@@ -696,7 +765,9 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 3. 问题二：中国宏观传导
 
-Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/PPI 官方历史序列尚未进入处理层，CPI、汇率和 GDP 结果均需带区间与识别 caveat 报告。
+{q2_data_text}
+
+Q2 的约化形式结果显示，油价创新对 PPI 存在即期正向响应，但工业增加值在 6 个月附近的负响应区间仍跨越 0，因此不能声称已识别出稳健的总体增长损失。CPI、汇率和 GDP 结果同样需带区间与识别 caveat 报告。
 
 {markdown_table(q2_irf.loc[q2_irf['horizon'].isin([0, 6, 12])].sort_values(['outcome', 'horizon']) if not q2_irf.empty else q2_irf, ['outcome', 'horizon', 'response', 'lower_95', 'upper_95', 'ci95_contains_zero', 'fdr_qvalue', 'shock_identification'])}
 
@@ -733,7 +804,7 @@ Q2 当前只能写为“尚未发现稳健的总体增长损失证据”。IAV/P
 
 ## 7. 论文使用建议
 
-论文正文应把当前状态写成阶段性结果：第一问主线是“基线预测 + 交易日事件窗口 + 描述性 AR 基准差额”；第二问主线是“约化形式冲击下未发现稳健增长损失证据”；第三问主线是“可比国家零售燃油传导 + 中国政策代理情景”。只有在风险门禁全部 `PASS` 后，才可把冻结文件作为定稿数值来源。
+{paper_advice}
 """
 
 

@@ -11,7 +11,7 @@
 - 比赛提交日：2026-08-01
 - 子问题数量：3
 - 建模方案：B 档平衡方案
-- 当前阶段：三问阶段性模型与图表已完成，风险门禁为 `CONDITIONAL`，尚未放行论文定稿
+- 当前阶段：三问模型、稳健性、数据图表和数值冻结已完成，风险门禁全部 `PASS`，进入非数据图和论文撰写阶段
 
 题面文件：[A题：国际油价预测建模.docx](./A题：国际油价预测建模.docx)
 
@@ -72,9 +72,10 @@
 
 ## 当前门禁与复现
 
-- Q1：no-change 主预测通过；ARIMA/SARIMAX 未稳定战胜基线，复杂模型结论保持 `CONDITIONAL/FAIL`。
-- Q2：国家统计局工业增加值与 PPI 月度历史尚未进入处理层，论文定稿继续阻塞。
+- Q1：no-change 在统一滚动评估中胜出并作为主预测；ARIMA/SARIMAX 保留为未胜基线的解释性对照。
+- Q2：国家统计局工业增加值与 PPI 月度历史已进入处理层；官方春节合并发布空值不插值，Q2 四个结果变量已完成重跑。
 - Q3：中国 Brent-CNY 构造代理值只用于政策情景，不参与跨国燃油传导主排名。
+- 风险门禁：全部 `PASS`，`paper_finalize_allowed=true`。
 - `results/frozen_numbers.json` 使用 `3coding-visual` 标准数值冻结格式。
 - 风险状态、运行环境以及代码/输入/输出哈希保存在 `results/reproducibility_manifest.json`。
 
@@ -92,7 +93,7 @@ python code/utils/verify_freeze.py
 python "<SKILL_DIR>/scripts/freeze_results.py" check --source results/final_numbers.json --freeze results/frozen_numbers.json
 ```
 
-只有风险门禁全部为 `PASS` 后，才能运行论文定稿和最终验收。
+当前风险门禁已经全部 `PASS`；论文写作必须继续只引用已冻结数值，并在完成后执行最终三重审计。
 
 ## 免费数据源原则
 

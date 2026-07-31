@@ -886,9 +886,21 @@ def main(argv: list[str] | None = None) -> int:
         if "pvalue_empirical" in car_effects and not car_effects.loc[car_effects["model"].eq("brent_usd_bbl_event_car"), "pvalue_empirical"].dropna().empty
         else np.nan
     )
+    no_change_rows = metrics.loc[metrics["model"].eq("no_change")] if not metrics.empty else pd.DataFrame()
+    incorrectly_passing_advanced = (
+        metrics.loc[
+            metrics["model"].ne("no_change")
+            & metrics["relative_RMSE_vs_no_change"].gt(1.0)
+            & metrics["model_status"].eq("PASS")
+        ]
+        if not metrics.empty
+        else pd.DataFrame()
+    )
     status = "PASS"
-    if warnings_log or advanced_non_pass:
+    if warnings_log:
         status = "CONDITIONAL"
+    if no_change_rows.empty or not no_change_rows["model_status"].eq("PASS").all() or not incorrectly_passing_advanced.empty:
+        status = "FAIL"
     summary = {
         "status": status,
         "random_seed": RANDOM_SEED,

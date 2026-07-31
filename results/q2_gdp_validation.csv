@@ -1,2 +1,2 @@
 outcome,model,estimate,std_error,lower_80,upper_80,lower_95,upper_95,pvalue,correlation,n,sample_start,sample_end,specification
-china_real_gdp_yoy_pct,quarterly_validation,0.6643301562781221,0.3806447511606996,0.17651427951179266,1.1521460330444515,-0.08171984690106016,1.4103801594573042,0.08093683405255081,0.35396082000917717,65,2010-Q2,2026-Q2,"GDP yoy on quarterly OilShock sum, lagged GDP yoy and GPR"
+china_real_gdp_yoy_pct,quarterly_validation,0.6643301562781219,0.3806447511606993,0.17651427951179283,1.1521460330444508,-0.08171984690105971,1.4103801594573033,0.08093683405255064,0.35396082000917717,65,2010-Q2,2026-Q2,"GDP yoy on quarterly OilShock sum, lagged GDP yoy and GPR"

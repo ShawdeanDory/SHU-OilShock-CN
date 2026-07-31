@@ -6,6 +6,17 @@
 python code/data_processing/build_p0_datasets.py
 ```
 
+国家统计局人工导出的 PPI 与规模以上工业增加值 CSV 先运行：
+
+```powershell
+python code/data_processing/import_nbs_manual.py `
+  --ppi data/raw/manual/nbs_ppi_monthly_2010_202606.csv `
+  --iav data/raw/manual/nbs_iav_monthly_2010_202606.csv `
+  --download-date 2026-07-31
+```
+
+该脚本生成 `nbs_ppi_monthly.csv`、`nbs_iav_monthly.csv` 和原始文件哈希元数据。PPI 从“上年同月=100”转换为同比百分点；工业增加值官方春节合并发布造成的空值保持为空，不做插值。
+
 脚本不会插值缺失值，也不会使用 2026-06-30 之后的观测。主要产物：
 
 - `data/processed/p0_daily_market.csv`
