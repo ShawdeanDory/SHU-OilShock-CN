@@ -13,7 +13,7 @@
     "code/schemas/frozen_numbers.schema.json": "a531203eca7b04e5e043c23a69615d8c907ed0ba9bf1cbc138a83a941c54542a",
     "code/schemas/reproducibility_manifest.schema.json": "ccf33320477f6e23a7219b629a4984a51accf739dbf190a62381bc609dc810c1",
     "code/schemas/risk_probe_summary.schema.json": "cd3e0f556efc66476635add092af158db561d945337e9e21c29e90b0c4fcfaa1",
-    "code/utils/build_paper_handoff.py": "a16d03a093afbae43f45149d2c1c31932371de0a4fce9476288cce30ebd65a26",
+    "code/utils/build_paper_handoff.py": "0b57619dae12590768955699ad6ff2bce42cf7212ac9a533b9146f7bb238cb96",
     "code/utils/freeze_results.py": "25eb9ca3392d1111b3c7010fdb53d9ae3c269154c6db96fdcde266a35ba031ea",
     "code/utils/plot_style.py": "7d12c2fb846e5df012090deb0c3d3c00f83fabf805bdd3ad7be980c44b2769ee",
     "code/utils/verify_freeze.py": "b2936f2a393285dfee470920e1afc3ff9cede4e3e68a29c1c8cbe24c5e0b9055",
@@ -78,8 +78,8 @@
   },
   "cutoff": "2026-06-30",
   "final_numbers_source_sha256": "15110ec44a6ca10255c8ba9a6e2ea84befed8f45c72395e5ce7b7a076ee62c89",
-  "git_commit": "67896b9e4c1e62d0fb24d6eadd960202fd365257",
-  "manifest_hash": "aebc6642b07a63328d79a2a49850f9baa8e9983981a99d3f208b03067787fb6a",
+  "git_commit": "42f33ae97b2bb195696cb2b29ef3afd4f36709ec",
+  "manifest_hash": "c15c992cda94fa38b9008de23e2f11759917974ba825ab3facfb50c99951be4f",
   "overall_status": "PASS",
   "packaging_environment": {
     "packages": {
@@ -150,6 +150,6 @@
   "risk_gate_hash": "b57837c4a1dc134b631a278525994d77ce8804215940051c7299fbdc19c3597d",
   "schema_version": "1.0",
   "snapshot_mode": "paper_final",
-  "source_commit": "67896b9e4c1e62d0fb24d6eadd960202fd365257",
+  "source_commit": "42f33ae97b2bb195696cb2b29ef3afd4f36709ec",
   "standard_freeze_file": "results/frozen_numbers.json"
 }

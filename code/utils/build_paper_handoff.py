@@ -533,6 +533,10 @@ def save_flow(fig: plt.Figure, stem: str, title: str, subtitle: str) -> None:
 
 
 def plot_route_map() -> None:
+    mermaid_source = FIGURES_DIR / "paper_route_map.mmd"
+    if mermaid_source.exists():
+        print("SKIP paper_route_map: maintained from Mermaid source figures/paper_route_map.mmd")
+        return
     fig, ax = plt.subplots(figsize=(10.2, 3.6))
     ax.set_axis_off()
     boxes = [
