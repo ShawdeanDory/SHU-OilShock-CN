@@ -1,4 +1,4 @@
-# 国际油价三问及拓展建模封板结果报告
+# 国际油价四问建模封板结果报告
 
 ## Material Passport
 
@@ -13,7 +13,7 @@
 
 本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，可以作为论文定稿数字来源。论文仍需保持证据边界：Q2 的宏观增长损失证据为 `INCONCLUSIVE`，Q3 对“我国应对更好”的综合判断为 `PARTIAL`。
 
-当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；自拟拓展使用 FHS–GJR-GARCH 报告尾部概率，并将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示。
+当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；问题四使用 FHS–GJR-GARCH 报告尾部概率，将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示，并进一步用 SAPR-CVaR 在现行调价机制约束上优化临时平滑规则。
 
 当前阻塞定稿的门禁：
 
@@ -159,15 +159,15 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 | 2026-06 | IAV | -2.0935 | -4.1639 | -0.0230 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
 | 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
 
-## 5. 自拟拓展：油价尾部风险与政策压力测试
+## 5. 问题四：极端油价尾部风险、政策压力测试与自适应调价规则优化
 
-该模块不是题面正式编号问题。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
+问题四把同事已完成的“尾部风险与压力测试”作为风险输入层，并把本轮 SAPR-CVaR 自适应调价规则作为政策优化层：先判断极端油价路径概率与宏观压力，再回答我国成品油调价机制在极端冲击下应如何状态依赖地平滑传导。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
 
 | model | horizon_months | median_price | p05_price | p95_price | terminal_prob_above_hist_p90 | terminal_prob_above_hist_p95 | path_prob_cross_hist_p95 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | FHS_GJR_GARCH | 1.0000 | 70.9531 | 53.4109 | 89.8229 | 0.0041 | 0.0027 | 0.0037 |
-| FHS_GJR_GARCH | 3.0000 | 71.4556 | 44.1523 | 103.4081 | 0.0294 | 0.0227 | 0.0376 |
-| FHS_GJR_GARCH | 6.0000 | 71.7560 | 37.1529 | 117.8999 | 0.0683 | 0.0556 | 0.0964 |
+| FHS_GJR_GARCH | 3.0000 | 71.4556 | 44.1523 | 103.4080 | 0.0294 | 0.0227 | 0.0376 |
+| FHS_GJR_GARCH | 6.0000 | 71.7560 | 37.1529 | 117.8998 | 0.0683 | 0.0556 | 0.0964 |
 | Gaussian_random_walk | 1.0000 | 70.3095 | 56.9037 | 87.1069 | 0.0003 | 0.0001 | 0.0001 |
 | Gaussian_random_walk | 3.0000 | 69.9413 | 48.6115 | 101.0162 | 0.0186 | 0.0121 | 0.0199 |
 | Gaussian_random_walk | 6.0000 | 69.5814 | 41.5863 | 116.1625 | 0.0670 | 0.0516 | 0.0951 |
@@ -176,11 +176,11 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 | model | horizon_months | origins | mean_pinball_loss | median_absolute_error | coverage_80 | coverage_90 | mean_width_90 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| FHS_GJR_GARCH | 1.0000 | 15.0000 | 1.6386 | 4.7788 | 0.6667 | 0.9333 | 28.6661 |
+| FHS_GJR_GARCH | 1.0000 | 15.0000 | 1.6390 | 4.8211 | 0.6667 | 0.9333 | 28.6802 |
 | Gaussian_random_walk | 1.0000 | 15.0000 | 1.6237 | 4.4784 | 0.9333 | 0.9333 | 35.8286 |
-| FHS_GJR_GARCH | 3.0000 | 15.0000 | 2.3006 | 7.5792 | 0.8667 | 1.0000 | 50.8253 |
+| FHS_GJR_GARCH | 3.0000 | 15.0000 | 2.3025 | 7.5792 | 0.8667 | 1.0000 | 50.9345 |
 | Gaussian_random_walk | 3.0000 | 15.0000 | 2.4829 | 6.5916 | 1.0000 | 1.0000 | 62.8624 |
-| FHS_GJR_GARCH | 6.0000 | 15.0000 | 3.8860 | 6.8558 | 0.8667 | 0.9333 | 72.8509 |
+| FHS_GJR_GARCH | 6.0000 | 15.0000 | 3.8876 | 6.4994 | 0.8667 | 0.9333 | 73.0948 |
 | Gaussian_random_walk | 6.0000 | 15.0000 | 3.8135 | 6.0388 | 0.9333 | 0.9333 | 90.9725 |
 
 宏观压力层使用 Q1 油价特定风险冲击的历史正向分位数缩放 Q2 IRF。下表只展示 95%分位冲击的 6、12 月条件响应；联合区间跨零时继续标记为 `INCONCLUSIVE`。
@@ -202,9 +202,40 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 | 2026-06 | 工业增加值 | 2.0935 | 0.0230 | 4.1639 | SUPPORTED_95 |
 | 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | SUPPORTED_95 |
 
+SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则，2022-01—2026-06 完全作为隔离检验样本；2026 年战争冲击只用于检验和展示，不参与规则选择。三档传导率满足 `普通 ≥ 压力 ≥ 极端`，目标函数同时考虑宏观损失、95% CVaR、累计未调价负担和国内调价波动。
+
+| rule_id | rho_normal | rho_stress | rho_extreme | stress_threshold_75_cny_t | stress_threshold_95_cny_t | J1_macro_loss | J2_cvar95_macro_loss | J3_gap_burden | J4_adjustment_volatility |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R0023 | 0.2000 | 0.0500 | 0.0500 | 435.9727 | 702.4907 | 0.0925 | 0.3733 | 0.2201 | 0.0317 |
+
+隔离检验样本与 2026 实际冲击情景的策略比较如下。若 SAPR 在检验样本被预注册基线支配，论文必须报告负结果；当前证据状态以 `q4_sapr_summary.json` 为准。
+
+| sample_split | strategy | rho_normal | rho_stress | rho_extreme | J1_macro_loss | J2_cvar95_macro_loss | J3_gap_burden | J4_adjustment_volatility |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| holdout | SAPR_CVaR_knee | 0.2000 | 0.0500 | 0.0500 | 0.0908 | 0.5580 | 0.2394 | 0.0255 |
+| holdout | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 0.3155 | 1.9571 | 0.0000 | 0.0503 |
+| holdout | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 0.2941 | 1.7681 | 0.0221 | 0.0426 |
+| holdout | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 0.2812 | 1.7916 | 0.0370 | 0.0438 |
+| war_2026 | SAPR_CVaR_knee | 0.2000 | 0.0500 | 0.0500 | 0.7944 | 0.7944 | 1.4436 | 0.0300 |
+| war_2026 | actual_2026_event_path |  |  |  | 1.6477 | 1.6477 | 0.7097 | 0.0856 |
+| war_2026 | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 2.4129 | 2.4129 | 0.0000 | 0.1148 |
+| war_2026 | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 2.2346 | 2.2346 | 0.1746 | 0.0821 |
+| war_2026 | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 2.2364 | 2.2364 | 0.1595 | 0.0921 |
+
+敏感性检验固定改变阈值、bootstrap 块长和 CPI/IAV 权重，不为追求结论改动样本或目标函数。
+
+| variant | rho_normal | rho_stress | rho_extreme | pareto_rule_count | holdout_non_dominated_probability | changed_from_default |
+| --- | --- | --- | --- | --- | --- | --- |
+| threshold_70_90 | 0.2000 | 0.1000 | 0.0000 | 1197.0000 | 1.0000 | 1.0000 |
+| threshold_80_975 | 0.1500 | 0.0500 | 0.0500 | 962.0000 | 1.0000 | 1.0000 |
+| cpi_weight_plus20 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
+| iav_weight_plus20 | 0.2000 | 0.0500 | 0.0500 | 860.0000 | 1.0000 | 0.0000 |
+| bootstrap_block_3 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
+| bootstrap_block_6 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
+
 ## 6. 图表与冻结文件
 
-核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png, q4_macro_policy_stress.png, q4_price_tail_risk.png。
+核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png, q4_macro_policy_stress.png, q4_price_tail_risk.png, q4_sapr_2026_macro_paths.png, q4_sapr_pareto_front.png, q4_sapr_policy_heatmap.png, q4_sapr_strategy_comparison.png。
 
 冻结文件：
 
@@ -233,4 +264,4 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 ## 8. 论文使用建议
 
-论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有一般因果优势；拓展问题不得把尾部概率写成确定结果，也不得把 Q2 与 Q3 的不同证据层直接相加。
+论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有一般因果优势；问题四不得把尾部概率写成确定结果，不得把 Q2 与 Q3 的不同证据层直接相加，也不得把 SAPR 的注册规则族最优写成全球福利最优。

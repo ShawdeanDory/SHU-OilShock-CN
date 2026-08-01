@@ -334,6 +334,8 @@ def china_fuel_to_macro_elasticities(warnings_log: list[dict[str, Any]]) -> pd.D
         "china_iav_yoy_pct": "IAV",
     }
     rows: list[dict[str, Any]] = []
+    kernel_rows: list[dict[str, Any]] = []
+    covariance_rows: list[dict[str, Any]] = []
     for outcome, label in outcomes.items():
         if outcome not in frame.columns:
             warnings_log.append({"code": "q3_policy_macro_outcome_missing", "message": f"{outcome} missing for policy propagation."})
@@ -352,6 +354,42 @@ def china_fuel_to_macro_elasticities(warnings_log: list[dict[str, Any]]) -> pd.D
         estimate = float(fit.params[lag_terms].sum())
         cov = fit.cov_params().loc[lag_terms, lag_terms]
         se = float(np.sqrt(np.ones(len(lag_terms)) @ cov.to_numpy() @ np.ones(len(lag_terms))))
+        param_terms = ["const"] + lag_terms + [f"{outcome}_lag1", "GPR"]
+        kernel_row = {
+            "outcome": outcome,
+            "outcome_label": label,
+            "sample_start": usable["period"].iloc[0],
+            "sample_end": usable["period"].iloc[-1],
+            "n": int(len(usable)),
+            "model": "China_fuel_to_macro_ARDL",
+            "specification": "macro yoy outcome on regulated gasoline log-return lags 0..6, lagged outcome and GPR; HAC(6)",
+            "fuel_to_macro_cumulative_elasticity": estimate,
+        }
+        for lag in range(7):
+            term = f"fuel_log_return_lag{lag}"
+            kernel_row[f"beta_fuel_lag{lag}"] = float(fit.params[term])
+            kernel_row[f"se_fuel_lag{lag}"] = float(fit.bse[term])
+        kernel_row["phi_outcome_lag1"] = float(fit.params[f"{outcome}_lag1"])
+        kernel_row["se_outcome_lag1"] = float(fit.bse[f"{outcome}_lag1"])
+        kernel_row["gpr_coefficient"] = float(fit.params["GPR"])
+        kernel_row["constant"] = float(fit.params["const"])
+        kernel_rows.append(kernel_row)
+        full_cov = fit.cov_params()
+        for row_term in param_terms:
+            for column_term in param_terms:
+                covariance_rows.append(
+                    {
+                        "outcome": outcome,
+                        "outcome_label": label,
+                        "row_term": row_term,
+                        "column_term": column_term,
+                        "covariance": float(full_cov.loc[row_term, column_term]),
+                        "model": "China_fuel_to_macro_ARDL",
+                        "sample_start": usable["period"].iloc[0],
+                        "sample_end": usable["period"].iloc[-1],
+                        "n": int(len(usable)),
+                    }
+                )
         rows.append(
             {
                 "outcome": outcome,
@@ -365,6 +403,47 @@ def china_fuel_to_macro_elasticities(warnings_log: list[dict[str, Any]]) -> pd.D
                 "specification": "macro yoy outcome on regulated gasoline log-return lags 0..6, lagged outcome and GPR; HAC(6)",
             }
         )
+    kernel_columns = [
+        "outcome",
+        "outcome_label",
+        "sample_start",
+        "sample_end",
+        "n",
+        "model",
+        "specification",
+        "fuel_to_macro_cumulative_elasticity",
+        "beta_fuel_lag0",
+        "beta_fuel_lag1",
+        "beta_fuel_lag2",
+        "beta_fuel_lag3",
+        "beta_fuel_lag4",
+        "beta_fuel_lag5",
+        "beta_fuel_lag6",
+        "phi_outcome_lag1",
+        "gpr_coefficient",
+        "constant",
+        "se_fuel_lag0",
+        "se_fuel_lag1",
+        "se_fuel_lag2",
+        "se_fuel_lag3",
+        "se_fuel_lag4",
+        "se_fuel_lag5",
+        "se_fuel_lag6",
+        "se_outcome_lag1",
+    ]
+    covariance_columns = [
+        "outcome",
+        "outcome_label",
+        "row_term",
+        "column_term",
+        "covariance",
+        "model",
+        "sample_start",
+        "sample_end",
+        "n",
+    ]
+    save_csv(pd.DataFrame(kernel_rows, columns=kernel_columns), "q3_policy_macro_kernel.csv")
+    save_csv(pd.DataFrame(covariance_rows, columns=covariance_columns), "q3_policy_macro_covariance.csv")
     return pd.DataFrame(rows)
 
 

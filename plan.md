@@ -39,16 +39,18 @@
 - 政策反事实：在官方受管制燃油价格层移除 2026 年临时调控缺口，输出 PPI、CPI、IAV 宏观传播路径。
 - 综合判断：`results/q3_resilience_metrics.csv` 给出 `PARTIAL`，即部分维度点估计支持中国缓冲，但燃油传导率本身不优于六国中位数。
 
-### 自拟拓展：油价尾部风险与政策压力测试
+### 问题四：极端油价尾部风险、政策压力测试与自适应调价规则优化
 
-- 题面依据：“包括且不限于下述问题”；该模块在论文中标记为自拟拓展，不替代前三项核心任务。
-- 主方法：FHS–GJR-GARCH；可用基线：恒定波动高斯随机游走。
+- 题面依据：“包括且不限于下述问题”；该模块作为论文正式自拟问题四，不另设其他自拟问题。
+- 风险输入层：FHS–GJR-GARCH；可用基线为恒定波动高斯随机游走。
 - 概率输出：以 2026-06-30 为信息截止，报告未来 1、3、6 个月价格分布和超过历史 90%/95%价格分位的条件概率。
 - 回测口径：15 个完整季度末原点，主方法与基线使用相同期限、路径数、随机种子策略和分位损失/覆盖率指标。
-- 宏观压力：Q1 油价特定风险结构冲击的 75%/90%/95%分位情景乘以 Q2 IRF，并保留联合置信区间和 `INCONCLUSIVE` 标记。
-- 政策压力：只重述 Q3 已实现的 2026 年临时调控关闭反事实，不外推到模拟油价路径。
-- 主要结果：`results/q4_price_tail_risk.csv`、`results/q4_risk_backtest.csv`、`results/q4_macro_stress.csv`、`results/q4_policy_stress.csv`。
-- 图表：`figures/q4_price_tail_risk.*`、`figures/q4_macro_policy_stress.*`。
+- 宏观压力层：Q1 油价特定风险结构冲击的 75%/90%/95%分位情景乘以 Q2 IRF，并保留联合置信区间和 `INCONCLUSIVE` 标记。
+- 政策压力层：重述 Q3 已实现的 2026 年临时调控关闭反事实，明确其为官方价格层上的情景差额。
+- 决策优化层：SAPR-CVaR 在现行机制应调额之上设计普通/压力/极端三档状态依赖传导率，四目标同时控制宏观损失、95% CVaR、累计未调价负担和国内调价波动。
+- 训练/检验：SAPR 只用 2013-03—2021-12 开发样本选阈值与规则，2022-01—2026-06 和 2026 战争冲击只用于检验展示。
+- 主要结果：`results/q4_price_tail_risk.csv`、`results/q4_risk_backtest.csv`、`results/q4_macro_stress.csv`、`results/q4_policy_stress.csv`、`results/q4_sapr_policy_grid.csv`、`results/q4_sapr_optimal_rule.csv`、`results/q4_sapr_strategy_comparison.csv`、`results/q4_sapr_macro_paths.csv`。
+- 图表：`figures/q4_price_tail_risk.*`、`figures/q4_macro_policy_stress.*`、`figures/q4_sapr_pareto_front.*`、`figures/q4_sapr_policy_heatmap.*`、`figures/q4_sapr_strategy_comparison.*`、`figures/q4_sapr_2026_macro_paths.*`。
 
 ## 2. 当前冻结与验证
 
@@ -64,6 +66,7 @@ python code\problem2\run_q2.py
 python code\problem3\run_q3.py
 python code\problem4\run_q4.py --probe
 python code\problem4\run_q4.py
+python code\problem4\run_q4_sapr.py
 python code\utils\freeze_results.py
 python code\utils\build_paper_handoff.py
 python code\utils\verify_freeze.py
@@ -83,7 +86,7 @@ python code\utils\verify_freeze.py --require-final
 - Q1：no-change 在固定回测中合法胜出；事件影响以 CAR/placebo 报告；ARBaselineGap 是描述性基准差额。
 - Q2：油价冲击对人民币原油成本和部分价格变量存在响应，但总体增长损失证据不稳健。
 - Q3：中国政策缓冲证据为 `PARTIAL`；官方价格层反事实显示若移除临时调控，PPI/CPI 上行、IAV 下行的代理路径更明显。
-- Q4：可报告固定截止日下的条件尾部概率、历史结构冲击分位压力和已实现政策缓冲；三层证据不可加总。
+- Q4：可报告固定截止日下的条件尾部概率、历史结构冲击分位压力、已实现政策缓冲和 SAPR-CVaR 注册规则族内的自适应调价优化结果；风险输入、宏观压力、政策压力和规则优化不可加总为单一因果贡献。
 
 禁止表述：
 
@@ -93,6 +96,7 @@ python code\utils\verify_freeze.py --require-final
 - 中国“全面优于”其他国家；当前综合结论只能写为部分支持。
 - 价格平滑无成本；累计未调价差额应解释为政策成本或延期负担代理。
 - Q4 尾部概率是确定性结果，或 Q4 已证明未来必然出现某一油价。
+- SAPR-CVaR 是全球最优政策、完整福利收益或财政成本估计。
 - 将 Q2 条件宏观响应与 Q3 政策反事实直接相加成单一因果贡献。
 
 ## 4. 建模阶段剩余事项
@@ -105,4 +109,4 @@ python code\utils\verify_freeze.py --require-final
 - Polymarket / 预测市场；
 - CGE、DSGE、TFT/LSTM、GNN 等 Innovation Track。
 
-这些内容只可作为附录或赛后扩展，不应再改动当前冻结主线与已完成的 Q4 拓展。
+这些内容只可作为附录或赛后扩展，不应再改动当前冻结主线与已完成的问题四。

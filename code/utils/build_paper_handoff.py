@@ -79,6 +79,10 @@ def write_paper_numbers() -> None:
     q4_backtest = read_csv("q4_risk_backtest.csv")
     q4_macro = read_csv("q4_macro_stress.csv")
     q4_policy = read_csv("q4_policy_stress.csv")
+    q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
+    q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
+    q4_sapr_summary = read_json("q4_sapr_summary.json")
 
     rows: list[dict[str, object]] = []
 
@@ -256,7 +260,7 @@ def write_paper_numbers() -> None:
     for _, row in q4_risk[q4_risk["model"].eq("FHS_GJR_GARCH")].sort_values("horizon_months").iterrows():
         horizon = int(row["horizon_months"])
         add(
-            "Q4_extension",
+            "Q4",
             f"fhs_median_price_h{horizon}",
             round(float(row["median_price"]), 6),
             "美元/桶",
@@ -265,7 +269,7 @@ def write_paper_numbers() -> None:
             "不得写成确定性油价路径",
         )
         add(
-            "Q4_extension",
+            "Q4",
             f"fhs_terminal_prob_above_hist_p95_h{horizon}",
             round(float(row["terminal_prob_above_hist_p95"]), 6),
             "probability",
@@ -275,7 +279,7 @@ def write_paper_numbers() -> None:
         )
     for _, row in q4_backtest.sort_values(["horizon_months", "model"]).iterrows():
         add(
-            "Q4_extension",
+            "Q4",
             f"backtest_pinball_{row['model']}_h{int(row['horizon_months'])}",
             round(float(row["mean_pinball_loss"]), 6),
             "美元/桶分位损失",
@@ -287,7 +291,7 @@ def write_paper_numbers() -> None:
         q4_macro["scenario"].eq("extreme_q95") & q4_macro["horizon"].isin([6, 12])
     ].sort_values(["outcome", "horizon"]).iterrows():
         add(
-            "Q4_extension",
+            "Q4",
             f"extreme_q95_{row['outcome']}_h{int(row['horizon'])}",
             round(float(row["conditional_response_pctpt"]), 6),
             "百分点",
@@ -297,13 +301,75 @@ def write_paper_numbers() -> None:
         )
     for _, row in q4_policy[q4_policy["period"].eq("2026-06")].sort_values("outcome").iterrows():
         add(
-            "Q4_extension",
+            "Q4",
             f"policy_buffer_benefit_2026_06_{row['outcome']}",
             round(float(row["policy_buffer_benefit_pctpt"]), 6),
             "百分点",
             "results/q4_policy_stress.csv",
             "可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述",
             "不得外推到Q4模拟油价路径或写成完整福利收益",
+        )
+
+    if not q4_sapr_optimal.empty:
+        opt = q4_sapr_optimal.iloc[0]
+        for key, unit, claim in [
+            ("rho_normal", "pass-through ratio", "普通状态最优传导率"),
+            ("rho_stress", "pass-through ratio", "压力状态最优传导率"),
+            ("rho_extreme", "pass-through ratio", "极端状态最优传导率"),
+            ("J2_cvar95_macro_loss", "standardized loss", "训练样本膝点规则的95%尾部宏观损失"),
+            ("J3_gap_burden", "ratio", "训练样本膝点规则的累计未调价负担比例"),
+        ]:
+            add(
+                "Q4",
+                f"sapr_optimal_{key}",
+                round(float(opt[key]), 6),
+                unit,
+                "results/q4_sapr_optimal_rule.csv",
+                claim,
+                "不得写成全局福利最优或不受规则族限制的最优政策",
+            )
+    sapr_holdout = q4_sapr_comparison[
+        q4_sapr_comparison["sample_split"].eq("holdout")
+        & q4_sapr_comparison["strategy"].eq("SAPR_CVaR_knee")
+    ]
+    if not sapr_holdout.empty:
+        row = sapr_holdout.iloc[0]
+        add(
+            "Q4",
+            "sapr_holdout_macro_loss_cvar95",
+            round(float(row["J2_cvar95_macro_loss"]), 6),
+            "standardized loss",
+            "results/q4_sapr_strategy_comparison.csv",
+            "可作为2022—2026隔离检验样本下SAPR尾部宏观损失",
+            "不得声称2026以后仍必然占优",
+        )
+        add(
+            "Q4",
+            "sapr_holdout_gap_burden_ratio",
+            round(float(row["J3_gap_burden"]), 6),
+            "ratio",
+            "results/q4_sapr_strategy_comparison.csv",
+            "可作为隔离检验样本下累计未调价负担比例",
+            "不得解释为财政支出或完整社会成本",
+        )
+    add(
+        "Q4",
+        "sapr_holdout_non_dominated_probability",
+        round(float(q4_sapr_summary["holdout_non_dominated_probability"]), 6),
+        "probability",
+        "results/q4_sapr_summary.json",
+        "可报告训练期选出规则在检验期保持非支配的bootstrap概率",
+        "不得改写成真实世界政策成功概率",
+    )
+    for _, row in q4_sapr_sensitivity.sort_values("variant").iterrows():
+        add(
+            "Q4",
+            f"sapr_sensitivity_{row['variant']}_rule",
+            f"({row['rho_normal']:.2f},{row['rho_stress']:.2f},{row['rho_extreme']:.2f})",
+            "rule tuple",
+            "results/q4_sapr_sensitivity.csv",
+            "可用于说明阈值、块长和权重变动下规则是否稳定",
+            "不得事后删除不利敏感性结果",
         )
 
     pd.DataFrame(rows).to_csv(REPORTS_DIR / "paper_numbers.csv", index=False, encoding="utf-8-sig")
@@ -457,7 +523,10 @@ def arrow(ax: plt.Axes, start: tuple[float, float], end: tuple[float, float]) ->
 
 
 def save_flow(fig: plt.Figure, stem: str, title: str, subtitle: str) -> None:
-    finish_figure(fig, title=title, subtitle=subtitle, source="来源：作者根据冻结模型流程绘制。", rect=(0.04, 0.08, 0.98, 0.98))
+    fig.subplots_adjust(left=0.04, right=0.98, bottom=0.18, top=0.92)
+    fig._shu_caption = title  # type: ignore[attr-defined]
+    fig._shu_subtitle = subtitle  # type: ignore[attr-defined]
+    fig.text(0.04, 0.045, "来源：作者根据冻结模型流程绘制。", ha="left", va="bottom", fontsize=8.4, color=PALETTE["muted"])
     save_figure(fig, FIGURES_DIR / stem)
     plt.close(fig)
 
@@ -470,7 +539,7 @@ def plot_route_map() -> None:
         ((0.21, 0.55), "结构冲击\nSVAR输出"),
         ((0.40, 0.55), "问题二\n中国宏观传导"),
         ((0.59, 0.55), "问题三\n跨国韧性与政策情景"),
-        ((0.78, 0.55), "拓展问题\n尾部风险与压力测试"),
+        ((0.78, 0.55), "问题四\n尾部风险与SAPR优化"),
         ((0.40, 0.18), "冻结校验\n风险门禁PASS"),
         ((0.64, 0.18), "论文撰写\n数字台账引用"),
     ]
@@ -482,7 +551,7 @@ def plot_route_map() -> None:
     arrow(ax, (0.74, 0.63), (0.78, 0.63))
     arrow(ax, (0.86, 0.55), (0.55, 0.34))
     arrow(ax, (0.55, 0.26), (0.64, 0.26))
-    save_flow(fig, "paper_route_map", "三问及拓展统一技术路线", "模型链由预测、宏观传导和政策比较延伸到尾部风险压力测试")
+    save_flow(fig, "paper_route_map", "四问统一技术路线", "模型链由预测、宏观传导和政策比较延伸到尾部风险压力测试与自适应调价优化")
 
 
 def plot_event_timeline() -> None:
@@ -549,6 +618,10 @@ def write_handoff_markdown() -> None:
     q4_backtest = read_csv("q4_risk_backtest.csv")
     q4_macro = read_csv("q4_macro_stress.csv")
     q4_policy = read_csv("q4_policy_stress.csv")
+    q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
+    q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
+    q4_sapr_summary = read_json("q4_sapr_summary.json")
 
     q1_rows = []
     for _, row in q1_origin.sort_values("horizon_months").iterrows():
@@ -593,12 +666,35 @@ def write_handoff_markdown() -> None:
         f"- 2026-06 {row['outcome_label']}：政策缓冲收益 {row['policy_buffer_benefit_pctpt']:.3f} 个百分点，95%区间 [{row['benefit_lower_95']:.3f}, {row['benefit_upper_95']:.3f}]。"
         for _, row in q4_policy[q4_policy["period"].eq("2026-06")].sort_values("outcome").iterrows()
     ]
+    q4_sapr_opt = q4_sapr_optimal.iloc[0]
+    q4_sapr_rule_text = (
+        f"- SAPR-CVaR 膝点规则：普通/压力/极端传导率 = "
+        f"({q4_sapr_opt['rho_normal']:.2f}, {q4_sapr_opt['rho_stress']:.2f}, {q4_sapr_opt['rho_extreme']:.2f})；"
+        f"压力阈值 {q4_sapr_opt['stress_threshold_75_cny_t']:.1f} 元/吨，极端阈值 {q4_sapr_opt['stress_threshold_95_cny_t']:.1f} 元/吨。"
+    )
+    q4_sapr_holdout_rows = [
+        f"- {row['strategy']}：检验样本宏观损失均值 {row['J1_macro_loss']:.3f}，95%CVaR {row['J2_cvar95_macro_loss']:.3f}，"
+        f"累计缺口比例 {row['J3_gap_burden']:.3f}，调价波动率 {row['J4_adjustment_volatility']:.3f}。"
+        for _, row in q4_sapr_comparison[q4_sapr_comparison["sample_split"].eq("holdout")]
+        .sort_values("strategy").iterrows()
+    ]
+    q4_sapr_2026_rows = [
+        f"- {row['strategy']}：2026情景宏观损失均值 {row['J1_macro_loss']:.3f}，95%CVaR {row['J2_cvar95_macro_loss']:.3f}，"
+        f"累计缺口比例 {row['J3_gap_burden']:.3f}。"
+        for _, row in q4_sapr_comparison[q4_sapr_comparison["sample_split"].eq("war_2026")]
+        .sort_values("strategy").iterrows()
+    ]
+    q4_sapr_sensitivity_rows = [
+        f"- {row['variant']}：规则=({row['rho_normal']:.2f},{row['rho_stress']:.2f},{row['rho_extreme']:.2f})，"
+        f"检验期非支配概率 {row['holdout_non_dominated_probability']:.3f}。"
+        for _, row in q4_sapr_sensitivity.sort_values("variant").iterrows()
+    ]
 
     text = f"""# 建模到论文移交说明
 
 [PAPER_READY]
 
-三项核心任务与一项自拟拓展的建模、检验、数值冻结和论文移交材料已完成。当前 `overall_status={risk['overall_status']}`，`paper_finalize_allowed={str(risk['paper_finalize_allowed']).lower()}`，阻塞门禁数为 {len(risk['blocking_probe_ids'])}。
+原题三问与自拟问题四的建模、检验、数值冻结和论文移交材料已完成。当前 `overall_status={risk['overall_status']}`，`paper_finalize_allowed={str(risk['paper_finalize_allowed']).lower()}`，阻塞门禁数为 {len(risk['blocking_probe_ids'])}。
 
 ## 验证命令
 
@@ -651,9 +747,9 @@ python code\\utils\\verify_freeze.py --require-final
 
 禁止写法：不得仅凭价格传导或中国单一价格监管变量宣称“中国显著更好”；不得把价格平滑写成无成本福利改善。
 
-## 自拟拓展：油价尾部风险与政策压力测试
+## 问题四：极端油价尾部风险、政策压力测试与自适应调价规则优化
 
-定位：该部分来自题面“包括且不限于”的开放授权，不是题面正式编号问题。油价概率、Q2 结构冲击宏观情景和 Q3 已实现政策反事实是三个衔接但不可相加的证据层。
+定位：该部分作为论文正式自拟问题四，不再设置其他自拟问题。问题四由两个互补模块构成：同事已有的 FHS–GJR-GARCH 尾部风险与宏观政策压力测试负责回答“极端冲击有多大概率、会形成多大压力”；本轮 SAPR-CVaR 自适应调价优化负责回答“在现行机制约束上应如何设置状态依赖的临时平滑层”。油价概率、Q2 结构冲击宏观情景、Q3 已实现政策反事实和 SAPR 策略优化是递进关系，不可简单相加为单一因果贡献。
 
 FHS–GJR-GARCH 条件尾部预测：
 
@@ -671,14 +767,32 @@ FHS–GJR-GARCH 条件尾部预测：
 
 {chr(10).join(q4_policy_rows)}
 
-可用图表：`figures/q4_price_tail_risk.png`、`figures/q4_macro_policy_stress.png`。
+SAPR-CVaR 自适应调价规则：
 
-禁止写法：不得把尾部概率写成确定结果，不得把宏观情景写成确定性 GDP 损失，不得把 Q2 条件响应与 Q3 政策差额相加为单一因果贡献。
+{q4_sapr_rule_text}
+
+隔离检验样本策略比较：
+
+{chr(10).join(q4_sapr_holdout_rows)}
+
+2026实际冲击情景策略比较：
+
+{chr(10).join(q4_sapr_2026_rows)}
+
+敏感性检验：
+
+{chr(10).join(q4_sapr_sensitivity_rows)}
+
+证据状态：`{q4_sapr_summary['evidence_status']}`；检验期非支配 bootstrap 概率为 `{q4_sapr_summary['holdout_non_dominated_probability']:.3f}`。
+
+可用图表：`figures/q4_price_tail_risk.png`、`figures/q4_macro_policy_stress.png`、`figures/q4_sapr_pareto_front.png`、`figures/q4_sapr_policy_heatmap.png`、`figures/q4_sapr_strategy_comparison.png`、`figures/q4_sapr_2026_macro_paths.png`。
+
+禁止写法：不得把尾部概率写成确定结果，不得把宏观情景写成确定性 GDP 损失，不得把 Q2 条件响应与 Q3 政策差额相加为单一因果贡献；不得把 SAPR 的注册规则族最优写成全球最优、完整福利收益或财政成本估计。
 
 ## 论文接手顺序
 
 1. 先按 `reports/paper_numbers.csv` 抽取数值，填入摘要、问题重述、模型假设和结果表。
-2. 三项核心任务按“目标—数据—公式—估计—结果—检验—解释边界”写，自拟拓展单列且不替代核心任务。
+2. 四个问题均按“目标—数据—公式—估计—结果—检验—解释边界”写；问题四单列为自拟问题，明确从前三问结果递进而来。
 3. 所有图表从 `figures/` 选择 PNG 入文，PDF 留作高清备份。
 4. 写作期间如改动模型代码、输入数据或核心结果，必须重新运行冻结和 `--require-final`。
 """

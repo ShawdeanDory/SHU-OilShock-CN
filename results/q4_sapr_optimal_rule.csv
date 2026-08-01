@@ -1,0 +1,2 @@
+model,rule_id,rho_normal,rho_stress,rho_extreme,stress_threshold_75_cny_t,stress_threshold_95_cny_t,base_price_2026_06_cny_t,J1_macro_loss,J2_cvar95_macro_loss,J3_gap_burden,J4_adjustment_volatility,pareto_rule_count,candidate_rule_count,selection_rule
+SAPR-CVaR,R0023,0.2,0.05,0.05,435.9726516618276,702.4907282819895,9504.0,0.09252484840177837,0.3733120453230188,0.22008366186257214,0.031723425154176144,855,1771,minimum normalized Euclidean distance to the Pareto ideal; ties by smaller terminal gap burden and higher normal pass-through

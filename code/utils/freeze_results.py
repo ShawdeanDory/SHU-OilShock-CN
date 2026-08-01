@@ -70,6 +70,8 @@ CORE_RESULT_FILES = [
     "q3_robustness.csv",
     "q3_summary.csv",
     "q3_summary.json",
+    "q3_policy_macro_kernel.csv",
+    "q3_policy_macro_covariance.csv",
     "q4_risk_probe.json",
     "q4_price_tail_risk.csv",
     "q4_risk_backtest_origins.csv",
@@ -77,6 +79,13 @@ CORE_RESULT_FILES = [
     "q4_macro_stress.csv",
     "q4_policy_stress.csv",
     "q4_summary.json",
+    "q4_sapr_scenarios.csv",
+    "q4_sapr_policy_grid.csv",
+    "q4_sapr_optimal_rule.csv",
+    "q4_sapr_strategy_comparison.csv",
+    "q4_sapr_macro_paths.csv",
+    "q4_sapr_sensitivity.csv",
+    "q4_sapr_summary.json",
 ]
 
 PROCESSED_INPUT_FILES = [
@@ -120,6 +129,7 @@ CODE_FILES = [
     "code/problem2/run_q2.py",
     "code/problem3/run_q3.py",
     "code/problem4/run_q4.py",
+    "code/problem4/run_q4_sapr.py",
     "code/schemas/frozen_numbers.schema.json",
     "code/schemas/reproducibility_manifest.schema.json",
     "code/schemas/risk_probe_summary.schema.json",
@@ -848,11 +858,195 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    q4_sapr_scenarios = read_csv("q4_sapr_scenarios.csv")
+    q4_sapr_grid = read_csv("q4_sapr_policy_grid.csv")
+    q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
+    q4_sapr_paths = read_csv("q4_sapr_macro_paths.csv")
+    q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
+    q4_sapr_summary = load_json("q4_sapr_summary.json")
+    q3_kernel = read_csv("q3_policy_macro_kernel.csv")
+    q3_covariance = read_csv("q3_policy_macro_covariance.csv")
+    sapr_outcomes = {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}
+
+    q4_sapr_dev = q4_sapr_scenarios.loc[q4_sapr_scenarios.get("sample_split", pd.Series(dtype=str)).eq("development")] if not q4_sapr_scenarios.empty else pd.DataFrame()
+    q4_sapr_holdout = q4_sapr_scenarios.loc[q4_sapr_scenarios.get("sample_split", pd.Series(dtype=str)).eq("holdout")] if not q4_sapr_scenarios.empty else pd.DataFrame()
+    q4_sapr_anchor_count = int(q4_sapr_scenarios.loc[bool_series(q4_sapr_scenarios.get("is_2026_anchor", pd.Series(dtype=bool))), "scenario_id"].nunique()) if not q4_sapr_scenarios.empty else 0
+    q4_sapr_scenario_ok = (
+        not q4_sapr_dev.empty
+        and not q4_sapr_holdout.empty
+        and str(q4_sapr_dev["source_end"].max()) <= "2021-12"
+        and str(q4_sapr_holdout["source_start"].min()) >= "2022-01"
+        and q4_sapr_anchor_count == 1
+    )
+    probes.append(
+        probe(
+            "q4_sapr_scenario_no_leakage_gate",
+            "PASS" if q4_sapr_scenario_ok else "FAIL",
+            {
+                "development_scenarios": int(q4_sapr_dev["scenario_id"].nunique()) if not q4_sapr_dev.empty else 0,
+                "holdout_scenarios": int(q4_sapr_holdout["scenario_id"].nunique()) if not q4_sapr_holdout.empty else 0,
+                "development_max_source_end": str(q4_sapr_dev["source_end"].max()) if not q4_sapr_dev.empty else None,
+                "holdout_min_source_start": str(q4_sapr_holdout["source_start"].min()) if not q4_sapr_holdout.empty else None,
+                "anchor_2026_scenarios": q4_sapr_anchor_count,
+            },
+            "SAPR thresholds and rule selection use only 2013-03 to 2021-12 development scenarios; 2022-2026 remains holdout",
+            ["results/q4_sapr_scenarios.csv"],
+            "The adaptive rule must not use the 2026 conflict period or post-2021 holdout data to tune thresholds or choose the rule.",
+        )
+    )
+
+    q4_sapr_kernel_ok = (
+        sapr_outcomes.issubset(set(q3_kernel.get("outcome", pd.Series(dtype=str)).dropna().tolist()))
+        and sapr_outcomes.issubset(set(q3_covariance.get("outcome", pd.Series(dtype=str)).dropna().tolist()))
+        and int(q4_sapr_summary.get("valid_parameter_draw_count", 0)) == 2000
+        and float(q4_sapr_summary.get("valid_parameter_draw_rate", 0.0)) >= 0.95
+    )
+    probes.append(
+        probe(
+            "q4_sapr_macro_kernel_gate",
+            "PASS" if q4_sapr_kernel_ok else "FAIL",
+            {
+                "kernel_outcomes": sorted(set(q3_kernel.get("outcome", pd.Series(dtype=str)).dropna().tolist())) if not q3_kernel.empty else [],
+                "covariance_outcomes": sorted(set(q3_covariance.get("outcome", pd.Series(dtype=str)).dropna().tolist())) if not q3_covariance.empty else [],
+                "valid_parameter_draw_count": q4_sapr_summary.get("valid_parameter_draw_count"),
+                "valid_parameter_draw_rate": q4_sapr_summary.get("valid_parameter_draw_rate"),
+                "parameter_sampling": q4_sapr_summary.get("parameter_sampling"),
+            },
+            "SAPR reads the frozen Q3 macro kernel and propagates 2000 stable joint parameter samples",
+            ["results/q3_policy_macro_kernel.csv", "results/q3_policy_macro_covariance.csv", "results/q4_sapr_summary.json"],
+            "SAPR is the policy-optimization layer of Q4 and must reuse Q3 macro kernels rather than choosing a new macro model.",
+        )
+    )
+
+    q4_sapr_identity = q4_sapr_summary.get("identity_checks", {})
+    q4_sapr_identity_ok = bool(
+        q4_sapr_identity
+        and abs(float(q4_sapr_identity.get("full_rule_max_abs_gap", 1.0))) < 1e-8
+        and abs(float(q4_sapr_identity.get("full_rule_adjustment_identity_max_abs_error", 1.0))) < 1e-8
+        and abs(float(q4_sapr_identity.get("zero_policy_macro_max_abs_response", 1.0))) < 1e-10
+        and bool(q4_sapr_identity.get("negative_adjustment_offsets_gap"))
+        and abs(float(q4_sapr_identity.get("official_2026_03_gap", 0.0)) - 1045.0) < 1e-8
+        and abs(float(q4_sapr_identity.get("official_2026_04_gap", 0.0)) - 380.0) < 1e-8
+        and abs(float(q4_sapr_identity.get("official_2026_04_cumulative_gap", 0.0)) - 1425.0) < 1e-8
+        and abs(float(q4_sapr_identity.get("q3_policy_counterfactual_reproduction_max_abs_error", 1.0))) < 1e-8
+    )
+    probes.append(
+        probe(
+            "q4_sapr_policy_identity_gate",
+            "PASS" if q4_sapr_identity_ok else "FAIL",
+            q4_sapr_identity,
+            "SAPR accounting identities hold and official 2026 policy gaps reproduce 1045, 380 and 1425 yuan/ton",
+            ["results/q4_sapr_summary.json", "data/processed/china_fuel_policy_monthly.csv"],
+            "The adaptive optimization is invalid unless full pass-through, deferred-gap accumulation, downward offset and Q3 macro propagation identities are exact.",
+        )
+    )
+
+    q4_sapr_pareto_ok = (
+        len(q4_sapr_grid) == 1771
+        and "is_pareto" in q4_sapr_grid.columns
+        and "is_knee" in q4_sapr_grid.columns
+        and int(bool_series(q4_sapr_grid["is_pareto"]).sum()) > 0
+        and int(bool_series(q4_sapr_grid["is_knee"]).sum()) == 1
+        and len(q4_sapr_optimal) == 1
+    )
+    probes.append(
+        probe(
+            "q4_sapr_pareto_selection_gate",
+            "PASS" if q4_sapr_pareto_ok else "FAIL",
+            {
+                "rule_rows": int(len(q4_sapr_grid)),
+                "pareto_rows": int(bool_series(q4_sapr_grid.get("is_pareto", pd.Series(dtype=bool))).sum()) if not q4_sapr_grid.empty else 0,
+                "knee_rows": int(bool_series(q4_sapr_grid.get("is_knee", pd.Series(dtype=bool))).sum()) if not q4_sapr_grid.empty else 0,
+                "optimal_rows": int(len(q4_sapr_optimal)),
+            },
+            "SAPR enumerates 1771 monotone rules, has a nonempty Pareto set and selects exactly one knee rule",
+            ["results/q4_sapr_policy_grid.csv", "results/q4_sapr_optimal_rule.csv"],
+            "The policy rule must be selected by deterministic enumeration and Pareto-knee screening, not by an unstable heuristic.",
+        )
+    )
+
+    q4_sapr_holdout_strategies = set(q4_sapr_comparison.loc[q4_sapr_comparison.get("sample_split", pd.Series(dtype=str)).eq("holdout"), "strategy"].dropna().tolist()) if not q4_sapr_comparison.empty else set()
+    q4_sapr_holdout_ok = (
+        {"full_mechanism", "uniform_75_smoothing", "temporary_2026_approx", "SAPR_CVaR_knee"}.issubset(q4_sapr_holdout_strategies)
+        and q4_sapr_summary.get("evidence_status") in {"SUPPORTED", "PARTIAL", "NOT_SUPPORTED"}
+        and "holdout_non_dominated_probability" in q4_sapr_summary
+    )
+    probes.append(
+        probe(
+            "q4_sapr_holdout_validation_gate",
+            "PASS" if q4_sapr_holdout_ok else "FAIL",
+            {
+                "holdout_strategies": sorted(q4_sapr_holdout_strategies),
+                "evidence_status": q4_sapr_summary.get("evidence_status"),
+                "holdout_non_dominated_probability": q4_sapr_summary.get("holdout_non_dominated_probability"),
+            },
+            "SAPR reports preregistered holdout comparisons without using holdout rows for rule selection",
+            ["results/q4_sapr_strategy_comparison.csv", "results/q4_sapr_summary.json"],
+            "A negative or partial holdout result is acceptable; the gate checks evaluation integrity rather than forcing improvement.",
+        )
+    )
+
+    q4_sapr_interval_cols = [
+        "J1_macro_loss_lower_95",
+        "J1_macro_loss_upper_95",
+        "J2_cvar95_macro_loss_lower_95",
+        "J2_cvar95_macro_loss_upper_95",
+    ]
+    q4_sapr_uncertainty_ok = bool(
+        int(q4_sapr_summary.get("valid_parameter_draw_count", 0)) == 2000
+        and set(q4_sapr_interval_cols).issubset(q4_sapr_comparison.columns)
+        and np.isfinite(q4_sapr_comparison[q4_sapr_interval_cols].astype(float).to_numpy()).all()
+        and not q4_sapr_paths.empty
+        and not q4_sapr_sensitivity.empty
+    )
+    probes.append(
+        probe(
+            "q4_sapr_uncertainty_gate",
+            "PASS" if q4_sapr_uncertainty_ok else "FAIL",
+            {
+                "valid_parameter_draw_count": q4_sapr_summary.get("valid_parameter_draw_count"),
+                "comparison_rows": int(len(q4_sapr_comparison)),
+                "macro_path_rows": int(len(q4_sapr_paths)),
+                "sensitivity_rows": int(len(q4_sapr_sensitivity)),
+                "has_interval_columns": bool(set(q4_sapr_interval_cols).issubset(q4_sapr_comparison.columns)),
+            },
+            "SAPR comparison, macro paths and sensitivity outputs carry the registered uncertainty results",
+            ["results/q4_sapr_strategy_comparison.csv", "results/q4_sapr_macro_paths.csv", "results/q4_sapr_sensitivity.csv", "results/q4_sapr_summary.json"],
+            "SAPR uncertainty must come from the frozen 2000-draw parameter propagation and registered sensitivity variants.",
+        )
+    )
+
+    q4_sapr_forbidden = " ".join(q4_sapr_summary.get("forbidden_claims", []))
+    q4_sapr_claim_ok = (
+        q4_sapr_summary.get("execution_status") == "PASS"
+        and bool(q4_sapr_summary.get("allowed_claims"))
+        and "global optimum" in q4_sapr_forbidden
+        and "fiscal cost" in q4_sapr_forbidden
+        and "post-2021" in q4_sapr_forbidden
+    )
+    probes.append(
+        probe(
+            "q4_sapr_claim_strength_gate",
+            "PASS" if q4_sapr_claim_ok else "FAIL",
+            {
+                "execution_status": q4_sapr_summary.get("execution_status"),
+                "evidence_status": q4_sapr_summary.get("evidence_status"),
+                "allowed_claims": q4_sapr_summary.get("allowed_claims", []),
+                "forbidden_claims": q4_sapr_summary.get("forbidden_claims", []),
+            },
+            "SAPR restricts claims to the registered rule family and forbids global/welfare/fiscal overclaims",
+            ["results/q4_sapr_summary.json"],
+            "The optimization layer should add decision value without overstating policy causality or welfare conclusions.",
+        )
+    )
+
     chart_sources = [
         REPO_ROOT / "code" / "problem1" / "run_q1.py",
         REPO_ROOT / "code" / "problem2" / "run_q2.py",
         REPO_ROOT / "code" / "problem3" / "run_q3.py",
         REPO_ROOT / "code" / "problem4" / "run_q4.py",
+        REPO_ROOT / "code" / "problem4" / "run_q4_sapr.py",
     ]
     old_terms = [
         "Actual Brent",
@@ -987,8 +1181,13 @@ def extract_final_numbers() -> dict[str, Any]:
     q4_backtest = read_csv("q4_risk_backtest.csv")
     q4_macro = read_csv("q4_macro_stress.csv")
     q4_policy = read_csv("q4_policy_stress.csv")
+    q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
+    q4_sapr_paths = read_csv("q4_sapr_macro_paths.csv")
+    q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
     q3_robust = read_csv("q3_robustness.csv")
     q4_summary = load_json("q4_summary.json")
+    q4_sapr_summary = load_json("q4_sapr_summary.json")
 
     final: dict[str, Any] = {
         "cutoff": CUTOFF,
@@ -996,7 +1195,7 @@ def extract_final_numbers() -> dict[str, Any]:
         "q1": {},
         "q2": {},
         "q3": {},
-        "q4_extension": {},
+        "q4": {},
     }
     if not q1_metrics.empty:
         final["q1"]["selected_forecast_model"] = "no_change"
@@ -1062,23 +1261,42 @@ def extract_final_numbers() -> dict[str, Any]:
         final["q3"]["robustness_rows"] = int(len(q3_robust))
         final["q3"]["robustness_types"] = sorted(q3_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q3_robust else []
     if not q4_risk.empty:
-        final["q4_extension"]["price_tail_risk"] = records(q4_risk.sort_values(["model", "horizon_months"]))
+        final["q4"]["price_tail_risk"] = records(q4_risk.sort_values(["model", "horizon_months"]))
     if not q4_backtest.empty:
-        final["q4_extension"]["probabilistic_backtest"] = records(q4_backtest.sort_values(["horizon_months", "model"]))
+        final["q4"]["probabilistic_backtest"] = records(q4_backtest.sort_values(["horizon_months", "model"]))
     if not q4_macro.empty:
-        final["q4_extension"]["extreme_q95_macro_stress"] = records(
+        final["q4"]["extreme_q95_macro_stress"] = records(
             q4_macro.loc[q4_macro["scenario"].eq("extreme_q95") & q4_macro["horizon"].isin([6, 12])]
             .sort_values(["outcome", "horizon"])
         )
     if not q4_policy.empty:
-        final["q4_extension"]["policy_buffer_2026_06"] = records(
+        final["q4"]["policy_buffer_2026_06"] = records(
             q4_policy.loc[q4_policy["period"].eq("2026-06")].sort_values("outcome")
         )
     if q4_summary:
-        final["q4_extension"]["evidence_status"] = q4_summary.get("evidence_status")
-        final["q4_extension"]["extension_status"] = q4_summary.get("extension_status")
-        final["q4_extension"]["backtest_preferred_model_by_mean_pinball"] = q4_summary.get("backtest_preferred_model_by_mean_pinball")
-        final["q4_extension"]["guardrail"] = q4_summary.get("guardrail")
+        final["q4"]["evidence_status"] = q4_summary.get("evidence_status")
+        final["q4"]["tail_risk_status"] = q4_summary.get("problem_status")
+        final["q4"]["backtest_preferred_model_by_mean_pinball"] = q4_summary.get("backtest_preferred_model_by_mean_pinball")
+        final["q4"]["guardrail"] = q4_summary.get("guardrail")
+    if not q4_sapr_optimal.empty:
+        final["q4"]["sapr_optimal_rule"] = records(q4_sapr_optimal)
+    if not q4_sapr_comparison.empty:
+        final["q4"]["sapr_holdout_strategy_comparison"] = records(
+            q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("holdout")].sort_values("strategy")
+        )
+        final["q4"]["sapr_2026_strategy_comparison"] = records(
+            q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("war_2026")].sort_values("strategy")
+        )
+    if not q4_sapr_paths.empty:
+        final["q4"]["sapr_2026_macro_paths"] = records(q4_sapr_paths.sort_values(["strategy", "month_index"]))
+    if not q4_sapr_sensitivity.empty:
+        final["q4"]["sapr_sensitivity"] = records(q4_sapr_sensitivity.sort_values("variant"))
+    if q4_sapr_summary:
+        final["q4"]["sapr_execution_status"] = q4_sapr_summary.get("execution_status")
+        final["q4"]["sapr_evidence_status"] = q4_sapr_summary.get("evidence_status")
+        final["q4"]["sapr_holdout_non_dominated_probability"] = q4_sapr_summary.get("holdout_non_dominated_probability")
+        final["q4"]["sapr_allowed_claims"] = q4_sapr_summary.get("allowed_claims", [])
+        final["q4"]["sapr_forbidden_claims"] = q4_sapr_summary.get("forbidden_claims", [])
     return final
 
 
@@ -1142,7 +1360,7 @@ def build_data_overview_figures() -> None:
 def summarize_warnings() -> list[dict[str, Any]]:
     warnings_list: list[dict[str, Any]] = []
     seen: dict[tuple[str, str], dict[str, Any]] = {}
-    for filename in ["data_warnings.json", "q1_summary.json", "q2_summary.json", "q3_summary.json", "q4_summary.json", "model_panel_summary.json"]:
+    for filename in ["data_warnings.json", "q1_summary.json", "q2_summary.json", "q3_summary.json", "q4_summary.json", "q4_sapr_summary.json", "model_panel_summary.json"]:
         payload = load_json(filename)
         for warning in payload.get("warnings", []):
             row = dict(warning)
@@ -1205,6 +1423,9 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     q4_backtest = read_csv("q4_risk_backtest.csv")
     q4_macro = read_csv("q4_macro_stress.csv")
     q4_policy = read_csv("q4_policy_stress.csv")
+    q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
+    q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
     figures = collect_figures()
     nbs_iav = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv")
     nbs_ppi = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv")
@@ -1222,7 +1443,7 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
         blocker_lines.append("- 无。")
 
     if risk_summary.get("paper_finalize_allowed"):
-        report_title = "国际油价三问及拓展建模封板结果报告"
+        report_title = "国际油价四问建模封板结果报告"
         execution_mode = "paper-ready modeling freeze"
         conclusion_text = (
             "本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，"
@@ -1234,16 +1455,18 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
             "历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 "
             "约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国"
             "官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；"
-            "自拟拓展使用 FHS–GJR-GARCH 报告尾部概率，并将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示。"
+            "问题四使用 FHS–GJR-GARCH 报告尾部概率，将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示，"
+            "并进一步用 SAPR-CVaR 在现行调价机制约束上优化临时平滑规则。"
         )
         paper_advice = (
             "论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导"
             "和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间"
             "未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有"
-            "一般因果优势；拓展问题不得把尾部概率写成确定结果，也不得把 Q2 与 Q3 的不同证据层直接相加。"
+            "一般因果优势；问题四不得把尾部概率写成确定结果，不得把 Q2 与 Q3 的不同证据层直接相加，"
+            "也不得把 SAPR 的注册规则族最优写成全球福利最优。"
         )
     else:
-        report_title = "国际油价三问及拓展阶段性建模结果报告"
+        report_title = "国际油价四问阶段性建模结果报告"
         execution_mode = "staged modeling audit"
         conclusion_text = (
             "本轮结果仍是 `CONDITIONAL` 阶段快照。代码、图表和结果可继续作为建模推进基础，"
@@ -1330,9 +1553,9 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 {markdown_table(q3_policy_macro.loc[q3_policy_macro['period'].eq('2026-06')].sort_values('outcome') if not q3_policy_macro.empty else q3_policy_macro, ['period', 'outcome_label', 'macro_counterfactual_gap_pctpt', 'lower_95', 'upper_95', 'price_layer_status', 'evidence_status'])}
 
-## 5. 自拟拓展：油价尾部风险与政策压力测试
+## 5. 问题四：极端油价尾部风险、政策压力测试与自适应调价规则优化
 
-该模块不是题面正式编号问题。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
+问题四把同事已完成的“尾部风险与压力测试”作为风险输入层，并把本轮 SAPR-CVaR 自适应调价规则作为政策优化层：先判断极端油价路径概率与宏观压力，再回答我国成品油调价机制在极端冲击下应如何状态依赖地平滑传导。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
 
 {markdown_table(q4_risk.sort_values(['model', 'horizon_months']) if not q4_risk.empty else q4_risk, ['model', 'horizon_months', 'median_price', 'p05_price', 'p95_price', 'terminal_prob_above_hist_p90', 'terminal_prob_above_hist_p95', 'path_prob_cross_hist_p95'])}
 
@@ -1347,6 +1570,18 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 政策压力层只重述 Q3 已实现的 2026 年临时调控关闭反事实，不外推到模拟油价路径。正的“政策缓冲收益”分别表示避免的 PPI/CPI 增幅或避免的工业活动损失。
 
 {markdown_table(q4_policy.loc[q4_policy['period'].eq('2026-06')].sort_values('outcome') if not q4_policy.empty else q4_policy, ['period', 'outcome_label', 'policy_buffer_benefit_pctpt', 'benefit_lower_95', 'benefit_upper_95', 'evidence_status'])}
+
+SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则，2022-01—2026-06 完全作为隔离检验样本；2026 年战争冲击只用于检验和展示，不参与规则选择。三档传导率满足 `普通 ≥ 压力 ≥ 极端`，目标函数同时考虑宏观损失、95% CVaR、累计未调价负担和国内调价波动。
+
+{markdown_table(q4_sapr_optimal, ['rule_id', 'rho_normal', 'rho_stress', 'rho_extreme', 'stress_threshold_75_cny_t', 'stress_threshold_95_cny_t', 'J1_macro_loss', 'J2_cvar95_macro_loss', 'J3_gap_burden', 'J4_adjustment_volatility'])}
+
+隔离检验样本与 2026 实际冲击情景的策略比较如下。若 SAPR 在检验样本被预注册基线支配，论文必须报告负结果；当前证据状态以 `q4_sapr_summary.json` 为准。
+
+{markdown_table(q4_sapr_comparison.loc[q4_sapr_comparison['sample_split'].isin(['holdout', 'war_2026'])].sort_values(['sample_split', 'strategy']) if not q4_sapr_comparison.empty else q4_sapr_comparison, ['sample_split', 'strategy', 'rho_normal', 'rho_stress', 'rho_extreme', 'J1_macro_loss', 'J2_cvar95_macro_loss', 'J3_gap_burden', 'J4_adjustment_volatility'])}
+
+敏感性检验固定改变阈值、bootstrap 块长和 CPI/IAV 权重，不为追求结论改动样本或目标函数。
+
+{markdown_table(q4_sapr_sensitivity, ['variant', 'rho_normal', 'rho_stress', 'rho_extreme', 'pareto_rule_count', 'holdout_non_dominated_probability', 'changed_from_default'])}
 
 ## 6. 图表与冻结文件
 

@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from jsonschema import Draft202012Validator
 
@@ -239,6 +240,95 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     if not {"lower_95", "upper_95", "macro_counterfactual_gap_pctpt"}.issubset(policy_macro.columns):
         errors.append("q3_policy_macro_counterfactual.csv lacks macro interval columns")
 
+    q3_kernel = pd.read_csv(RESULTS_DIR / "q3_policy_macro_kernel.csv")
+    q3_cov = pd.read_csv(RESULTS_DIR / "q3_policy_macro_covariance.csv")
+    kernel_outcomes = set(q3_kernel.get("outcome", pd.Series(dtype=str)).dropna().unique())
+    if not {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}.issubset(kernel_outcomes):
+        errors.append("q3_policy_macro_kernel.csv must expose PPI/CPI/IAV macro kernels for Q4 SAPR")
+    required_kernel_cols = {f"beta_fuel_lag{i}" for i in range(7)} | {"phi_outcome_lag1"}
+    if q3_kernel.empty or not required_kernel_cols.issubset(q3_kernel.columns):
+        errors.append("q3_policy_macro_kernel.csv lacks usable coefficient columns")
+    if q3_cov.empty or not {"outcome", "row_term", "column_term", "covariance"}.issubset(q3_cov.columns):
+        errors.append("q3_policy_macro_covariance.csv lacks covariance matrix columns")
+
+    q4_risk = pd.read_csv(RESULTS_DIR / "q4_price_tail_risk.csv")
+    q4_backtest = pd.read_csv(RESULTS_DIR / "q4_risk_backtest.csv")
+    if set(q4_risk.get("model", pd.Series(dtype=str)).dropna().unique()) != {"FHS_GJR_GARCH", "Gaussian_random_walk"}:
+        errors.append("q4_price_tail_risk.csv must include both FHS_GJR_GARCH and Gaussian_random_walk")
+    q4_horizons = sorted(pd.to_numeric(q4_risk.get("horizon_months", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).unique().tolist())
+    if q4_horizons != [1, 3, 6]:
+        errors.append("q4_price_tail_risk.csv must report 1/3/6 month horizons")
+    if q4_backtest.empty or not {"origins", "all_no_future_information", "mean_pinball_loss"}.issubset(q4_backtest.columns):
+        errors.append("q4_risk_backtest.csv lacks backtest integrity columns")
+    elif not bool_series(q4_backtest["all_no_future_information"]).all():
+        errors.append("Q4 tail-risk backtest uses future information")
+
+    q4_sapr_scenarios = pd.read_csv(RESULTS_DIR / "q4_sapr_scenarios.csv")
+    q4_sapr_grid = pd.read_csv(RESULTS_DIR / "q4_sapr_policy_grid.csv")
+    q4_sapr_optimal = pd.read_csv(RESULTS_DIR / "q4_sapr_optimal_rule.csv")
+    q4_sapr_comparison = pd.read_csv(RESULTS_DIR / "q4_sapr_strategy_comparison.csv")
+    q4_sapr_paths = pd.read_csv(RESULTS_DIR / "q4_sapr_macro_paths.csv")
+    q4_sapr_sensitivity = pd.read_csv(RESULTS_DIR / "q4_sapr_sensitivity.csv")
+    q4_sapr_summary = load_json(RESULTS_DIR / "q4_sapr_summary.json")
+
+    q4_dev = q4_sapr_scenarios.loc[q4_sapr_scenarios["sample_split"].eq("development")]
+    q4_holdout = q4_sapr_scenarios.loc[q4_sapr_scenarios["sample_split"].eq("holdout")]
+    if q4_dev.empty or q4_holdout.empty:
+        errors.append("q4_sapr_scenarios.csv must include development and holdout scenarios")
+    else:
+        if str(q4_dev["source_end"].max()) > "2021-12":
+            errors.append("Q4 SAPR development scenarios leak post-2021 data")
+        if str(q4_holdout["source_start"].min()) < "2022-01":
+            errors.append("Q4 SAPR holdout scenarios overlap the development period")
+    if int(bool_series(q4_sapr_scenarios.get("is_2026_anchor", pd.Series(dtype=bool))).sum()) == 0:
+        errors.append("q4_sapr_scenarios.csv lacks the 2026 anchor scenario")
+    if len(q4_sapr_grid) != 1771:
+        errors.append("q4_sapr_policy_grid.csv must contain exactly 1771 monotone rules")
+    if int(bool_series(q4_sapr_grid.get("is_knee", pd.Series(dtype=bool))).sum()) != 1:
+        errors.append("q4_sapr_policy_grid.csv must identify exactly one knee rule")
+    if q4_sapr_optimal.empty or len(q4_sapr_optimal) != 1:
+        errors.append("q4_sapr_optimal_rule.csv must contain exactly one optimal rule")
+    else:
+        opt = q4_sapr_optimal.iloc[0]
+        if not (float(opt["rho_normal"]) >= float(opt["rho_stress"]) >= float(opt["rho_extreme"])):
+            errors.append("Q4 SAPR optimal pass-through rates violate monotonicity")
+    required_sapr_strategies = {"full_mechanism", "uniform_75_smoothing", "temporary_2026_approx", "SAPR_CVaR_knee"}
+    holdout_strategies = set(q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("holdout"), "strategy"].dropna())
+    war_strategies = set(q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("war_2026"), "strategy"].dropna())
+    if not required_sapr_strategies.issubset(holdout_strategies):
+        errors.append("q4_sapr_strategy_comparison.csv lacks required holdout strategies")
+    if not required_sapr_strategies.issubset(war_strategies):
+        errors.append("q4_sapr_strategy_comparison.csv lacks required 2026-war strategies")
+    interval_cols = [
+        "J1_macro_loss_lower_95",
+        "J1_macro_loss_upper_95",
+        "J2_cvar95_macro_loss_lower_95",
+        "J2_cvar95_macro_loss_upper_95",
+    ]
+    if not set(interval_cols).issubset(q4_sapr_comparison.columns):
+        errors.append("q4_sapr_strategy_comparison.csv lacks uncertainty interval columns")
+    elif not np.isfinite(q4_sapr_comparison[interval_cols].apply(pd.to_numeric, errors="coerce").to_numpy()).all():
+        errors.append("Q4 SAPR strategy intervals contain non-finite values")
+    if q4_sapr_paths.empty or not {"strategy", "sample_split", "month_index", "cumulative_deferred_gap_cny_t"}.issubset(q4_sapr_paths.columns):
+        errors.append("q4_sapr_macro_paths.csv lacks required macro-path columns")
+    if len(q4_sapr_sensitivity) < 6:
+        errors.append("q4_sapr_sensitivity.csv must include threshold, block-length, CPI-weight and IAV-weight variants")
+    if q4_sapr_summary.get("execution_status") != "PASS":
+        errors.append("q4_sapr_summary.json execution_status must be PASS")
+    if q4_sapr_summary.get("evidence_status") not in {"SUPPORTED", "PARTIAL", "NOT_SUPPORTED"}:
+        errors.append("q4_sapr_summary.json has invalid evidence_status")
+    if int(q4_sapr_summary.get("valid_parameter_draw_count", 0)) != 2000:
+        errors.append("Q4 SAPR must retain exactly 2000 valid parameter draws")
+    if float(q4_sapr_summary.get("valid_parameter_draw_rate", 0.0)) < 0.95:
+        errors.append("Q4 SAPR valid parameter draw rate is below 95%")
+    identity = q4_sapr_summary.get("identity_checks", {})
+    if abs(float(identity.get("official_2026_03_gap", 0.0)) - 1045.0) > 1e-6:
+        errors.append("Q4 SAPR official 2026-03 policy gap must equal 1045 CNY/t")
+    if abs(float(identity.get("official_2026_04_gap", 0.0)) - 380.0) > 1e-6:
+        errors.append("Q4 SAPR official 2026-04 incremental policy gap must equal 380 CNY/t")
+    if abs(float(identity.get("official_2026_04_cumulative_gap", 0.0)) - 1425.0) > 1e-6:
+        errors.append("Q4 SAPR official 2026-04 cumulative policy gap must equal 1425 CNY/t")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -289,6 +379,26 @@ def main() -> int:
     verify_environment(manifest, errors if args.strict_environment else environment_messages)
     verify_source_commit_lineage(manifest, errors)
     verify_key_result_shapes(errors)
+
+    probe_status = {probe.get("probe_id"): probe.get("status") for probe in risk.get("probes", [])}
+    required_probe_ids = {
+        "q4_method_risk_probe_gate",
+        "q4_probability_calibration_gate",
+        "q4_evidence_layer_guardrail",
+        "q4_sapr_scenario_no_leakage_gate",
+        "q4_sapr_macro_kernel_gate",
+        "q4_sapr_policy_identity_gate",
+        "q4_sapr_pareto_selection_gate",
+        "q4_sapr_holdout_validation_gate",
+        "q4_sapr_uncertainty_gate",
+        "q4_sapr_claim_strength_gate",
+    }
+    missing_probe_ids = sorted(required_probe_ids - set(probe_status))
+    if missing_probe_ids:
+        errors.append(f"risk_probe_summary.json lacks Q4 probe ids: {missing_probe_ids}")
+    failed_probe_ids = sorted(pid for pid in required_probe_ids if probe_status.get(pid) != "PASS")
+    if failed_probe_ids:
+        errors.append(f"Q4 probe ids are not PASS: {failed_probe_ids}")
 
     if risk.get("paper_finalize_allowed") != (risk.get("overall_status") == "PASS"):
         errors.append("risk paper_finalize_allowed is inconsistent with overall_status")

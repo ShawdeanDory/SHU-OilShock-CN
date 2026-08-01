@@ -1,0 +1,7 @@
+variant,threshold_low_quantile,threshold_high_quantile,bootstrap_block_length,ppi_weight,cpi_weight,iav_weight,rho_normal,rho_stress,rho_extreme,pareto_rule_count,holdout_non_dominated_probability,holdout_point_non_dominated,changed_from_default
+threshold_70_90,0.7,0.9,3,1.0,1.0,1.0,0.2,0.1,0.0,1197,1.0,True,True
+threshold_80_975,0.8,0.975,3,1.0,1.0,1.0,0.15,0.05,0.05,962,1.0,True,True
+cpi_weight_plus20,0.75,0.95,3,1.0,1.2,1.0,0.2,0.05,0.05,855,1.0,True,False
+iav_weight_plus20,0.75,0.95,3,1.0,1.0,1.2,0.2,0.05,0.05,860,1.0,True,False
+bootstrap_block_3,0.75,0.95,3,1.0,1.0,1.0,0.2,0.05,0.05,855,1.0,True,False
+bootstrap_block_6,0.75,0.95,6,1.0,1.0,1.0,0.2,0.05,0.05,855,1.0,True,False

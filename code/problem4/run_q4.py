@@ -284,14 +284,10 @@ def run_backtest(
     max_step = max(HORIZON_STEPS.values())
     for origin_number, (idx, origin) in enumerate(origins.iterrows()):
         train = daily.iloc[: idx + 1].copy()
-        try:
-            fit = fit_gjr_garch(train["return_pct"])
-            fhs_paths = simulate_fhs(
-                float(origin["brent_usd_bbl"]), fit, max_step, paths, seed + origin_number * 101
-            )
-        except Exception as exc:  # pragma: no cover - recorded empirical fallback
-            warnings.append(f"origin {origin['date'].date()} FHS fit failed: {exc}")
-            continue
+        fit = fit_gjr_garch(train["return_pct"])
+        fhs_paths = simulate_fhs(
+            float(origin["brent_usd_bbl"]), fit, max_step, paths, seed + origin_number * 101
+        )
         gaussian_paths = simulate_gaussian(
             float(origin["brent_usd_bbl"]), train["return_pct"], max_step, paths, seed + origin_number * 101 + 1
         )
@@ -595,7 +591,7 @@ def run_probe() -> dict[str, Any]:
         },
         "warnings": backtest_warnings,
         "pass_rule": "all input, stationarity, non-degeneracy, replay, seed-perturbation, backtest and cross-module field checks pass",
-        "failure_action": "fall back to Gaussian random walk for price tails or drop incompatible macro-policy layer",
+        "failure_action": "stop the Q4 gate and fix the input/model contract; do not substitute fallback estimates",
     }
     write_json(payload, "q4_risk_probe.json")
     print(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
@@ -652,7 +648,7 @@ def run_full(paths: int, backtest_paths: int) -> dict[str, Any]:
         "status": "PASS",
         "execution_status": "PASS",
         "evidence_status": "CONDITIONAL_STRESS_TEST",
-        "extension_status": "SELF_DEFINED_EXTENSION_NOT_ORIGINAL_NUMBERED_TASK",
+        "problem_status": "SELF_DEFINED_PROBLEM_4_RISK_LAYER",
         "random_seed": RANDOM_SEED,
         "cutoff": CUTOFF.strftime("%Y-%m-%d"),
         "main_method": "FHS_GJR_GARCH",

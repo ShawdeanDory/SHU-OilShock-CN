@@ -26,6 +26,8 @@
     "q3_panel_irf.csv": true,
     "q3_policy_counterfactual.csv": true,
     "q3_policy_macro_counterfactual.csv": true,
+    "q3_policy_macro_covariance.csv": true,
+    "q3_policy_macro_kernel.csv": true,
     "q3_resilience_metrics.csv": true,
     "q3_robustness.csv": true,
     "q3_summary.csv": true,
@@ -36,6 +38,13 @@
     "q4_risk_backtest.csv": true,
     "q4_risk_backtest_origins.csv": true,
     "q4_risk_probe.json": true,
+    "q4_sapr_macro_paths.csv": true,
+    "q4_sapr_optimal_rule.csv": true,
+    "q4_sapr_policy_grid.csv": true,
+    "q4_sapr_scenarios.csv": true,
+    "q4_sapr_sensitivity.csv": true,
+    "q4_sapr_strategy_comparison.csv": true,
+    "q4_sapr_summary.json": true,
     "q4_summary.json": true
   },
   "cutoff": "2026-06-30",
@@ -53,11 +62,15 @@
     "q3_policy_macro_counterfactual.png",
     "q3_resilience_metrics.png",
     "q4_macro_policy_stress.png",
-    "q4_price_tail_risk.png"
+    "q4_price_tail_risk.png",
+    "q4_sapr_2026_macro_paths.png",
+    "q4_sapr_pareto_front.png",
+    "q4_sapr_policy_heatmap.png",
+    "q4_sapr_strategy_comparison.png"
   ],
   "input_hash_count": 28,
-  "model_code_hash_count": 20,
-  "output_hash_count": 36,
+  "model_code_hash_count": 21,
+  "output_hash_count": 45,
   "overall_status": "PASS",
   "paper_finalize_allowed": true,
   "probes": [
@@ -472,7 +485,7 @@
           "representative_backtest_complete": true,
           "seed_sensitivity_below_0_15": true
         },
-        "gjr_persistence": 0.9918256622620849,
+        "gjr_persistence": 0.9918256159492668,
         "probe_status": "PASS",
         "seed_probability_max_abs_difference": 0.006
       },
@@ -539,6 +552,155 @@
     },
     {
       "evidence_files": [
+        "results/q4_sapr_scenarios.csv"
+      ],
+      "message": "The adaptive rule must not use the 2026 conflict period or post-2021 holdout data to tune thresholds or choose the rule.",
+      "metric": {
+        "anchor_2026_scenarios": 1,
+        "development_max_source_end": "2021-12",
+        "development_scenarios": 101,
+        "holdout_min_source_start": "2022-01",
+        "holdout_scenarios": 49
+      },
+      "probe_id": "q4_sapr_scenario_no_leakage_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR thresholds and rule selection use only 2013-03 to 2021-12 development scenarios; 2022-2026 remains holdout"
+    },
+    {
+      "evidence_files": [
+        "results/q3_policy_macro_kernel.csv",
+        "results/q3_policy_macro_covariance.csv",
+        "results/q4_sapr_summary.json"
+      ],
+      "message": "SAPR is the policy-optimization layer of Q4 and must reuse Q3 macro kernels rather than choosing a new macro model.",
+      "metric": {
+        "covariance_outcomes": [
+          "china_cpi_yoy_pct",
+          "china_iav_yoy_pct",
+          "china_ppi_yoy_pct"
+        ],
+        "kernel_outcomes": [
+          "china_cpi_yoy_pct",
+          "china_iav_yoy_pct",
+          "china_ppi_yoy_pct"
+        ],
+        "parameter_sampling": "joint normal draw with Fisher-z reparameterization for AR(1) lag coefficients and delta-method covariance propagation",
+        "valid_parameter_draw_count": 2000,
+        "valid_parameter_draw_rate": 1.0
+      },
+      "probe_id": "q4_sapr_macro_kernel_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR reads the frozen Q3 macro kernel and propagates 2000 stable joint parameter samples"
+    },
+    {
+      "evidence_files": [
+        "results/q4_sapr_summary.json",
+        "data/processed/china_fuel_policy_monthly.csv"
+      ],
+      "message": "The adaptive optimization is invalid unless full pass-through, deferred-gap accumulation, downward offset and Q3 macro propagation identities are exact.",
+      "metric": {
+        "full_rule_adjustment_identity_max_abs_error": 0.0,
+        "full_rule_max_abs_gap": 0.0,
+        "negative_adjustment_offsets_gap": true,
+        "official_2026_03_gap": 1045.0,
+        "official_2026_04_cumulative_gap": 1425.0,
+        "official_2026_04_gap": 380.0,
+        "q3_policy_counterfactual_reproduction_max_abs_error": 2.220446049250313e-15,
+        "zero_policy_macro_max_abs_response": 0.0,
+        "zero_upward_pass_through_terminal_gap": 200.0
+      },
+      "probe_id": "q4_sapr_policy_identity_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR accounting identities hold and official 2026 policy gaps reproduce 1045, 380 and 1425 yuan/ton"
+    },
+    {
+      "evidence_files": [
+        "results/q4_sapr_policy_grid.csv",
+        "results/q4_sapr_optimal_rule.csv"
+      ],
+      "message": "The policy rule must be selected by deterministic enumeration and Pareto-knee screening, not by an unstable heuristic.",
+      "metric": {
+        "knee_rows": 1,
+        "optimal_rows": 1,
+        "pareto_rows": 855,
+        "rule_rows": 1771
+      },
+      "probe_id": "q4_sapr_pareto_selection_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR enumerates 1771 monotone rules, has a nonempty Pareto set and selects exactly one knee rule"
+    },
+    {
+      "evidence_files": [
+        "results/q4_sapr_strategy_comparison.csv",
+        "results/q4_sapr_summary.json"
+      ],
+      "message": "A negative or partial holdout result is acceptable; the gate checks evaluation integrity rather than forcing improvement.",
+      "metric": {
+        "evidence_status": "SUPPORTED",
+        "holdout_non_dominated_probability": 1.0,
+        "holdout_strategies": [
+          "SAPR_CVaR_knee",
+          "full_mechanism",
+          "temporary_2026_approx",
+          "uniform_75_smoothing"
+        ]
+      },
+      "probe_id": "q4_sapr_holdout_validation_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR reports preregistered holdout comparisons without using holdout rows for rule selection"
+    },
+    {
+      "evidence_files": [
+        "results/q4_sapr_strategy_comparison.csv",
+        "results/q4_sapr_macro_paths.csv",
+        "results/q4_sapr_sensitivity.csv",
+        "results/q4_sapr_summary.json"
+      ],
+      "message": "SAPR uncertainty must come from the frozen 2000-draw parameter propagation and registered sensitivity variants.",
+      "metric": {
+        "comparison_rows": 13,
+        "has_interval_columns": true,
+        "macro_path_rows": 30,
+        "sensitivity_rows": 6,
+        "valid_parameter_draw_count": 2000
+      },
+      "probe_id": "q4_sapr_uncertainty_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR comparison, macro paths and sensitivity outputs carry the registered uncertainty results"
+    },
+    {
+      "evidence_files": [
+        "results/q4_sapr_summary.json"
+      ],
+      "message": "The optimization layer should add decision value without overstating policy causality or welfare conclusions.",
+      "metric": {
+        "allowed_claims": [
+          "SAPR-CVaR is optimal only within the registered three-regime smoothing family, six-month scenario library and four-objective criterion.",
+          "The selected rule can be compared with full pass-through, fixed smoothing and a 2026 temporary-control approximation under the frozen Q3 macro kernel.",
+          "Deferred adjustment gaps are a price-smoothing burden proxy, not a fiscal cost or complete welfare metric."
+        ],
+        "evidence_status": "SUPPORTED",
+        "execution_status": "PASS",
+        "forbidden_claims": [
+          "global optimum across all possible Chinese fuel pricing policies",
+          "complete welfare gain or fiscal cost estimate",
+          "the deferred gap equals government subsidy spending",
+          "Q4 uses post-2021 data to select stress thresholds or the optimal rule"
+        ]
+      },
+      "probe_id": "q4_sapr_claim_strength_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "SAPR restricts claims to the registered rule family and forbids global/welfare/fiscal overclaims"
+    },
+    {
+      "evidence_files": [
         "figures",
         "code/problem1/run_q1.py",
         "code/problem2/run_q2.py",
@@ -562,7 +724,11 @@
           "q3_policy_macro_counterfactual.png",
           "q3_resilience_metrics.png",
           "q4_macro_policy_stress.png",
-          "q4_price_tail_risk.png"
+          "q4_price_tail_risk.png",
+          "q4_sapr_2026_macro_paths.png",
+          "q4_sapr_pareto_front.png",
+          "q4_sapr_policy_heatmap.png",
+          "q4_sapr_strategy_comparison.png"
         ],
         "large_title_painted_inside_figure": false,
         "old_visible_terms": []
@@ -598,7 +764,7 @@
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
         "exact_package_pins": 41,
-        "generation_python_version": "3.13.9",
+        "generation_python_version": "3.11.9",
         "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },
@@ -615,8 +781,8 @@
       "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
         "input_hash_count": 28,
-        "model_code_hash_count": 20,
-        "output_hash_count": 36
+        "model_code_hash_count": 21,
+        "output_hash_count": 45
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",

@@ -1,0 +1,76 @@
+{
+  "status": "PASS",
+  "execution_status": "PASS",
+  "evidence_status": "SUPPORTED",
+  "model_name": "SAPR-CVaR",
+  "cutoff": "2026-06-30",
+  "random_seed": 20260730,
+  "bootstrap_attempts": 2000,
+  "bootstrap_total_draw_attempts": 2000,
+  "valid_parameter_draw_count": 2000,
+  "valid_parameter_draw_rate": 1.0,
+  "parameter_sampling": "joint normal draw with Fisher-z reparameterization for AR(1) lag coefficients and delta-method covariance propagation",
+  "holdout_non_dominated_probability": 1.0,
+  "holdout_point_non_dominated": true,
+  "scenario_counts": {
+    "development": 101,
+    "holdout": 49
+  },
+  "rule_count": 1771,
+  "pareto_rule_count": 855,
+  "optimal_rule": {
+    "model": "SAPR-CVaR",
+    "rule_id": "R0023",
+    "rho_normal": 0.2,
+    "rho_stress": 0.05,
+    "rho_extreme": 0.05,
+    "stress_threshold_75_cny_t": 435.97265166,
+    "stress_threshold_95_cny_t": 702.49072828,
+    "base_price_2026_06_cny_t": 9504.0,
+    "J1_macro_loss": 0.09252485,
+    "J2_cvar95_macro_loss": 0.37331205,
+    "J3_gap_burden": 0.22008366,
+    "J4_adjustment_volatility": 0.03172343,
+    "pareto_rule_count": 855,
+    "candidate_rule_count": 1771,
+    "selection_rule": "minimum normalized Euclidean distance to the Pareto ideal; ties by smaller terminal gap burden and higher normal pass-through"
+  },
+  "identity_checks": {
+    "full_rule_max_abs_gap": 0.0,
+    "full_rule_adjustment_identity_max_abs_error": 0.0,
+    "zero_policy_macro_max_abs_response": 0.0,
+    "zero_upward_pass_through_terminal_gap": 200.0,
+    "negative_adjustment_offsets_gap": true,
+    "official_2026_03_gap": 1045.0,
+    "official_2026_04_gap": 380.0,
+    "official_2026_04_cumulative_gap": 1425.0,
+    "q3_policy_counterfactual_reproduction_max_abs_error": 2.220446049250313e-15
+  },
+  "execution_gates": {
+    "q4_sapr_scenario_no_leakage_gate": true,
+    "q4_sapr_macro_kernel_gate": true,
+    "q4_sapr_policy_identity_gate": true,
+    "q4_sapr_pareto_selection_gate": true,
+    "q4_sapr_holdout_validation_gate": true,
+    "q4_sapr_uncertainty_gate": true,
+    "q4_sapr_claim_strength_gate": true
+  },
+  "allowed_claims": [
+    "SAPR-CVaR is optimal only within the registered three-regime smoothing family, six-month scenario library and four-objective criterion.",
+    "The selected rule can be compared with full pass-through, fixed smoothing and a 2026 temporary-control approximation under the frozen Q3 macro kernel.",
+    "Deferred adjustment gaps are a price-smoothing burden proxy, not a fiscal cost or complete welfare metric."
+  ],
+  "forbidden_claims": [
+    "global optimum across all possible Chinese fuel pricing policies",
+    "complete welfare gain or fiscal cost estimate",
+    "the deferred gap equals government subsidy spending",
+    "Q4 uses post-2021 data to select stress thresholds or the optimal rule"
+  ],
+  "sensitivity_rows": 6,
+  "figure_files": [
+    "figures/q4_sapr_pareto_front.png",
+    "figures/q4_sapr_policy_heatmap.png",
+    "figures/q4_sapr_strategy_comparison.png",
+    "figures/q4_sapr_2026_macro_paths.png"
+  ]
+}

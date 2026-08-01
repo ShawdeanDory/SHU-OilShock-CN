@@ -25,11 +25,11 @@
   },
   "metrics": {
     "daily_rows": 4062,
-    "gjr_persistence": 0.9918256622620849,
+    "gjr_persistence": 0.9918256159492668,
     "seed_probability_max_abs_difference": 0.006,
-    "runtime_seconds": 3.761680099996738
+    "runtime_seconds": 5.6153464000090025
   },
   "warnings": [],
   "pass_rule": "all input, stationarity, non-degeneracy, replay, seed-perturbation, backtest and cross-module field checks pass",
-  "failure_action": "fall back to Gaussian random walk for price tails or drop incompatible macro-policy layer"
+  "failure_action": "stop the Q4 gate and fix the input/model contract; do not substitute fallback estimates"
 }
