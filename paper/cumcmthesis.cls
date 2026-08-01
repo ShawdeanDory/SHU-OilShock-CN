@@ -171,7 +171,7 @@
 }
 
 %% 其他定义保持不变
-\renewenvironment{abstract}{\begin{center}{\zihao{3}\bfseries \abstractname}\end{center}\begin{quotation} \zihao{-4}\songti \setlength{\parindent}{2em}}{\end{quotation}}
+\renewenvironment{abstract}{\begin{center}{\zihao{3}\bfseries \abstractname}\end{center}\zihao{-4}\songti\setlength{\parindent}{2em}\setlength{\parskip}{0pt}}{\par}
 \newcommand\keywords[1]{\renewcommand{\mcm@tokens@keywords}{#1} \par\vskip1ex {\noindent\zihao{-4}\bfseries\heiti\mcm@cap@keywordsname：}~{\zihao{-4}\mcm@tokens@keywords} \newpage}
 \renewenvironment{thebibliography}[1]{\section*{\refname} \list{\@biblabel{\@arabic\c@enumiv}}{\settowidth\labelwidth{\@biblabel{#1}} \leftmargin\labelwidth \advance\leftmargin\labelsep \@openbib@code \usecounter{enumiv} \let\p@enumiv\@empty \renewcommand\theenumiv{\@arabic\c@enumiv}} \sloppy \clubpenalty4000 \@clubpenalty \clubpenalty \widowpenalty4000 \sfcode`\.\@m}{\def\@noitemerr{\@latex@warning{Empty `thebibliography' environment}}\endlist}
 %% gbt7714-numeric.bst 会为 natbib 写入作者年份可选标签；本模板不依赖
