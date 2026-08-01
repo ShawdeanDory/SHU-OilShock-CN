@@ -7,30 +7,28 @@
     "textColor": "#203040"
   },
   "flowchart": {
-    "curve": "basis",
-    "nodeSpacing": 54,
-    "rankSpacing": 42,
+    "curve": "linear",
+    "nodeSpacing": 42,
+    "rankSpacing": 58,
     "htmlLabels": true,
     "padding": 18
   }
 }}%%
-flowchart TB
-  subgraph TOP[" "]
-    direction LR
-    D["<b>数据与事件信息集</b><br/>Brent · WTI · 美元 · 库存 · GPR<br/>多阶段事件 · 中外宏观<br/>六国燃油 · 调价公告"]:::data
-    Q1["<b>问题一｜预测与冲突识别</b><br/>扩展窗口预测 · CAR<br/>状态匹配安慰剂 · SVAR<br/>GJR-GARCH条件波动"]:::q1
-    D --> Q1
-  end
+flowchart LR
+  D["<b>数据与事件信息集</b><br/>Brent · WTI · 美元<br/>库存 · GPR<br/>多阶段事件<br/>中外宏观<br/>六国燃油 · 调价公告&nbsp;&nbsp;"]:::data
 
-  Q2["<b>问题二｜中国宏观传导</b><br/>变量特定局部投影<br/>联合置信带<br/>人民币成本<br/>PPI/CPI与IAV响应"]:::q2
+  Q1["<b>问题一</b><br/><b>预测与冲突识别</b><br/>扩展窗口预测 · CAR<br/>状态匹配安慰剂 · SVAR&nbsp;&nbsp;<br/>GJR-GARCH<br/>条件波动"]:::q1
 
-  Q3["<b>问题三｜韧性与政策情景</b><br/>六国正式比较<br/>中国代理数据门禁<br/>动态反事实<br/>联合Bootstrap"]:::q3
+  Q2["<b>问题二</b><br/><b>中国宏观传导</b><br/>变量特定局部投影<br/>联合置信带<br/>人民币成本<br/>PPI/CPI与IAV响应"]:::q2
 
-  Q4["<b>问题四｜风险调价策略&nbsp;&nbsp;</b><br/>FHS尾部分布 · CVaR<br/>SAPR约束 · 自动追补&nbsp;&nbsp;<br/>隔离样本holdout"]:::q4
+  Q3["<b>问题三</b><br/><b>韧性与政策情景</b><br/>六国正式比较<br/>中国代理数据门禁<br/>动态反事实<br/>联合Bootstrap"]:::q3
 
-  O["<b>审计与论文输出</b><br/>一致性 · 完整性&nbsp;&nbsp;<br/>质量审计<br/>数字冻结 · 代码复现&nbsp;&nbsp;<br/>边界声明"]:::output
+  Q4["<b>问题四</b><br/><b>风险调价策略</b><br/>FHS尾部分布 · CVaR&nbsp;&nbsp;<br/>SAPR约束 · 自动追补&nbsp;&nbsp;<br/>隔离样本holdout"]:::q4
+
+  O["<b>审计与论文输出</b><br/>一致性 · 完整性<br/>质量审计<br/>数字冻结 · 代码复现&nbsp;&nbsp;<br/>边界声明"]:::output
   B["<b>证据边界</b><br/>事件关联 ≠ 净因果<br/>代理情景 ≠ 一般均衡<br/>规则最优 ≠ 全局最优"]:::boundary
 
+  D  --> Q1
   Q1 --> Q2
   Q1 --> Q3
   Q2 --> Q4
@@ -45,5 +43,4 @@ flowchart TB
   classDef q4 fill:#F1EDFF,stroke:#7559B8,color:#372963,stroke-width:1.9px;
   classDef output fill:#244A64,stroke:#18374D,color:#FFFFFF,stroke-width:2px;
   classDef boundary fill:#FFF9F2,stroke:#B88A56,color:#65411E,stroke-width:1.5px,stroke-dasharray:5 4;
-  style TOP fill:transparent,stroke:transparent
   linkStyle default stroke:#60758A,stroke-width:1.9px;
