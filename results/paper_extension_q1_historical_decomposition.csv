@@ -1,0 +1,2 @@
+period,supply_contribution,aggregate_demand_contribution,oil_specific_risk_contribution,total_model_contribution,actual_real_brent_return,lower_95,upper_95,historical_percentile,interval_type
+2026-03,32.229219068816654,1.0022591222476966,3.130856888643832,36.36233507970818,36.45119757878614,-21.786497785094372,17.512665403570008,0.9838709677419355,historical_empirical_reference_interval

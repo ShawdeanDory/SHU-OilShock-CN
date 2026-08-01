@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "random_seed": 20260730,
+  "outputs": {
+    "q1_historical_decomposition_rows": 1,
+    "q2_shock_matrix_rows": 12,
+    "q3_partial_identification_rows": 3,
+    "claim_boundary_rows": 6
+  },
+  "figures": [
+    "figures/paper_extension_q1_event_structural_synthesis.png",
+    "figures/paper_extension_q2_shock_matrix.png",
+    "figures/paper_extension_q3_partial_identification.png",
+    "figures/paper_extension_q4_holdout_forest.png",
+    "figures/paper_extension_q4_2026_paths.png"
+  ],
+  "allowed_claims": [
+    "Q1 structural contributions are conditional on the recursive SVAR identification.",
+    "Q2 heterogeneous transmission is reported by shock source and outcome, not as a single oil-price effect.",
+    "Q3 kappa thresholds quantify the China proxy comparability boundary and do not rank China formally.",
+    "Q4 paired differences show risk and volatility improvements together with deferred-gap costs."
+  ],
+  "forbidden_claims": [
+    "Q1 historical decomposition is a war net causal contribution.",
+    "China proxy pass-through is a fixed-product retail ranking.",
+    "SAPR-CVaR is globally welfare optimal."
+  ]
+}

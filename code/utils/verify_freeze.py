@@ -360,6 +360,44 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     if abs(float(identity.get("official_2026_04_cumulative_gap", 0.0)) - 1425.0) > 1e-6:
         errors.append("Q4 SAPR official 2026-04 cumulative policy gap must equal 1425 CNY/t")
 
+    paper_extension_summary = load_json(RESULTS_DIR / "paper_extension_summary.json")
+    paper_extension_q1 = pd.read_csv(RESULTS_DIR / "paper_extension_q1_historical_decomposition.csv")
+    paper_extension_q2 = pd.read_csv(RESULTS_DIR / "paper_extension_q2_shock_matrix.csv")
+    paper_extension_q3 = pd.read_csv(RESULTS_DIR / "paper_extension_q3_partial_identification.csv")
+    paper_extension_claims = pd.read_csv(RESULTS_DIR / "paper_extension_claim_boundary.csv")
+    if paper_extension_summary.get("status") != "PASS":
+        errors.append("paper_extension_summary.json status must be PASS")
+    required_q1_extension = {
+        "period",
+        "supply_contribution",
+        "aggregate_demand_contribution",
+        "oil_specific_risk_contribution",
+        "total_model_contribution",
+        "actual_real_brent_return",
+        "historical_percentile",
+    }
+    if paper_extension_q1.empty or not required_q1_extension.issubset(paper_extension_q1.columns):
+        errors.append("paper_extension_q1_historical_decomposition.csv lacks required structural-contribution columns")
+    else:
+        contribution_sum = (
+            pd.to_numeric(paper_extension_q1["supply_contribution"], errors="coerce")
+            + pd.to_numeric(paper_extension_q1["aggregate_demand_contribution"], errors="coerce")
+            + pd.to_numeric(paper_extension_q1["oil_specific_risk_contribution"], errors="coerce")
+        )
+        total = pd.to_numeric(paper_extension_q1["total_model_contribution"], errors="coerce")
+        if not np.allclose(contribution_sum.to_numpy(), total.to_numpy(), atol=1e-6, rtol=1e-6):
+            errors.append("Q1 paper-extension structural contributions do not sum to total_model_contribution")
+    if len(paper_extension_q2) != 12 or not {"shock", "outcome", "extremum_response", "joint_interval_crosses_zero"}.issubset(paper_extension_q2.columns):
+        errors.append("paper_extension_q2_shock_matrix.csv must contain 12 shock-outcome cells with interval flags")
+    if len(paper_extension_q3) != 3 or not {"scenario", "critical_kappa_point", "critical_kappa_lower_95", "critical_kappa_upper_95"}.issubset(paper_extension_q3.columns):
+        errors.append("paper_extension_q3_partial_identification.csv must contain three kappa scenarios")
+    else:
+        uniform = paper_extension_q3.loc[paper_extension_q3["scenario"].eq("uniform")]
+        if uniform.empty or not 0.55 <= float(uniform["critical_kappa_point"].iloc[0]) <= 0.70:
+            errors.append("Q3 partial-identification uniform critical kappa must stay near the documented 0.61 boundary")
+    if len(paper_extension_claims) != 6 or not {"evidence_status", "allowed_claim", "forbidden_claim"}.issubset(paper_extension_claims.columns):
+        errors.append("paper_extension_claim_boundary.csv must contain six claim-boundary rows")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -423,6 +461,7 @@ def main() -> int:
         "q4_sapr_holdout_validation_gate",
         "q4_sapr_uncertainty_gate",
         "q4_sapr_claim_strength_gate",
+        "paper_extension_evidence_gate",
     }
     missing_probe_ids = sorted(required_probe_ids - set(probe_status))
     if missing_probe_ids:

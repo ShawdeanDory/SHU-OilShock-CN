@@ -1,0 +1,13 @@
+shock,shock_label,outcome,outcome_label,extremum_type,extremum_response,extremum_month,extremum_joint_lower_95,extremum_joint_upper_95,joint_interval_crosses_zero,direction,response_curve_area_0_6,response_curve_area_0_12,area_unit,evidence_status
+aggregate_demand_shock,全球需求,brent_cny_cost_log_change_pct,人民币原油成本,peak_abs,3.122921448011194,1.0,-0.852822770586561,7.09866566660895,True,正向,5.293727814890417,3.40781633877019,percentage_point_month,INCONCLUSIVE
+oil_specific_risk_shock,石油特定风险,brent_cny_cost_log_change_pct,人民币原油成本,peak_abs,8.832145529829065,0.0,6.888275519918178,10.776015539739952,False,正向,7.440093189968802,4.938521054407642,percentage_point_month,INCONCLUSIVE
+supply_shock,不利供给,brent_cny_cost_log_change_pct,人民币原油成本,peak_abs,3.958768595792937,0.0,-5.085884843329851,13.003422034915726,True,正向,4.424293280803252,4.747077158018502,percentage_point_month,INCONCLUSIVE
+aggregate_demand_shock,全球需求,china_cpi_yoy_pct,CPI,peak_abs,0.125917965962525,9.0,-0.1245115718031134,0.3763475037281635,True,正向,0.4912106091626313,1.0984241090485771,percentage_point_month,INCONCLUSIVE
+oil_specific_risk_shock,石油特定风险,china_cpi_yoy_pct,CPI,peak_abs,0.2467168235954742,7.0,-0.0957676535914973,0.5892013007824459,True,正向,0.8767144565834323,2.1551750626037074,percentage_point_month,INCONCLUSIVE
+supply_shock,不利供给,china_cpi_yoy_pct,CPI,peak_abs,0.0861184431933683,4.0,-0.2440155669817156,0.4162524533684523,True,正向,0.1289772047083297,0.1041074686705104,percentage_point_month,INCONCLUSIVE
+aggregate_demand_shock,全球需求,china_iav_yoy_pct,工业增加值,trough,-0.5197205990840656,6.0,-1.4961520746411678,0.4567108764730365,True,负向,,,not_applicable_sparse_horizons,INCONCLUSIVE
+oil_specific_risk_shock,石油特定风险,china_iav_yoy_pct,工业增加值,trough,-0.4272242268576625,12.0,-0.965660111132702,0.1112116574173769,True,负向,,,not_applicable_sparse_horizons,INCONCLUSIVE
+supply_shock,不利供给,china_iav_yoy_pct,工业增加值,trough,-0.324210199181199,0.0,-1.1666620137612922,0.5182416153988942,True,负向,,,not_applicable_sparse_horizons,INCONCLUSIVE
+aggregate_demand_shock,全球需求,china_ppi_yoy_pct,PPI,peak_abs,0.4600648619154824,10.0,-0.4885951127237899,1.4087248365547549,True,正向,1.6330322775691548,3.7646866911566126,percentage_point_month,INCONCLUSIVE
+oil_specific_risk_shock,石油特定风险,china_ppi_yoy_pct,PPI,peak_abs,0.7621812939913586,10.0,-0.1593103720054197,1.683672959988137,True,正向,3.6545206159554944,7.400609372904375,percentage_point_month,INCONCLUSIVE
+supply_shock,不利供给,china_ppi_yoy_pct,PPI,peak_abs,0.7051414768592831,9.0,-0.7053314901371911,2.1156144438557574,True,正向,1.7038138934505975,5.5527409872119655,percentage_point_month,INCONCLUSIVE

@@ -231,9 +231,53 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 | bootstrap_block_6 | 0.3000 | 0.1000 | 0.1000 | 119.0000 | 1.0000 | 0.0000 |
 | bootstrap_block_12 | 0.3000 | 0.1000 | 0.1000 | 119.0000 | 1.0000 | 0.0000 |
 
-## 6. 图表与冻结文件
+## 6. 正文扩展证据
 
-核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png, q4_macro_policy_stress.png, q4_price_tail_risk.png, q4_sapr_2026_macro_paths.png, q4_sapr_pareto_front.png, q4_sapr_policy_heatmap.png, q4_sapr_strategy_comparison.png。
+新增正文模块不引入新主模型，只把原结果重组为“主张--证据--边界”。Q1扩展输出给定递归SVAR识别下的2026年冲突期结构贡献；若全球供给物理量尚未审计到后续月份，则只报告可复核月份，不回填。
+
+| period | supply_contribution | aggregate_demand_contribution | oil_specific_risk_contribution | total_model_contribution | actual_real_brent_return | historical_percentile |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-03 | 32.2292 | 1.0023 | 3.1309 | 36.3623 | 36.4512 | 0.9839 |
+
+Q2扩展矩阵按冲击来源和结果变量报告极值、期限与联合区间状态，防止把所有油价上涨写成同一种经济冲击。
+
+| shock_label | outcome_label | extremum_type | extremum_response | extremum_month | joint_interval_crosses_zero | direction |
+| --- | --- | --- | --- | --- | --- | --- |
+| 全球需求 | 人民币原油成本 | peak_abs | 3.1229 | 1.0000 | 1.0000 | 正向 |
+| 石油特定风险 | 人民币原油成本 | peak_abs | 8.8321 | 0.0000 | 0.0000 | 正向 |
+| 不利供给 | 人民币原油成本 | peak_abs | 3.9588 | 0.0000 | 1.0000 | 正向 |
+| 全球需求 | CPI | peak_abs | 0.1259 | 9.0000 | 1.0000 | 正向 |
+| 石油特定风险 | CPI | peak_abs | 0.2467 | 7.0000 | 1.0000 | 正向 |
+| 不利供给 | CPI | peak_abs | 0.0861 | 4.0000 | 1.0000 | 正向 |
+| 全球需求 | 工业增加值 | trough | -0.5197 | 6.0000 | 1.0000 | 负向 |
+| 石油特定风险 | 工业增加值 | trough | -0.4272 | 12.0000 | 1.0000 | 负向 |
+| 不利供给 | 工业增加值 | trough | -0.3242 | 0.0000 | 1.0000 | 负向 |
+| 全球需求 | PPI | peak_abs | 0.4601 | 10.0000 | 1.0000 | 正向 |
+| 石油特定风险 | PPI | peak_abs | 0.7622 | 10.0000 | 1.0000 | 正向 |
+| 不利供给 | PPI | peak_abs | 0.7051 | 9.0000 | 1.0000 | 正向 |
+
+Q3扩展用临界缩放系数量化中国代理值的不可比程度，仍不得将中国代理值放入正式价格层排名。
+
+| scenario | critical_kappa_point | critical_kappa_bootstrap_median | critical_kappa_lower_95 | critical_kappa_upper_95 |
+| --- | --- | --- | --- | --- |
+| uniform | 0.6074 | 0.5904 | 0.4362 | 0.8336 |
+| front_loaded_discount | 0.6317 | 0.6135 | 0.4609 | 0.8485 |
+| back_loaded_discount | 0.8226 | 0.7999 | 0.5784 | 1.1693 |
+
+最终论文主张按下表限界；该表优先于单个模型的 `PASS` 状态。
+
+| claim_id | topic | evidence_status | allowed_claim | forbidden_claim |
+| --- | --- | --- | --- | --- |
+| q1_event | Q1前两交易日存在状态条件下罕见的异常上涨 | 支持 | 事件相关异常上涨 | 严格战争净因果溢价 |
+| q1_structural | Q1结构冲击可供Q2/Q3作事后传导输入 | 支持 | 给定SVAR识别下的结构贡献 | 唯一真实冲击分解 |
+| q2_macro | Q2油价特定风险冲击会提高成本并可能推高PPI/CPI | 部分支持 | 方向和量级估计 | 稳健总体增长损失 |
+| q3_resilience | Q3中国综合应对显著优于六国 | 结论不充分 | 跨国总体韧性证据不足 | 中国显著更优 |
+| q3_policy | Q3 2026临时调控降低物价压力 | 部分支持 | 条件动态反事实下的PPI/CPI缓冲 | 无成本福利改善 |
+| q4_sapr | Q4 SAPR在注册规则族内改善风险-波动权衡 | 支持 | 注册规则族内的Pareto权衡改进 | 全球最优或完整福利最优 |
+
+## 7. 图表与冻结文件
+
+核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, paper_extension_q1_event_structural_synthesis.png, paper_extension_q2_shock_matrix.png, paper_extension_q3_partial_identification.png, paper_extension_q4_2026_paths.png, paper_extension_q4_holdout_forest.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png, q4_macro_policy_stress.png, q4_price_tail_risk.png, q4_sapr_2026_macro_paths.png, q4_sapr_pareto_front.png, q4_sapr_policy_heatmap.png, q4_sapr_strategy_comparison.png。
 
 冻结文件：
 
@@ -244,7 +288,7 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 
 其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
-## 7. Warnings
+## 8. Warnings
 
 - `manifest_status`：nbs_cpi_202606_release status=REMOTE_ONLY
 - `missing_raw_snapshot`：nbs_cpi_202606_release raw snapshot is absent
@@ -266,6 +310,6 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 - `q3_policy_joint_bootstrap`：Accepted 2000 joint three-equation moving-block draws from 2197 attempts.
 - `q3_fuel_panel_leave_one_withheld`：Fuel panel leave-one-country inference is withheld because China is a proxy and excluded from the formal price-level panel.
 
-## 8. 论文使用建议
+## 9. 论文使用建议
 
 论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有一般因果优势；问题四不得把尾部概率写成确定结果，不得把 Q2 与 Q3 的不同证据层直接相加，也不得把 SAPR 的注册规则族最优写成全球福利最优。

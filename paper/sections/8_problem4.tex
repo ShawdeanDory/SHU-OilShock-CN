@@ -75,6 +75,28 @@ Rockafellar--Uryasev定义\cite{rockafellar2000}。$J_3$不是期末缺口，也
   \label{eq:sapr-constraints}
 \end{equation}
 
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{SAPR--CVaR枚举算法框}
+  \label{tab:q4-algorithm}
+  \begin{tabularx}{0.98\textwidth}{p{0.08\textwidth}X}
+    \toprule
+    步骤 & 计算内容 \\
+    \midrule
+    1 & 输入2013年至2026年机制应调额、宏观响应核、协方差矩阵和开发样本阈值。 \\
+    2 & 仅用2013年3月至2021年12月开发样本的正向应调额75\%和95\%分位判定普通、压力、极端状态。 \\
+    3 & 对每组三状态传导率$(\rho_N,\rho_S,\rho_E)$按0.05步长枚举，并强制$\rho_N\ge\rho_S\ge\rho_E$。 \\
+    4 & 对每个六个月情景递推实际调价$a_t$与累计缺口$G_t$；降价先冲抵缺口，缺口触及20\%安全线时自动追补。 \\
+    5 & 检查最大缺口、期末缺口、恢复期缺口和单月调价幅度四项硬约束。 \\
+    6 & 用2000组联合参数抽样传播燃油价格路径，计算PPI、CPI和IAV路径。 \\
+    7 & 计算平均宏观损失、95\% CVaR、平均缺口负担和调价波动率四个目标。 \\
+    8 & 在1771组规则中筛选可行集、$\varepsilon$-Pareto集，并按距归一化理想点最近确定唯一膝点。 \\
+    9 & 将训练期选出的规则固定，在2022年至2026年隔离检验集与预注册基线比较。 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 阈值和规则只用2013年3月至2021年12月开发样本选择；2022年1月至2026年6月完全隔离。1771个
 候选中1750个满足硬约束；按1\%容差构造$\varepsilon$-Pareto集，得到119个规则，再选距归一化理想点
 最近的膝点。最优规则为
@@ -119,10 +141,21 @@ Rockafellar--Uryasev定义\cite{rockafellar2000}。$J_3$不是期末缺口，也
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.91\textwidth]{../figures/q4_sapr_strategy_comparison.pdf}
-  \caption{隔离检验样本中四类策略的原始目标比较}
+  \includegraphics[width=0.82\textwidth]{../figures/paper_extension_q4_holdout_forest.pdf}
+  \caption{SAPR相对完全传导的隔离检验配对目标差}
   \label{fig:q4-strategy}
 \end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.91\textwidth]{../figures/paper_extension_q4_2026_paths.pdf}
+  \caption{2026年实际冲击情景下SAPR与完全传导的宏观路径和缺口约束}
+  \label{fig:q4-paths-2026}
+\end{figure}
+
+2026年实际冲击路径显示，SAPR在PPI和CPI上形成较低的短期压力，但以累计缺口上升为代价；
+缺口路径触及20\%最大缺口约束后进入追补，并在六个月恢复期内回到5\%约束以内。图
+\ref{fig:q4-paths-2026}因此同时给出改善方向和政策代价，避免把“调价平滑”解释为没有成本的收益。
 
 \subsection{问题四小结}
 

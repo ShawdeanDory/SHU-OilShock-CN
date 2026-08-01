@@ -1,0 +1,4 @@
+scenario,china_proxy_h6,control_median_h6,critical_kappa_point,critical_kappa_bootstrap_median,critical_kappa_lower_95,critical_kappa_upper_95,bootstrap_draws,bootstrap_block_length_months,interpretation
+uniform,0.373392346173177,0.22681409093836755,0.607441725206581,0.5903917061038344,0.43620735647581615,0.8335786508617914,2000,6,threshold for a scaled China proxy to equal the six-country official-retail median; not a formal country ranking
+front_loaded_discount,0.373392346173177,0.22681409093836755,0.6317453107356922,0.6135372488806795,0.4608528465846909,0.8485477838009696,2000,6,threshold for a scaled China proxy to equal the six-country official-retail median; not a formal country ranking
+back_loaded_discount,0.373392346173177,0.22681409093836755,0.8225673054397742,0.7998701254164006,0.578373878520375,1.1692622083475541,2000,6,threshold for a scaled China proxy to equal the six-country official-retail median; not a formal country ranking

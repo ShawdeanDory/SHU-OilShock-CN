@@ -1,6 +1,11 @@
 {
   "blocking_probe_ids": [],
   "core_results_present": {
+    "paper_extension_claim_boundary.csv": true,
+    "paper_extension_q1_historical_decomposition.csv": true,
+    "paper_extension_q2_shock_matrix.csv": true,
+    "paper_extension_q3_partial_identification.csv": true,
+    "paper_extension_summary.json": true,
     "q1_daily_counterfactual.csv": true,
     "q1_event_effects.csv": true,
     "q1_forecast_metrics.csv": true,
@@ -58,6 +63,11 @@
   "figure_pngs": [
     "data_overview_fuel_panel.png",
     "data_overview_oil_gpr.png",
+    "paper_extension_q1_event_structural_synthesis.png",
+    "paper_extension_q2_shock_matrix.png",
+    "paper_extension_q3_partial_identification.png",
+    "paper_extension_q4_2026_paths.png",
+    "paper_extension_q4_holdout_forest.png",
     "q1_forecast_1m.png",
     "q1_structural_shocks.png",
     "q1_war_counterfactual.png",
@@ -76,8 +86,8 @@
     "q4_sapr_strategy_comparison.png"
   ],
   "input_hash_count": 28,
-  "model_code_hash_count": 21,
-  "output_hash_count": 52,
+  "model_code_hash_count": 22,
+  "output_hash_count": 57,
   "overall_status": "PASS",
   "paper_finalize_allowed": true,
   "probes": [
@@ -705,6 +715,40 @@
     },
     {
       "evidence_files": [
+        "results/paper_extension_q1_historical_decomposition.csv",
+        "results/paper_extension_q2_shock_matrix.csv",
+        "results/paper_extension_q3_partial_identification.csv",
+        "results/paper_extension_claim_boundary.csv",
+        "results/paper_extension_summary.json",
+        "figures/paper_extension_q1_event_structural_synthesis.png",
+        "figures/paper_extension_q2_shock_matrix.png",
+        "figures/paper_extension_q3_partial_identification.png",
+        "figures/paper_extension_q4_holdout_forest.png",
+        "figures/paper_extension_q4_2026_paths.png"
+      ],
+      "message": "The added正文扩展 must be frozen evidence rather than hand-written narrative.",
+      "metric": {
+        "all_figures_present": true,
+        "claim_boundary_rows": 6,
+        "figure_files": [
+          "paper_extension_q1_event_structural_synthesis.png",
+          "paper_extension_q2_shock_matrix.png",
+          "paper_extension_q3_partial_identification.png",
+          "paper_extension_q4_holdout_forest.png",
+          "paper_extension_q4_2026_paths.png"
+        ],
+        "q1_rows": 1,
+        "q2_rows": 12,
+        "q3_rows": 3,
+        "summary_status": "PASS"
+      },
+      "probe_id": "paper_extension_evidence_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "paper-extension modules must carry auditable CSV outputs, figures and claim guardrails"
+    },
+    {
+      "evidence_files": [
         "figures",
         "code/problem1/run_q1.py",
         "code/problem2/run_q2.py",
@@ -717,6 +761,11 @@
         "figure_pngs": [
           "data_overview_fuel_panel.png",
           "data_overview_oil_gpr.png",
+          "paper_extension_q1_event_structural_synthesis.png",
+          "paper_extension_q2_shock_matrix.png",
+          "paper_extension_q3_partial_identification.png",
+          "paper_extension_q4_2026_paths.png",
+          "paper_extension_q4_holdout_forest.png",
           "q1_forecast_1m.png",
           "q1_structural_shocks.png",
           "q1_war_counterfactual.png",
@@ -768,7 +817,7 @@
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
         "exact_package_pins": 41,
-        "generation_python_version": "3.13.9",
+        "generation_python_version": "3.11.9",
         "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },
@@ -785,8 +834,8 @@
       "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
         "input_hash_count": 28,
-        "model_code_hash_count": 21,
-        "output_hash_count": 52
+        "model_code_hash_count": 22,
+        "output_hash_count": 57
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",
