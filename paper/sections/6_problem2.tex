@@ -76,6 +76,38 @@ IAV因1至2月结构性缺失，只估计$h\in\{0,3,6,12\}$。使用同源移动
 更符合成本推动机制。这解释了为何“油价上涨”不能直接等同于“经济受损”。ARDL、疫情剔除、
 冲击正负拆分和替代排序只作为稳健性探针；它们未把工业活动和GDP证据提升为联合显著。
 
+\subsection{三类冲击的异质传导比较}
+
+图\ref{fig:q2-shock-matrix}把三类结构冲击与四个核心变量放在同一矩阵中。油价特定风险冲击对
+人民币原油成本的当月响应为8.83个百分点，联合区间不跨零，是传导链中最稳健的入口；PPI、
+CPI和工业增加值虽然方向符合“成本上行--产出承压”的机制，但联合区间仍跨零。不利供给冲击下
+PPI峰值点估计为0.71个百分点，工业增加值谷值为$-0.32$个百分点；全球需求冲击下PPI峰值为
+0.46个百分点，工业增加值谷值为$-0.52$个百分点。后者提示：需求扩张造成的油价上涨可能伴随
+外需或生产活动变化，不能和供给收缩导致的成本冲击合并解释。
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.78\textwidth]{../figures/paper_extension_q2_shock_matrix.pdf}
+  \caption{三类结构冲击对中国成本、物价与工业活动的异质传导}
+  \label{fig:q2-shock-matrix}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{不同冲击下核心变量极值响应的解释矩阵}
+  \label{tab:q2-heterogeneous}
+  \begin{tabularx}{0.98\textwidth}{p{0.18\textwidth}p{0.20\textwidth}p{0.16\textwidth}p{0.17\textwidth}X}
+    \toprule
+    冲击来源 & 成本入口 & PPI & 工业增加值 & 论文解释 \\
+    \midrule
+    不利供给 & 3.96，跨零 & 0.71，跨零 & $-0.32$，跨零 & 方向符合成本推动，但证据不足以写增长损失 \\
+    全球需求 & 3.12，跨零 & 0.46，跨零 & $-0.52$，跨零 & 油价上涨可能混入全球景气变化，需单独解释 \\
+    石油特定风险 & 8.83，不跨零 & 0.76，跨零 & $-0.43$，跨零 & 成本入口稳健，实体增长损失仍不充分 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 \subsection{问题二小结}
 
 模型支持“进口成本快速响应、PPI和CPI滞后上行、工业活动可能承压”的传导顺序，但总体增长损失

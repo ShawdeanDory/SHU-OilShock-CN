@@ -21,6 +21,30 @@
   \label{fig:route}
 \end{figure}
 
+\subsection{研究缺口与可验证创新}
+
+已有油价论文常把预测、冲击解释和政策评价混在同一误差项中；燃油价格平滑研究又容易只比较当期
+价格波动，而忽略被延期的调价责任。本文不以模型数量作为创新，而把每个新增环节都绑定到可复算
+输出和禁止表述，见表\ref{tab:innovation-matrix}。
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{研究缺口、本文改进与可验证证据}
+  \label{tab:innovation-matrix}
+  \begin{tabularx}{0.98\textwidth}{p{0.24\textwidth}p{0.29\textwidth}p{0.25\textwidth}X}
+    \toprule
+    常见缺口 & 本文处理 & 可验证输出 & 边界 \\
+    \midrule
+    预测误差被解释为战争贡献 & 预测、CAR、SVAR和AR基准差额分层 & Q1回测、placebo、结构贡献表 & 不称战争净因果溢价 \\
+    油价上涨被视为单一负冲击 & 区分供给、全球需求和石油特定风险 & Q2异质传导矩阵 & 不把需求涨价写成成本冲击 \\
+    中国燃油价格层与他国不一致 & 主排名只用官方可比零售价，另做代理临界误差 & Q3部分识别临界系数 & 不给中国正式价格排名 \\
+    调价平滑只看短期通胀 & SAPR同时约束宏观损失、CVaR、缺口和波动 & Q4配对检验与路径图 & 不称全球福利最优 \\
+    结论强度随结果显著性摇摆 & 每项主张绑定证据状态和禁止措辞 & 主张--证据--边界表 & 执行PASS不等于结论支持 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 \subsection{数据结构与口径}
 
 月度主样本始于2010年1月。Brent、WTI、广义美元指数和人民币汇率由公开日度序列聚合；美国

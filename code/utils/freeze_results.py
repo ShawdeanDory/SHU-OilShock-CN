@@ -93,6 +93,11 @@ CORE_RESULT_FILES = [
     "q4_sapr_holdout_paired_summary.csv",
     "q4_sapr_holdout_validation_summary.json",
     "q4_sapr_summary.json",
+    "paper_extension_q1_historical_decomposition.csv",
+    "paper_extension_q2_shock_matrix.csv",
+    "paper_extension_q3_partial_identification.csv",
+    "paper_extension_claim_boundary.csv",
+    "paper_extension_summary.json",
 ]
 
 PROCESSED_INPUT_FILES = [
@@ -140,6 +145,7 @@ CODE_FILES = [
     "code/schemas/frozen_numbers.schema.json",
     "code/schemas/reproducibility_manifest.schema.json",
     "code/schemas/risk_probe_summary.schema.json",
+    "code/utils/build_paper_extensions.py",
     "code/utils/build_paper_handoff.py",
     "code/utils/freeze_results.py",
     "code/utils/plot_style.py",
@@ -219,7 +225,7 @@ def hash_existing(base_dir: Path, filenames: list[str]) -> dict[str, str]:
 def collect_figures() -> list[str]:
     if not FIGURES_DIR.exists():
         return []
-    return sorted(path.name for path in FIGURES_DIR.glob("*.png") if path.name.startswith(("q", "data_")))
+    return sorted(path.name for path in FIGURES_DIR.glob("*.png") if path.name.startswith(("q", "data_", "paper_extension_")))
 
 
 def git_commit() -> str:
@@ -1063,6 +1069,59 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    paper_extension_summary_path = RESULTS_DIR / "paper_extension_summary.json"
+    paper_extension_summary = json.loads(paper_extension_summary_path.read_text(encoding="utf-8")) if paper_extension_summary_path.exists() else {}
+    paper_extension_q1 = read_csv("paper_extension_q1_historical_decomposition.csv")
+    paper_extension_q2 = read_csv("paper_extension_q2_shock_matrix.csv")
+    paper_extension_q3 = read_csv("paper_extension_q3_partial_identification.csv")
+    paper_extension_claims = read_csv("paper_extension_claim_boundary.csv")
+    paper_extension_figures = [
+        "paper_extension_q1_event_structural_synthesis.png",
+        "paper_extension_q2_shock_matrix.png",
+        "paper_extension_q3_partial_identification.png",
+        "paper_extension_q4_holdout_forest.png",
+        "paper_extension_q4_2026_paths.png",
+    ]
+    paper_extension_ok = (
+        paper_extension_summary.get("status") == "PASS"
+        and len(paper_extension_q1) >= 1
+        and len(paper_extension_q2) == 12
+        and len(paper_extension_q3) == 3
+        and len(paper_extension_claims) == 6
+        and all((FIGURES_DIR / name).exists() for name in paper_extension_figures)
+        and bool(paper_extension_summary.get("allowed_claims"))
+        and bool(paper_extension_summary.get("forbidden_claims"))
+    )
+    probes.append(
+        probe(
+            "paper_extension_evidence_gate",
+            "PASS" if paper_extension_ok else "FAIL",
+            {
+                "summary_status": paper_extension_summary.get("status"),
+                "q1_rows": int(len(paper_extension_q1)),
+                "q2_rows": int(len(paper_extension_q2)),
+                "q3_rows": int(len(paper_extension_q3)),
+                "claim_boundary_rows": int(len(paper_extension_claims)),
+                "figure_files": paper_extension_figures,
+                "all_figures_present": all((FIGURES_DIR / name).exists() for name in paper_extension_figures),
+            },
+            "paper-extension modules must carry auditable CSV outputs, figures and claim guardrails",
+            [
+                "results/paper_extension_q1_historical_decomposition.csv",
+                "results/paper_extension_q2_shock_matrix.csv",
+                "results/paper_extension_q3_partial_identification.csv",
+                "results/paper_extension_claim_boundary.csv",
+                "results/paper_extension_summary.json",
+                "figures/paper_extension_q1_event_structural_synthesis.png",
+                "figures/paper_extension_q2_shock_matrix.png",
+                "figures/paper_extension_q3_partial_identification.png",
+                "figures/paper_extension_q4_holdout_forest.png",
+                "figures/paper_extension_q4_2026_paths.png",
+            ],
+            "The added正文扩展 must be frozen evidence rather than hand-written narrative.",
+        )
+    )
+
     chart_sources = [
         REPO_ROOT / "code" / "problem1" / "run_q1.py",
         REPO_ROOT / "code" / "problem2" / "run_q2.py",
@@ -1208,8 +1267,13 @@ def extract_final_numbers() -> dict[str, Any]:
     q4_sapr_paths = read_csv("q4_sapr_macro_paths.csv")
     q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
     q3_robust = read_csv("q3_robustness.csv")
+    paper_extension_q1 = read_csv("paper_extension_q1_historical_decomposition.csv")
+    paper_extension_q2 = read_csv("paper_extension_q2_shock_matrix.csv")
+    paper_extension_q3 = read_csv("paper_extension_q3_partial_identification.csv")
+    paper_extension_claims = read_csv("paper_extension_claim_boundary.csv")
     q4_summary = load_json("q4_summary.json")
     q4_sapr_summary = load_json("q4_sapr_summary.json")
+    paper_extension_summary = load_json("paper_extension_summary.json")
 
     final: dict[str, Any] = {
         "cutoff": CUTOFF,
@@ -1218,6 +1282,7 @@ def extract_final_numbers() -> dict[str, Any]:
         "q2": {},
         "q3": {},
         "q4": {},
+        "paper_extensions": {},
     }
     if not q1_metrics.empty:
         final["q1"]["selected_forecast_model"] = "no_change"
@@ -1319,6 +1384,18 @@ def extract_final_numbers() -> dict[str, Any]:
         final["q4"]["sapr_holdout_non_dominated_probability"] = q4_sapr_summary.get("holdout_non_dominated_probability")
         final["q4"]["sapr_allowed_claims"] = q4_sapr_summary.get("allowed_claims", [])
         final["q4"]["sapr_forbidden_claims"] = q4_sapr_summary.get("forbidden_claims", [])
+    if not paper_extension_q1.empty:
+        final["paper_extensions"]["q1_historical_decomposition"] = records(paper_extension_q1.sort_values("period"))
+    if not paper_extension_q2.empty:
+        final["paper_extensions"]["q2_heterogeneous_shock_matrix"] = records(paper_extension_q2.sort_values(["shock", "outcome"]))
+    if not paper_extension_q3.empty:
+        final["paper_extensions"]["q3_partial_identification"] = records(paper_extension_q3.sort_values("scenario"))
+    if not paper_extension_claims.empty:
+        final["paper_extensions"]["claim_boundary"] = records(paper_extension_claims.sort_values("claim_id"))
+    if paper_extension_summary:
+        final["paper_extensions"]["summary_status"] = paper_extension_summary.get("status")
+        final["paper_extensions"]["allowed_claims"] = paper_extension_summary.get("allowed_claims", [])
+        final["paper_extensions"]["forbidden_claims"] = paper_extension_summary.get("forbidden_claims", [])
     return final
 
 
@@ -1448,6 +1525,10 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     q4_sapr_optimal = read_csv("q4_sapr_optimal_rule.csv")
     q4_sapr_comparison = read_csv("q4_sapr_strategy_comparison.csv")
     q4_sapr_sensitivity = read_csv("q4_sapr_sensitivity.csv")
+    paper_extension_q1 = read_csv("paper_extension_q1_historical_decomposition.csv")
+    paper_extension_q2 = read_csv("paper_extension_q2_shock_matrix.csv")
+    paper_extension_q3 = read_csv("paper_extension_q3_partial_identification.csv")
+    paper_extension_claims = read_csv("paper_extension_claim_boundary.csv")
     figures = collect_figures()
     nbs_iav = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv")
     nbs_ppi = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv")
@@ -1605,7 +1686,25 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 
 {markdown_table(q4_sapr_sensitivity, ['variant', 'rho_normal', 'rho_stress', 'rho_extreme', 'pareto_rule_count', 'holdout_non_dominated_probability', 'changed_from_default'])}
 
-## 6. 图表与冻结文件
+## 6. 正文扩展证据
+
+新增正文模块不引入新主模型，只把原结果重组为“主张--证据--边界”。Q1扩展输出给定递归SVAR识别下的2026年冲突期结构贡献；若全球供给物理量尚未审计到后续月份，则只报告可复核月份，不回填。
+
+{markdown_table(paper_extension_q1, ['period', 'supply_contribution', 'aggregate_demand_contribution', 'oil_specific_risk_contribution', 'total_model_contribution', 'actual_real_brent_return', 'historical_percentile'])}
+
+Q2扩展矩阵按冲击来源和结果变量报告极值、期限与联合区间状态，防止把所有油价上涨写成同一种经济冲击。
+
+{markdown_table(paper_extension_q2, ['shock_label', 'outcome_label', 'extremum_type', 'extremum_response', 'extremum_month', 'joint_interval_crosses_zero', 'direction'], limit=12)}
+
+Q3扩展用临界缩放系数量化中国代理值的不可比程度，仍不得将中国代理值放入正式价格层排名。
+
+{markdown_table(paper_extension_q3, ['scenario', 'critical_kappa_point', 'critical_kappa_bootstrap_median', 'critical_kappa_lower_95', 'critical_kappa_upper_95'])}
+
+最终论文主张按下表限界；该表优先于单个模型的 `PASS` 状态。
+
+{markdown_table(paper_extension_claims, ['claim_id', 'topic', 'evidence_status', 'allowed_claim', 'forbidden_claim'], limit=6)}
+
+## 7. 图表与冻结文件
 
 核心 PNG 图表：{', '.join(figures) if figures else '暂无图表'}。
 
@@ -1618,11 +1717,11 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 
 其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
-## 7. Warnings
+## 8. Warnings
 
 {chr(10).join(warning_lines)}
 
-## 8. 论文使用建议
+## 9. 论文使用建议
 
 {paper_advice}
 """

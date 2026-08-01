@@ -23,7 +23,7 @@ Q2,oil_specific_china_iav_yoy_pct_extremum,-0.427224,百分点或对数百分点
 Q2,oil_specific_china_ppi_yoy_pct_extremum,0.762181,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
 Q2,oil_specific_china_ppi_yoy_pct_area0_12,7.400609,百分点·月,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的0到12月响应曲线面积可报告为描述性量级,不得称为累计百分点、累计产出损失或累计增长损失
 Q2,quarterly_gdp_validation_estimate,,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_gdp_validation.csv,季度GDP仅作低频验证,不得插值为月度主增长指标
-Q3,fuel_pass_through_h6_CHN,0.373392,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,中国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
+Q3,fuel_pass_through_h6_CHN,0.373392,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,中国调价指数仅作代理敏感性和部分识别边界分析,不得混用中国代理值与他国观测零售价正式排名
 Q3,fuel_pass_through_h6_DEU,0.236714,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,德国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_ESP,0.248173,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,西班牙 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_FRA,0.197886,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,法国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
@@ -72,3 +72,15 @@ Q4,sapr_sensitivity_cpi_weight_plus20_rule,"(0.30,0.10,0.10)",rule tuple,论文�
 Q4,sapr_sensitivity_iav_weight_plus20_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
 Q4,sapr_sensitivity_threshold_70_90_rule,"(0.30,0.15,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
 Q4,sapr_sensitivity_threshold_80_975_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q1,svAR_2026_03_supply_contribution,32.229219,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q1_historical_decomposition.csv,给定递归SVAR识别下2026年3月不利供给贡献处于历史高分位,不得解释为战争净因果贡献
+Q1,svAR_2026_03_total_model_contribution,36.362335,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q1_historical_decomposition.csv,SVAR三类结构冲击合计解释2026年3月实际Brent收益的主要变化,不得扩展到缺失供给观测的2026年4至6月
+Q1,svAR_2026_03_historical_percentile,0.983871,分位数,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q1_historical_decomposition.csv,2026年3月结构贡献在历史经验分布中位于约98.4%分位,不得称为正式战争概率
+Q2,heterogeneous_oil_specific_cost_peak,8.832146,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q2_shock_matrix.csv,石油特定风险冲击对人民币原油成本响应最大且联合区间不跨零,不得笼统推广为所有油价上涨都会造成增长损失
+Q2,heterogeneous_iav_aggregate_demand_trough,-0.519721,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q2_shock_matrix.csv,全球需求冲击下工业增加值谷值点估计为负但联合区间跨零,不得写成稳健产出损失
+Q3,partial_identification_kappa_point,0.607442,缩放系数,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q3_partial_identification.csv,真实固定品类传导率低于代理约61%时中国才可能低于六国中位数,不得据此恢复中国正式排名
+Q3,partial_identification_kappa_bootstrap_lower,0.436207,缩放系数,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q3_partial_identification.csv,时间块bootstrap下临界缩放系数下界可用于说明代理不可比程度,不得把区间解释为真实政策效果区间
+Q3,partial_identification_kappa_bootstrap_upper,0.833579,缩放系数,论文正文保留2到3位有效数字；表格按来源文件精度,results/paper_extension_q3_partial_identification.csv,时间块bootstrap下临界缩放系数上界可用于说明代理不可比程度,不得把区间解释为真实政策效果区间
+Q4,sapr_holdout_delta_J1_vs_full,-0.162978,标准化损失差,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_holdout_paired_summary.csv,SAPR相对完全传导降低检验期平均宏观损失,不得忽略同期缺口负担增加
+Q4,sapr_holdout_delta_J2_vs_full,-0.671138,标准化损失差,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_holdout_paired_summary.csv,SAPR相对完全传导降低检验期95%尾部宏观损失,不得称为全局福利最优
+Q4,sapr_holdout_delta_J3_vs_full,0.022187,缺口负担差,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_holdout_paired_summary.csv,SAPR相对完全传导增加平均未调价缺口负担,不得把平滑写成无成本收益
+Q4,sapr_holdout_delta_J4_vs_full,-0.014768,调价波动差,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_holdout_paired_summary.csv,SAPR相对完全传导降低月度调价波动,不得替代宏观损失和缺口负担指标
