@@ -642,10 +642,12 @@ def arrow(ax: plt.Axes, start: tuple[float, float], end: tuple[float, float]) ->
 
 
 def save_flow(fig: plt.Figure, stem: str, title: str, subtitle: str) -> None:
-    fig.subplots_adjust(left=0.04, right=0.98, bottom=0.18, top=0.92)
+    for ax in fig.axes:
+        ax.set_xlim(0.0, 1.0)
+        ax.set_ylim(0.0, 1.0)
+    fig.subplots_adjust(left=0.04, right=0.98, bottom=0.08, top=0.92)
     fig._shu_caption = title  # type: ignore[attr-defined]
     fig._shu_subtitle = subtitle  # type: ignore[attr-defined]
-    fig.text(0.04, 0.045, "来源：作者根据冻结模型流程绘制。", ha="left", va="bottom", fontsize=8.4, color=PALETTE["muted"])
     save_figure(fig, FIGURES_DIR / stem)
     plt.close(fig)
 

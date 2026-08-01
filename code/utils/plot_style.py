@@ -104,13 +104,15 @@ def finish_figure(
 ) -> None:
     """Finish a paper figure while leaving its title to the LaTeX caption.
 
-    ``title`` and ``subtitle`` remain required as generation metadata for the
-    calling code, but they are deliberately not painted into the figure.
+    ``title``, ``subtitle`` and ``source`` remain required as generation
+    metadata for the calling code, but they are deliberately not painted into
+    the figure. Source provenance belongs in the result ledger and paper text,
+    not as small print inside the chart canvas.
     """
     fig.tight_layout(rect=rect)
     fig._shu_caption = title  # type: ignore[attr-defined]
     fig._shu_subtitle = subtitle  # type: ignore[attr-defined]
-    fig.text(rect[0], 0.035, source, ha="left", va="bottom", fontsize=8.4, color=MUTED)
+    fig._shu_source = source  # type: ignore[attr-defined]
 
 
 def save_figure(fig: plt.Figure, path_stem: Path, *, dpi: int = 300) -> None:

@@ -14,9 +14,9 @@
     "code/schemas/reproducibility_manifest.schema.json": "ccf33320477f6e23a7219b629a4984a51accf739dbf190a62381bc609dc810c1",
     "code/schemas/risk_probe_summary.schema.json": "cd3e0f556efc66476635add092af158db561d945337e9e21c29e90b0c4fcfaa1",
     "code/utils/build_paper_extensions.py": "6f08322e503bf01b4e52bb3a241f2ac01f15c1570741dbacb529a32c3869e9cd",
-    "code/utils/build_paper_handoff.py": "01cd0e2183e49907c72db40f2574121ea99b4eb3a73380ee82d0c8cb5657f89c",
+    "code/utils/build_paper_handoff.py": "dc081aa1e0ce1f8f8a930da1985b2ecf85fcf281279dcf23e3bad6ce8afcd8c6",
     "code/utils/freeze_results.py": "83177d436978d6ae1f94cefe6a1849f7a3712f72633ef12ca3f25ec4e127d6f5",
-    "code/utils/plot_style.py": "7d12c2fb846e5df012090deb0c3d3c00f83fabf805bdd3ad7be980c44b2769ee",
+    "code/utils/plot_style.py": "f4a65a755a3a3cb461996941f974c69c11d431f30820ff173183602daa834a3b",
     "code/utils/verify_freeze.py": "46b709904f73b0b9f717530ef61dd3c19e227eae28ee016c339a2a1773976620",
     "data/DATA_DICTIONARY.csv": "ed7cf7ea88912a86e1e2d78e13d968b9e388f0af062bd62cd2b0145a466dcc91",
     "data/SOURCE_REGISTRY.csv": "ab40a7c2a9835cb9aad481aa956e85f1a10ea6a81dadcca76876d561db08d2c6",
@@ -84,8 +84,8 @@
   },
   "cutoff": "2026-06-30",
   "final_numbers_source_sha256": "8ede5f72e158b906eec2422fdec8c7e48ecfceb7c7168c0875e077817efc38b1",
-  "git_commit": "8c7aba9ccb857fe02b98be77932ef3e8ba307314",
-  "manifest_hash": "cc3e7edbe3170dbc9238c72943afe4fe27aba8bc5680320434ceceb9786047ec",
+  "git_commit": "39651d35728b1badc2e1180e20f8e2985701ffa6",
+  "manifest_hash": "8706c60821b32d5b122610cc4004656915456a0bba630653ec185d3aa09f5022",
   "overall_status": "PASS",
   "packaging_environment": {
     "packages": {
@@ -156,6 +156,6 @@
   "risk_gate_hash": "8f5cb0acc25831f8a02f7703a08edbf71ae4a6d10f4c3be0b4c94609f97f2cd3",
   "schema_version": "1.0",
   "snapshot_mode": "paper_final",
-  "source_commit": "8c7aba9ccb857fe02b98be77932ef3e8ba307314",
+  "source_commit": "39651d35728b1badc2e1180e20f8e2985701ffa6",
   "standard_freeze_file": "results/frozen_numbers.json"
 }
