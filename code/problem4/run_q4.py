@@ -261,10 +261,19 @@ def pinball(actual: float, prediction: float, quantile: float) -> float:
     return float(max(quantile * error, (quantile - 1.0) * error))
 
 
+def interval_score(actual: float, lower: float, upper: float, alpha: float) -> float:
+    score = upper - lower
+    if actual < lower:
+        score += (2.0 / alpha) * (lower - actual)
+    elif actual > upper:
+        score += (2.0 / alpha) * (actual - upper)
+    return float(score)
+
+
 def backtest_origins(daily: pd.DataFrame) -> pd.DataFrame:
     candidates = daily.loc[daily["date"].between(pd.Timestamp("2022-01-01"), pd.Timestamp("2025-12-31"))].copy()
-    candidates["quarter"] = candidates["date"].dt.to_period("Q")
-    candidates = candidates.groupby("quarter", as_index=False).tail(1)
+    candidates["month"] = candidates["date"].dt.to_period("M")
+    candidates = candidates.groupby("month", as_index=False).tail(1)
     max_step = max(HORIZON_STEPS.values())
     candidates = candidates.loc[candidates.index + max_step < len(daily)].copy()
     return candidates
@@ -316,6 +325,9 @@ def run_backtest(
                         "covered_90": bool(q[0] <= actual <= q[4]),
                         "interval_width_80": float(q[3] - q[1]),
                         "interval_width_90": float(q[4] - q[0]),
+                        "interval_score_80": interval_score(actual, float(q[1]), float(q[3]), 0.20),
+                        "interval_score_90": interval_score(actual, float(q[0]), float(q[4]), 0.10),
+                        "quantile_score_approx_crps": float(2.0 * np.mean(losses)),
                         "train_end": origin["date"].strftime("%Y-%m-%d"),
                         "no_future_information": bool(target["date"] > origin["date"]),
                     }
@@ -333,13 +345,54 @@ def run_backtest(
             coverage_90=("covered_90", "mean"),
             mean_width_80=("interval_width_80", "mean"),
             mean_width_90=("interval_width_90", "mean"),
+            mean_interval_score_80=("interval_score_80", "mean"),
+            mean_interval_score_90=("interval_score_90", "mean"),
+            mean_quantile_score_approx_crps=("quantile_score_approx_crps", "mean"),
             all_no_future_information=("no_future_information", "all"),
         )
         .sort_values(["horizon_months", "model"])
         .reset_index(drop=True)
     )
     summary["model_role"] = np.where(summary["model"].eq("FHS_GJR_GARCH"), "main", "baseline")
+    summary["coverage_error_80"] = (summary["coverage_80"] - 0.80).abs()
+    summary["coverage_error_90"] = (summary["coverage_90"] - 0.90).abs()
     return detailed, summary, warnings
+
+
+def paired_backtest_summary(detailed: pd.DataFrame, seed: int, block_length: int = 6, reps: int = 2000) -> pd.DataFrame:
+    if detailed.empty:
+        return pd.DataFrame()
+    rng = np.random.default_rng(seed + 909)
+    rows: list[dict[str, Any]] = []
+    metrics = ["mean_pinball_loss", "interval_score_80", "interval_score_90", "quantile_score_approx_crps"]
+    for horizon, group in detailed.groupby("horizon_months"):
+        for metric in metrics:
+            pivot = group.pivot(index="origin_date", columns="model", values=metric).dropna()
+            if not {"FHS_GJR_GARCH", "Gaussian_random_walk"}.issubset(pivot.columns) or len(pivot) < 12:
+                continue
+            diff = (pivot["FHS_GJR_GARCH"] - pivot["Gaussian_random_walk"]).to_numpy(dtype=float)
+            draws: list[float] = []
+            for _ in range(reps):
+                indices: list[int] = []
+                while len(indices) < len(diff):
+                    start = int(rng.integers(0, len(diff)))
+                    indices.extend((start + offset) % len(diff) for offset in range(block_length))
+                draws.append(float(np.mean(diff[np.asarray(indices[: len(diff)], dtype=int)])))
+            lower, upper = np.quantile(draws, [0.025, 0.975])
+            rows.append(
+                {
+                    "horizon_months": int(horizon),
+                    "metric": metric,
+                    "origins": int(len(diff)),
+                    "block_length": block_length,
+                    "bootstrap_reps": reps,
+                    "mean_difference_fhs_minus_gaussian": float(np.mean(diff)),
+                    "lower_95": float(lower),
+                    "upper_95": float(upper),
+                    "evidence_status": "FHS_BETTER" if upper < 0 else ("GAUSSIAN_BETTER" if lower > 0 else "INCONCLUSIVE"),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def build_macro_stress() -> tuple[pd.DataFrame, dict[str, float]]:
@@ -624,12 +677,14 @@ def run_full(paths: int, backtest_paths: int) -> dict[str, Any]:
     detailed_backtest, backtest, backtest_warnings = run_backtest(
         daily, paths=backtest_paths, seed=RANDOM_SEED
     )
+    paired_backtest = paired_backtest_summary(detailed_backtest, RANDOM_SEED, block_length=6)
     macro, scenario_values = build_macro_stress()
     policy = build_policy_stress()
 
     save_csv(risk, "q4_price_tail_risk.csv")
     save_csv(detailed_backtest, "q4_risk_backtest_origins.csv")
     save_csv(backtest, "q4_risk_backtest.csv")
+    save_csv(paired_backtest, "q4_risk_backtest_paired.csv")
     save_csv(macro, "q4_macro_stress.csv")
     save_csv(policy, "q4_policy_stress.csv")
     plot_price_tail_risk(risk)
@@ -657,7 +712,7 @@ def run_full(paths: int, backtest_paths: int) -> dict[str, Any]:
         "allowed_claims": [
             "future Brent upper-tail probabilities are conditional stress forecasts under the fixed cutoff",
             "Q2 structural-shock quantiles map to conditional PPI/CPI/IAV response ranges",
-            "Q3 realized policy-off gaps quantify the 2026 temporary-control buffer under its maintained specification",
+            "Q3 dynamic proxy scenario conditionally propagates the separately audited 2026 temporary-control gaps",
         ],
         "forbidden_claims": [
             "tail probabilities are certain price outcomes",
@@ -674,6 +729,7 @@ def run_full(paths: int, backtest_paths: int) -> dict[str, Any]:
             "q4_price_tail_risk.csv": int(len(risk)),
             "q4_risk_backtest_origins.csv": int(len(detailed_backtest)),
             "q4_risk_backtest.csv": int(len(backtest)),
+            "q4_risk_backtest_paired.csv": int(len(paired_backtest)),
             "q4_macro_stress.csv": int(len(macro)),
             "q4_policy_stress.csv": int(len(policy)),
         },
@@ -683,6 +739,7 @@ def run_full(paths: int, backtest_paths: int) -> dict[str, Any]:
         ),
         "key_2026_06_policy_buffer": json_records(june_policy.sort_values("outcome")),
         "backtest_summary": json_records(backtest),
+        "paired_backtest_summary": json_records(paired_backtest),
         "warnings": backtest_warnings,
     }
     write_json(summary, "q4_summary.json")

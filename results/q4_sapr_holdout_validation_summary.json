@@ -1,0 +1,13 @@
+{
+  "block_length": 6,
+  "draws": 2000,
+  "point_non_dominated": true,
+  "non_dominated_probability": 1.0,
+  "point_knee_distance_to_ideal": 1.0,
+  "point_oracle_distance_to_ideal": 1.0,
+  "point_regret_vs_oracle": 0.0,
+  "median_regret_vs_oracle": 0.0,
+  "regret_upper_95": 0.0,
+  "probability_within_0_10_of_oracle": 1.0,
+  "supported_improvement_count": 9
+}

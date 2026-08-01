@@ -180,14 +180,21 @@ def verify_key_result_shapes(errors: list[str]) -> None:
     selected = q1_svar.loc[q1_svar.get("is_selected", pd.Series(dtype=bool)).astype(str).str.lower().isin(["true", "1"])]
     if len(selected) != 1 or not selected["is_stable"].astype(str).str.lower().isin(["true", "1"]).all():
         errors.append("q1_svar_diagnostics.csv must identify exactly one selected stable VAR specification")
+    q1_stationarity = pd.read_csv(RESULTS_DIR / "q1_stationarity_diagnostics.csv")
+    if set(q1_stationarity.get("variable", pd.Series(dtype=str))) != {"supply_growth", "global_real_activity", "real_brent_return"}:
+        errors.append("q1_stationarity_diagnostics.csv must cover all three SVAR inputs")
 
     q2_irf = pd.read_csv(RESULTS_DIR / "q2_irf.csv")
     q2_metrics = pd.read_csv(RESULTS_DIR / "q2_transmission_metrics.csv")
     iav_horizons = sorted(pd.to_numeric(q2_irf.loc[q2_irf["outcome"].eq("china_iav_yoy_pct"), "horizon"], errors="coerce").dropna().astype(int).unique().tolist())
     if iav_horizons != [0, 3, 6, 12]:
         errors.append("Q2 IAV response horizons must be the pre-specified 0/3/6/12 grid")
-    if q2_metrics.empty or not {"evidence_status", "allows_growth_loss_language", "cumulative_response_0_6", "cumulative_response_0_12"}.issubset(q2_metrics.columns):
+    required_q2_metrics = {"evidence_status", "allows_growth_loss_language", "response_curve_area_0_6", "response_curve_area_0_12", "area_unit", "available_horizons"}
+    if q2_metrics.empty or not required_q2_metrics.issubset(q2_metrics.columns):
         errors.append("q2_transmission_metrics.csv lacks required transmission-metric columns")
+    iav_metrics = q2_metrics.loc[q2_metrics["outcome"].eq("china_iav_yoy_pct")]
+    if not iav_metrics.empty and iav_metrics[["response_curve_area_0_6", "response_curve_area_0_12"]].notna().any().any():
+        errors.append("Q2 IAV sparse horizons must not be mechanically summed into a curve area")
 
     q3_pass = pd.read_csv(RESULTS_DIR / "q3_country_pass_through.csv")
     required_q3 = {"price_measure_type", "observed_or_regulated", "included_in_main_comparison", "comparability_note"}
@@ -199,16 +206,19 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         chn_proxy = chn_rows["price_measure_type"].astype(str).str.contains("proxy", case=False, na=False) if not chn_rows.empty else pd.Series(dtype=bool)
         if bool((chn_included & chn_proxy).any()):
             errors.append("China proxy is included in the main Q3 fuel comparison")
-        if chn_rows.empty or not bool(chn_included.any()):
-            errors.append("China official regulated fuel series is not included in the main Q3 comparison")
+        if chn_rows.empty or bool(chn_included.any()) or not bool(chn_proxy.all()):
+            errors.append("China must be present only as an excluded adjustment-index proxy sensitivity in Q3")
 
     q3_buffer = pd.read_csv(RESULTS_DIR / "q3_buffer_interactions.csv")
-    required_buffer = {"outcome", "buffer", "shock", "estimate", "lower_95", "upper_95", "specification"}
+    required_buffer = {"outcome", "buffer", "shock", "estimate", "lower_95", "upper_95", "data_status"}
     if not required_buffer.issubset(q3_buffer.columns):
         errors.append("q3_buffer_interactions.csv lacks policy-buffer interaction columns")
+    if not q3_buffer.empty:
+        errors.append("q3_buffer_interactions.csv must remain empty while country-year buffers are unaudited proxies")
+    q3_buffer_status = pd.read_csv(RESULTS_DIR / "q3_buffer_data_status.csv")
     required_buffers = {"fuel_price_regulation", "oil_import_dependency", "oil_intensity", "import_source_hhi"}
-    if not required_buffers.issubset(set(q3_buffer.get("buffer", pd.Series(dtype=str)).dropna().unique())):
-        errors.append("q3_buffer_interactions.csv must include all four planned buffer variables")
+    if set(q3_buffer_status.get("buffer", pd.Series(dtype=str))) != required_buffers or not q3_buffer_status["data_status"].eq("FAIL_FOR_MAIN_UNAUDITED_PROXY").all():
+        errors.append("q3_buffer_data_status.csv must fail closed for all four unaudited buffer variables")
 
     q3_panel = pd.read_csv(RESULTS_DIR / "q3_panel_irf.csv")
     if "reference_country" not in q3_panel.columns or not q3_panel["reference_country"].astype(str).eq("CHN").all():
@@ -217,9 +227,11 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         errors.append("q3_panel_irf.csv must report control-country-minus-China relative responses")
 
     q3_resilience = pd.read_csv(RESULTS_DIR / "q3_resilience_metrics.csv")
-    required_dimensions = {"fuel_pass_through", "cpi_peak_response", "industrial_activity_trough", "policy_counterfactual_macro"}
+    required_dimensions = {"fuel_price", "consumer_prices", "industrial_activity", "policy_counterfactual_macro"}
     if q3_resilience.empty or not required_dimensions.issubset(set(q3_resilience.get("dimension", pd.Series(dtype=str)).dropna().unique())):
         errors.append("q3_resilience_metrics.csv lacks required resilience dimensions")
+    if not q3_resilience.get("overall_china_resilience_judgement", pd.Series(dtype=str)).astype(str).eq("INCONCLUSIVE").all():
+        errors.append("Q3 overall resilience must fail closed while China fuel is proxy-only and joint country intervals are withheld")
 
     policy = pd.read_csv(RESULTS_DIR / "q3_policy_counterfactual.csv")
     april = policy.loc[policy["period"].eq("2026-04")]
@@ -232,6 +244,12 @@ def verify_key_result_shapes(errors: list[str]) -> None:
             errors.append("Q3 April policy gap no longer matches incremental 380 and cumulative 1425")
     if "price_layer_status" not in policy.columns:
         errors.append("q3_policy_counterfactual.csv lacks price_layer_status")
+    elif not policy["price_layer_status"].astype(str).str.contains("proxy", case=False, na=False).all():
+        errors.append("q3_policy_counterfactual.csv must identify the historical price layer as a proxy")
+    policy_macro = pd.read_csv(RESULTS_DIR / "q3_policy_macro_counterfactual.csv")
+    required_dynamic = {"fuel_return_gap", "bootstrap_reps", "bootstrap_block_length", "macro_counterfactual_gap_pctpt"}
+    if not required_dynamic.issubset(policy_macro.columns) or not pd.to_numeric(policy_macro["bootstrap_block_length"], errors="coerce").eq(6).all():
+        errors.append("Q3 policy macro counterfactual lacks the dynamic joint-block interface")
 
     policy_macro = pd.read_csv(RESULTS_DIR / "q3_policy_macro_counterfactual.csv")
     macro_outcomes = set(policy_macro.get("outcome", pd.Series(dtype=str)).dropna().unique())
@@ -262,6 +280,11 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         errors.append("q4_risk_backtest.csv lacks backtest integrity columns")
     elif not bool_series(q4_backtest["all_no_future_information"]).all():
         errors.append("Q4 tail-risk backtest uses future information")
+    elif pd.to_numeric(q4_backtest["origins"], errors="coerce").min() < 36:
+        errors.append("Q4 tail-risk backtest must use at least 36 monthly origins")
+    q4_paired = pd.read_csv(RESULTS_DIR / "q4_risk_backtest_paired.csv")
+    if q4_paired.empty or not {"interval_score_80", "interval_score_90", "mean_pinball_loss"}.issubset(set(q4_paired.get("metric", pd.Series(dtype=str)))):
+        errors.append("q4_risk_backtest_paired.csv lacks paired block-bootstrap distributional scores")
 
     q4_sapr_scenarios = pd.read_csv(RESULTS_DIR / "q4_sapr_scenarios.csv")
     q4_sapr_grid = pd.read_csv(RESULTS_DIR / "q4_sapr_policy_grid.csv")
@@ -286,12 +309,17 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         errors.append("q4_sapr_policy_grid.csv must contain exactly 1771 monotone rules")
     if int(bool_series(q4_sapr_grid.get("is_knee", pd.Series(dtype=bool))).sum()) != 1:
         errors.append("q4_sapr_policy_grid.csv must identify exactly one knee rule")
+    if "is_feasible" not in q4_sapr_grid.columns or not bool_series(q4_sapr_grid.loc[bool_series(q4_sapr_grid["is_knee"]), "is_feasible"]).all():
+        errors.append("Q4 SAPR knee rule must belong to the preregistered feasible set")
     if q4_sapr_optimal.empty or len(q4_sapr_optimal) != 1:
         errors.append("q4_sapr_optimal_rule.csv must contain exactly one optimal rule")
     else:
         opt = q4_sapr_optimal.iloc[0]
         if not (float(opt["rho_normal"]) >= float(opt["rho_stress"]) >= float(opt["rho_extreme"])):
             errors.append("Q4 SAPR optimal pass-through rates violate monotonicity")
+        required_constraints = {"max_gap_ratio", "max_terminal_gap_ratio", "max_recovery_terminal_gap_ratio", "max_monthly_adjustment_ratio", "J3_avg_gap_month_burden"}
+        if not required_constraints.issubset(q4_sapr_optimal.columns):
+            errors.append("Q4 SAPR optimal rule lacks gap, recovery or adjustment feasibility metrics")
     required_sapr_strategies = {"full_mechanism", "uniform_75_smoothing", "temporary_2026_approx", "SAPR_CVaR_knee"}
     holdout_strategies = set(q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("holdout"), "strategy"].dropna())
     war_strategies = set(q4_sapr_comparison.loc[q4_sapr_comparison["sample_split"].eq("war_2026"), "strategy"].dropna())
@@ -313,6 +341,9 @@ def verify_key_result_shapes(errors: list[str]) -> None:
         errors.append("q4_sapr_macro_paths.csv lacks required macro-path columns")
     if len(q4_sapr_sensitivity) < 6:
         errors.append("q4_sapr_sensitivity.csv must include threshold, block-length, CPI-weight and IAV-weight variants")
+    q4_holdout_summary = load_json(RESULTS_DIR / "q4_sapr_holdout_validation_summary.json")
+    if int(q4_holdout_summary.get("block_length", 0)) < 6 or int(q4_holdout_summary.get("supported_improvement_count", 0)) < 1:
+        errors.append("Q4 SAPR holdout validation must use at least six-month blocks and support at least one paired improvement")
     if q4_sapr_summary.get("execution_status") != "PASS":
         errors.append("q4_sapr_summary.json execution_status must be PASS")
     if q4_sapr_summary.get("evidence_status") not in {"SUPPORTED", "PARTIAL", "NOT_SUPPORTED"}:

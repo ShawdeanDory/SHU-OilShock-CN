@@ -182,15 +182,16 @@ def write_paper_numbers() -> None:
             f"{zh_outcome(row['outcome'])} 的响应方向和量级可报告为估计结果",
             "联合区间未排除零时不得写成稳健增长损失",
         )
-        add(
-            "Q2",
-            f"oil_specific_{row['outcome']}_cum0_12",
-            round(float(row["cumulative_response_0_12"]), 6),
-            "累计百分点",
-            "results/q2_transmission_metrics.csv",
-            f"{zh_outcome(row['outcome'])} 的0到12月累计响应可报告为估计量级",
-            "不得挑选单一期限替代完整区间报告",
-        )
+        if pd.notna(row.get("response_curve_area_0_12")):
+            add(
+                "Q2",
+                f"oil_specific_{row['outcome']}_area0_12",
+                round(float(row["response_curve_area_0_12"]), 6),
+                "百分点·月",
+                "results/q2_transmission_metrics.csv",
+                f"{zh_outcome(row['outcome'])} 的0到12月响应曲线面积可报告为描述性量级",
+                "不得称为累计百分点、累计产出损失或累计增长损失",
+            )
     if not q2_gdp.empty:
         gdp = q2_gdp.iloc[0]
         add(
@@ -317,7 +318,7 @@ def write_paper_numbers() -> None:
             ("rho_stress", "pass-through ratio", "压力状态最优传导率"),
             ("rho_extreme", "pass-through ratio", "极端状态最优传导率"),
             ("J2_cvar95_macro_loss", "standardized loss", "训练样本膝点规则的95%尾部宏观损失"),
-            ("J3_gap_burden", "ratio", "训练样本膝点规则的累计未调价负担比例"),
+            ("J3_avg_gap_month_burden", "ratio", "训练样本膝点规则的平均标准化缺口月负担"),
         ]:
             add(
                 "Q4",
@@ -346,10 +347,10 @@ def write_paper_numbers() -> None:
         add(
             "Q4",
             "sapr_holdout_gap_burden_ratio",
-            round(float(row["J3_gap_burden"]), 6),
+            round(float(row["J3_avg_gap_month_burden"]), 6),
             "ratio",
             "results/q4_sapr_strategy_comparison.csv",
-            "可作为隔离检验样本下累计未调价负担比例",
+            "可作为隔离检验样本下平均标准化缺口月负担",
             "不得解释为财政支出或完整社会成本",
         )
     add(
@@ -636,15 +637,22 @@ def write_handoff_markdown() -> None:
         q2_metrics["shock"].eq("oil_specific_risk_shock")
         & q2_metrics["outcome"].isin(["brent_cny_cost_log_change_pct", "china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"])
     ]
-    q2_rows = [
-        f"- {zh_outcome(row['outcome'])}：峰值/谷值 {row['extremum_response']:.3f}，h={int(row['extremum_month'])}，0—12月累计 {row['cumulative_response_0_12']:.3f}，证据状态 {row['evidence_status']}。"
-        for _, row in q2_focus.iterrows()
-    ]
+    q2_rows = []
+    for _, row in q2_focus.iterrows():
+        area_text = (
+            f"，0—12月响应曲线面积 {row['response_curve_area_0_12']:.3f} 百分点·月"
+            if pd.notna(row.get("response_curve_area_0_12"))
+            else "，稀疏期限不计算曲线面积"
+        )
+        q2_rows.append(
+            f"- {zh_outcome(row['outcome'])}：峰值/谷值 {row['extremum_response']:.3f}，h={int(row['extremum_month'])}{area_text}，证据状态 {row['evidence_status']}。"
+        )
     resilience_overall = q3_resilience["overall_china_resilience_judgement"].dropna().iloc[0]
-    q3_rows = [
-        f"- {row['metric']}：中国值 {row['china_value']:.3f}，六国中位数 {row['control_median']:.3f}，判断 {row['judgement']}。"
-        for _, row in q3_resilience[q3_resilience["dimension"].isin(["fuel_pass_through", "cpi_peak_response", "industrial_activity_trough"])].iterrows()
-    ]
+    q3_rows = []
+    for _, row in q3_resilience[q3_resilience["dimension"].isin(["fuel_price", "consumer_prices", "industrial_activity"])].iterrows():
+        china_text = f"{row['china_value']:.3f}" if pd.notna(row["china_value"]) else "不以0代替"
+        control_text = f"{row['control_median']:.3f}" if pd.notna(row["control_median"]) else "不可得"
+        q3_rows.append(f"- {row['metric']}：中国值 {china_text}，对照量 {control_text}，判断 {row['judgement']}。")
     q3_macro_rows = [
         f"- 2026-06 {row['outcome_label']}：无临时调控相对实际路径差额 {row['macro_counterfactual_gap_pctpt']:.3f} 个百分点，95%区间 [{row['lower_95']:.3f}, {row['upper_95']:.3f}]。"
         for _, row in q3_policy_macro[q3_policy_macro["period"].eq("2026-06")].sort_values("outcome").iterrows()
@@ -674,13 +682,13 @@ def write_handoff_markdown() -> None:
     )
     q4_sapr_holdout_rows = [
         f"- {row['strategy']}：检验样本宏观损失均值 {row['J1_macro_loss']:.3f}，95%CVaR {row['J2_cvar95_macro_loss']:.3f}，"
-        f"累计缺口比例 {row['J3_gap_burden']:.3f}，调价波动率 {row['J4_adjustment_volatility']:.3f}。"
+        f"平均缺口月负担 {row['J3_avg_gap_month_burden']:.3f}，调价波动率 {row['J4_adjustment_volatility']:.3f}。"
         for _, row in q4_sapr_comparison[q4_sapr_comparison["sample_split"].eq("holdout")]
         .sort_values("strategy").iterrows()
     ]
     q4_sapr_2026_rows = [
         f"- {row['strategy']}：2026情景宏观损失均值 {row['J1_macro_loss']:.3f}，95%CVaR {row['J2_cvar95_macro_loss']:.3f}，"
-        f"累计缺口比例 {row['J3_gap_burden']:.3f}。"
+        f"平均缺口月负担 {row['J3_avg_gap_month_burden']:.3f}。"
         for _, row in q4_sapr_comparison[q4_sapr_comparison["sample_split"].eq("war_2026")]
         .sort_values("strategy").iterrows()
     ]
@@ -733,7 +741,7 @@ python code\\utils\\verify_freeze.py --require-final
 
 ## 问题三：中国政策与跨国比较
 
-主线：中国使用官方受管制成品油价格层进入主燃油比较；面板 LP 只估计六个对照国相对中国的响应差；缓冲交互用于机制解释；政策关闭情景在官方成品油价格层上传播至 PPI/CPI/IAV。
+主线：中国历史燃油序列统一作为受管制汽油调价指数代理并退出正式价格水平排名；CPI/IAV面板只估计六个对照国相对中国的响应差；待审计缓冲交互不发布定量结果；2026政策关闭情景在明确标注的代理层上动态传播至PPI/CPI/IAV。
 
 综合韧性判断：`{resilience_overall}`。
 

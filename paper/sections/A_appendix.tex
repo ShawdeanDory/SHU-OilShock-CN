@@ -1,92 +1,97 @@
 \clearpage
 \begin{appendices}
 
-\section{主要算法流程}
+\section{主张、证据与边界}
 
-\subsection{扩展窗口预测与事件CAR}
-
-\begin{enumerate}
-  \item 对每个目标月和期限 $h\in\{1,3,6\}$，将数据截断在预测原点，分别拟合
-  no-change、ARIMA、SARIMAX、ETS和Theta；保存点预测、区间和误差。
-  \item 在相同目标月配对模型误差，计算MAE、RMSE、相对误差和DM--HLN检验，按
-  预注册规则选择主预测。
-  \item 仅用E1前日度数据拟合AR(3)+美元收益模型，递归生成前三个交易日条件期望，
-  计算 $CAR[0]$、$CAR[0,+1]$、$CAR[0,+2]$。
-  \item 对排除真实事件前后七日的周末重复相同步骤，构造经验安慰剂分布。
-\end{enumerate}
-
-\subsection{局部投影与政策反事实}
-
-\begin{enumerate}
-  \item 按递归排序估计历史结构VAR，得到供给、全球需求和石油特定风险冲击。
-  \item 对每个宏观结果与期限估计局部投影；从同一月度样本执行移动块bootstrap，生成
-  逐点区间、联合最大 $t$ 区间和FDR校正量。
-  \item 对七国分别估计本币Brent到国内燃油的分布滞后传导，再估计含国家与年月固定
-  效应的相对中国面板响应。
-  \item 将2026年两次机制应调与实际调价差额累计加回官方价格路径，通过中国国内价格
-  到PPI、CPI、IAV的动态核传播，并联合抽样参数不确定性。
-\end{enumerate}
-
-\subsection{FHS风险模拟与SAPR优化}
-
-\begin{enumerate}
-  \item 在截止日前日收益上估计GJR--GARCH，保存标准化残差；从经验残差中有放回抽样，
-  递归生成1、3、6月共20000条油价路径。
-  \item 用15个季度末原点对FHS与高斯随机游走进行统一回测，比较分位损失、区间覆盖率、
-  区间宽度和中位数绝对误差。
-  \item 仅在2013-03--2021-12开发样本计算状态阈值，枚举满足
-  $\rho_N\ge\rho_S\ge\rho_E$ 的1771条规则，计算四个目标并筛选Pareto集。
-  \item 在Pareto集内归一化四目标，选择距理想点最近的膝点；使用2022-01--2026-06
-  隔离样本、2000次参数抽样和块bootstrap与三类基线比较。
-\end{enumerate}
-
-\section{数据与支撑材料索引}
-
-\footnotesize
-\begin{longtable}{p{0.40\textwidth}p{0.50\textwidth}}
-  \caption{论文支撑材料及用途}\label{tab:support-files}\\
+\begin{longtable}{p{0.25\textwidth}p{0.31\textwidth}p{0.34\textwidth}}
+  \caption{核心主张的证据链和禁止外推}\label{tab:claim-evidence}\\
   \toprule
-  文件或目录 & 功能说明 \\
+  主张 & 直接证据 & 边界 \\
   \midrule
   \endfirsthead
   \toprule
-  文件或目录 & 功能说明 \\
+  主张 & 直接证据 & 边界 \\
+  \midrule
+  \endhead
+  冲突初期存在异常上涨 & 状态匹配CAR：前两窗经验$p=0.0244$ & 复合事件关联，不是战争净因果溢价 \\
+  成本入口响应清晰 & 原油成本当月8.832，联合区间不跨零 & 不等于PPI、CPI或产出必然显著变化 \\
+  宏观传导存在但增长损失不稳健 & PPI、CPI、IAV点估计符合机制，联合区间多跨零 & 禁止表述为稳健总体GDP损失 \\
+  2026政策可能缓冲物价 & 动态代理反事实PPI、CPI区间不跨零 & 依赖调价指数代理，不是一般均衡福利 \\
+  中国跨国韧性尚不能定论 & 零售价不可比，宏观相对响应缺联合区间 & 禁止声称全面优于六国 \\
+  SAPR改善短期风险指标 & 检验期$J_1$、$J_2$、$J_4$配对差显著为负 & $J_3$显著增加；仅在注册规则族内成立 \\
+  \bottomrule
+\end{longtable}
+
+\section{复现流程和支撑材料文件列表}
+
+建议按“数据下载或人工导入---数据构建---P0校验---Q1---面板重建---Q2---Q3---Q4风险层---
+Q4 SAPR---论文交接---数值冻结---冻结验证”顺序执行。随机种子为20260730；市场信息截止日为
+2026-06-30，各序列实际末期以数据字典为准。
+
+\footnotesize
+\begin{longtable}{p{0.42\textwidth}p{0.48\textwidth}}
+  \caption{支撑材料文件列表}\label{tab:support-files}\\
+  \toprule
+  文件或目录 & 内容和用途 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  文件或目录 & 内容和用途 \\
   \midrule
   \endhead
   \url{data/SOURCE_REGISTRY.csv} & 来源网址、下载日期、访问条件、许可和回退口径 \\
-  \url{data/DATA_DICTIONARY.csv} & 变量定义、频率、单位、发布滞后和缺失规则 \\
-  \url{data/event_timeline.csv} & 冲突、航运、国内调控与缓和事件的日期和来源 \\
-  \url{code/problem1/} & 预测、事件CAR、安慰剂、结构冲击与条件波动 \\
-  \url{code/problem2/} & 中国局部投影、ARDL、非对称与季度GDP验证 \\
-  \url{code/problem3/} & 七国传导、缓冲交互和中国政策关闭反事实 \\
-  \url{code/problem4/} & 油价尾部风险、宏观压力与SAPR--CVaR优化 \\
-  \url{results/final_numbers.json} & 正文关键结果的机器可读汇总 \\
-  \url{results/frozen_numbers.json} & 已冻结的论文数值及源文件哈希 \\
-  \url{results/risk_probe_summary.json} & 基线、风险探针、证据等级与声明边界 \\
-  \url{results/reproducibility_manifest.json} & 代码、输入、输出哈希和复现环境 \\
-  \url{reports/paper_numbers.csv} & 正文数字、单位、舍入规则和允许/禁止表述 \\
+  \url{data/DATA_DICTIONARY.csv} & 变量定义、频率、单位、实际末期、发布滞后和主分析状态 \\
+  \url{data/event_timeline.csv} & 冲突、航运、国内调控和缓和事件的日期与来源 \\
+  \url{code/data_download/} & 免费公开数据下载程序 \\
+  \url{code/data_processing/} & 人工数据导入、面板构建和P0数据校验 \\
+  \url{code/problem1/} & 预测、CAR、状态匹配安慰剂、结构冲击和条件波动 \\
+  \url{code/problem2/} & 变量特定局部投影、ARDL和稳健性探针 \\
+  \url{code/problem3/} & 跨国比较、代理数据门禁和动态政策反事实 \\
+  \url{code/problem4/} & 尾部风险回测和SAPR--CVaR优化 \\
+  \url{results/frozen_numbers.json} & 论文冻结数值、源文件哈希和定稿门禁 \\
+  \url{results/risk_probe_summary.json} & 基线、风险探针、证据等级和禁止声明 \\
+  \url{results/reproducibility_manifest.json} & 输入、代码、输出哈希及运行环境 \\
+  \url{reports/paper_numbers.csv} & 正文关键数字、单位、舍入规则和表述边界 \\
+  support\_materials目录下《AI工具使用详情.pdf》 & AI工具、用途、关键交互和人工修改记录 \\
   \bottomrule
 \end{longtable}
 \normalsize
 
-\section{复现顺序与环境说明}
+\section{全部完整源程序代码}
 
-全部数据处理和模型以随机种子20260730、截止日2026-06-30运行。建议按``数据构建与
-校验---Q1---面板重建---Q2---Q3---Q4风险层---Q4 SAPR---结果冻结---最终验证''顺序
-执行。冻结清单指定Python 3.11.9和精确依赖版本；在其他环境中验证时可能产生环境警告，
-但论文数值必须与冻结哈希一致。完整重跑后，最终门禁应同时满足：风险探针总体状态为
-通过、无阻塞探针、论文定稿许可为真，且冻结源哈希与当前结果一致。
+下列代码与支撑材料中的源文件一致。编译时直接读取仓库文件，避免论文代码副本与实际运行版本分叉。
+\lstset{basicstyle=\ttfamily\tiny,breaklines=true,numbers=left,numbersep=4pt}
+
+\subsection{数据下载与构建}
+\lstinputlisting[language=Python,caption={download\_p0.py}]{../code/data_download/download_p0.py}
+\lstinputlisting[language=Python,caption={build\_p0\_datasets.py}]{../code/data_processing/build_p0_datasets.py}
+\lstinputlisting[language=Python,caption={build\_model\_panels.py}]{../code/data_processing/build_model_panels.py}
+\lstinputlisting[language=Python,caption={import\_nbs\_manual.py}]{../code/data_processing/import_nbs_manual.py}
+\lstinputlisting[language=Python,caption={validate\_p0.py}]{../code/data_processing/validate_p0.py}
+
+\subsection{四问模型}
+\lstinputlisting[language=Python,caption={run\_q1.py}]{../code/problem1/run_q1.py}
+\lstinputlisting[language=Python,caption={run\_q2.py}]{../code/problem2/run_q2.py}
+\lstinputlisting[language=Python,caption={run\_q3.py}]{../code/problem3/run_q3.py}
+\lstinputlisting[language=Python,caption={run\_q4.py}]{../code/problem4/run_q4.py}
+\lstinputlisting[language=Python,caption={run\_q4\_sapr.py}]{../code/problem4/run_q4_sapr.py}
+
+\subsection{数值冻结与绘图工具}
+\lstinputlisting[language=Python,caption={plot\_style.py}]{../code/utils/plot_style.py}
+\lstinputlisting[language=Python,caption={build\_paper\_handoff.py}]{../code/utils/build_paper_handoff.py}
+\lstinputlisting[language=Python,caption={freeze\_results.py}]{../code/utils/freeze_results.py}
+\lstinputlisting[language=Python,caption={verify\_freeze.py}]{../code/utils/verify_freeze.py}
+\lstinputlisting[language=Python,caption={utils/\_\_init\_\_.py}]{../code/utils/__init__.py}
 
 \section{证据解释边界}
 
 \begin{itemize}
-  \item $ARBaselineGap$ 是战前AR规律的描述性差额，不是战争净因果贡献。
-  \item Q2联合区间跨零时，不将点估计写成稳健总体增长损失。
-  \item Q3的总体判断是部分支持；燃油传导维度本身不支持中国全面更优。
-  \item Q4尾部概率是固定信息集下的条件概率；宏观压力与政策反事实不可相加。
-  \item SAPR膝点只在注册的三状态、六个月、四目标规则族内最优；延期差额不是财政支出。
-  \item Polymarket等Innovation Track数据仅作为后续研究储备，未进入原三问及问题四的
-  正式模型、参数估计或结论证据链。
+  \item $ARBaselineGap$是战前AR规律的描述性差额，不是战争净因果贡献。
+  \item Q2联合区间跨零时，不将点估计写成稳健总体增长损失；响应曲线面积不是累计损失。
+  \item Q3跨国韧性总体为结论不充分；中国燃油序列是调价指数代理。
+  \item Q3政策结果是局部动态代理情景；未经审计年度缓冲代理没有定量结论。
+  \item Q4尾部概率是固定信息集下的条件概率；结构压力和政策反事实不可相加。
+  \item SAPR只在注册规则族内最优；平均缺口月负担不等于财政支出或完整福利损失。
 \end{itemize}
 
 \end{appendices}

@@ -22,6 +22,7 @@ from scipy.optimize import minimize
 from scipy.stats import norm
 from statsmodels.tools.sm_exceptions import ValueWarning
 from statsmodels.tsa.api import VAR
+from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.tsa.forecasting.theta import ThetaModel
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -673,6 +674,12 @@ def finite_sample_empirical_pvalue(distribution: pd.Series, threshold: float) ->
 def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.DataFrame:
     frame = daily.copy()
     frame["date"] = pd.to_datetime(frame["date"])
+    frame["pre_volatility_20d"] = frame["brent_usd_bbl_log_return"].rolling(20, min_periods=15).std().shift(1)
+    frame["pre_brent_level"] = frame["brent_usd_bbl"].shift(1)
+    monthly_gpr = pd.read_csv(PROCESSED_DIR / "model_monthly_q1.csv")[["period", "GPR_z"]]
+    gpr_map = monthly_gpr.set_index("period")["GPR_z"].to_dict()
+    frame["period"] = frame["date"].dt.to_period("M").astype(str)
+    frame["pre_gpr_z"] = frame["period"].map(gpr_map)
     weekend_calendar = pd.date_range("2024-01-06", "2025-12-28", freq="W-SAT")
     excluded_event_dates = [
         pd.Timestamp("2024-04-13"),
@@ -693,11 +700,33 @@ def placebo_distribution(daily: pd.DataFrame, actual_car: pd.DataFrame) -> pd.Da
             continue
         car["pseudo_calendar_date"] = pseudo_calendar.strftime("%Y-%m-%d")
         car["placebo_block_id"] = block_id
+        state = frame.loc[frame["date"].eq(start)].iloc[0]
+        car["match_pre_volatility_20d"] = float(state["pre_volatility_20d"])
+        car["match_pre_brent_level"] = float(state["pre_brent_level"])
+        car["match_pre_gpr_z"] = float(state["pre_gpr_z"])
         pieces.append(car)
     placebo = pd.concat(pieces, ignore_index=True, sort=False) if pieces else pd.DataFrame()
     if placebo.empty or actual_car.empty:
         save_csv(placebo, "q1_placebo_distribution.csv")
         return placebo
+    actual_start = pd.Timestamp(actual_car.loc[actual_car["model"].eq("brent_usd_bbl_event_car"), "event_trading_start"].dropna().iloc[0])
+    actual_state = frame.loc[frame["date"].eq(actual_start)].iloc[0]
+    match_columns = ["match_pre_volatility_20d", "match_pre_brent_level", "match_pre_gpr_z"]
+    block_state = placebo.groupby("placebo_block_id", as_index=False)[match_columns].first().dropna()
+    actual_values = np.array(
+        [float(actual_state["pre_volatility_20d"]), float(actual_state["pre_brent_level"]), float(actual_state["pre_gpr_z"])],
+        dtype=float,
+    )
+    candidate_values = block_state[match_columns].to_numpy(dtype=float)
+    scale = np.nanstd(np.vstack([candidate_values, actual_values]), axis=0, ddof=1)
+    scale = np.where(scale > 1e-12, scale, 1.0)
+    block_state["match_distance"] = np.sqrt((((candidate_values - actual_values) / scale) ** 2).sum(axis=1))
+    keep_count = min(40, len(block_state))
+    matched_ids = set(block_state.nsmallest(keep_count, "match_distance")["placebo_block_id"].astype(int))
+    distance_map = block_state.set_index("placebo_block_id")["match_distance"].to_dict()
+    placebo["match_distance"] = placebo["placebo_block_id"].map(distance_map)
+    placebo = placebo.loc[placebo["placebo_block_id"].isin(matched_ids)].copy()
+    placebo["matching_status"] = "nearest_40_on_pre_event_volatility_brent_level_monthly_GPR"
     actual = actual_car.loc[actual_car["model"].eq("brent_usd_bbl_event_car")].copy()
     empirical: dict[str, float] = {}
     for stage_id, group in placebo.groupby("stage_id"):
@@ -879,6 +908,30 @@ def structural_shock_decomposition(monthly: pd.DataFrame) -> pd.DataFrame:
     if len(var_data) < 120:
         raise ValueError(f"Q1 SVAR common sample has only {len(var_data)} months; required >=120.")
     var_data = var_data.set_index("period")
+    stationarity_rows: list[dict[str, Any]] = []
+    for column in var_cols:
+        values = var_data[column].astype(float).to_numpy()
+        adf = adfuller(values, autolag="BIC")
+        try:
+            kpss_result = kpss(values, regression="c", nlags="auto")
+            kpss_stat, kpss_pvalue = float(kpss_result[0]), float(kpss_result[1])
+        except (ValueError, np.linalg.LinAlgError):
+            kpss_stat, kpss_pvalue = np.nan, np.nan
+        stationarity_rows.append(
+            {
+                "variable": column,
+                "adf_statistic": float(adf[0]),
+                "adf_pvalue": float(adf[1]),
+                "adf_lags": int(adf[2]),
+                "kpss_statistic": kpss_stat,
+                "kpss_pvalue": kpss_pvalue,
+                "stationarity_gate": bool(float(adf[1]) < 0.05 and (not np.isfinite(kpss_pvalue) or kpss_pvalue >= 0.05)),
+                "sample_start": var_data.index.min(),
+                "sample_end": var_data.index.max(),
+                "n": int(len(values)),
+            }
+        )
+    save_csv(pd.DataFrame(stationarity_rows), "q1_stationarity_diagnostics.csv")
     candidates: list[dict[str, Any]] = []
     fits: dict[int, Any] = {}
     for lag in [6, 12, 18, 24]:
@@ -913,6 +966,7 @@ def structural_shock_decomposition(monthly: pd.DataFrame) -> pd.DataFrame:
                     "hqic": float(fit.hqic),
                     "is_stable": stable,
                     "whiteness_pvalue": safe_whiteness_pvalue(fit, 24),
+                    "minimum_root_modulus": float(np.min(np.abs(fit.roots))),
                     "sample_start": var_data.index.min(),
                     "sample_end": var_data.index.max(),
                     "nobs": int(fit.nobs),
@@ -950,18 +1004,27 @@ def structural_shock_decomposition(monthly: pd.DataFrame) -> pd.DataFrame:
     residuals = fit.resid[var_cols].copy()
     structural = np.linalg.solve(chol, residuals.to_numpy(dtype=float).T).T
 
-    alt_corr = np.nan
-    alt_cols = ["global_real_activity", "supply_growth", "real_brent_return"]
-    alt_fit = VAR(var_data[alt_cols]).fit(selected_lag)
-    if alt_fit.is_stable(verbose=False):
-        alt_chol = np.linalg.cholesky(np.asarray(alt_fit.sigma_u, dtype=float))
-        alt_structural = np.linalg.solve(alt_chol, alt_fit.resid[alt_cols].to_numpy(dtype=float).T).T
-        alt_risk = pd.Series(alt_structural[:, 2], index=alt_fit.resid.index)
-        main_risk = pd.Series(structural[:, 2], index=residuals.index)
-        common = pd.concat([main_risk.rename("main"), alt_risk.rename("alt")], axis=1).dropna()
-        alt_corr = float(common.corr().iloc[0, 1]) if len(common) > 2 else np.nan
+    main_risk = pd.Series(structural[:, 2], index=residuals.index)
+    alternative_orderings = {
+        "activity_supply_price": ["global_real_activity", "supply_growth", "real_brent_return"],
+        "supply_price_activity": ["supply_growth", "real_brent_return", "global_real_activity"],
+    }
+    alt_correlations: dict[str, float] = {}
+    for label, alt_cols in alternative_orderings.items():
+        alt_fit = VAR(var_data[alt_cols]).fit(selected_lag)
+        corr = np.nan
+        if alt_fit.is_stable(verbose=False):
+            alt_chol = np.linalg.cholesky(np.asarray(alt_fit.sigma_u, dtype=float))
+            alt_structural = np.linalg.solve(alt_chol, alt_fit.resid[alt_cols].to_numpy(dtype=float).T).T
+            price_index = alt_cols.index("real_brent_return")
+            alt_risk = pd.Series(alt_structural[:, price_index], index=alt_fit.resid.index)
+            common = pd.concat([main_risk.rename("main"), alt_risk.rename("alt")], axis=1).dropna()
+            corr = float(common.corr().iloc[0, 1]) if len(common) > 2 else np.nan
+        alt_correlations[label] = corr
+        diag[f"alternative_ordering_corr_{label}"] = np.nan
+        diag.loc[diag["candidate_lags"].eq(selected_lag), f"alternative_ordering_corr_{label}"] = corr
     diag["alternative_ordering_price_shock_corr"] = np.nan
-    diag.loc[diag["candidate_lags"].eq(selected_lag), "alternative_ordering_price_shock_corr"] = alt_corr
+    diag.loc[diag["candidate_lags"].eq(selected_lag), "alternative_ordering_price_shock_corr"] = alt_correlations["activity_supply_price"]
     save_csv(diag, "q1_svar_diagnostics.csv")
 
     shock_frame = pd.DataFrame(
@@ -1200,6 +1263,31 @@ def plot_counterfactual(counterfactual: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def plot_structural_shocks(shocks: pd.DataFrame) -> None:
+    columns = ["supply_shock", "aggregate_demand_shock", "oil_specific_risk_shock"]
+    if shocks.empty or not set(columns).issubset(shocks.columns):
+        return
+    frame = shocks.dropna(subset=columns).copy()
+    frame["date"] = pd.to_datetime(frame["period"] + "-01") + pd.offsets.MonthEnd(0)
+    labels = ["不利供给冲击", "总需求冲击", "石油特定风险冲击"]
+    colors = [PALETTE["rose"], PALETTE["olive"], PALETTE["blue"]]
+    fig, axes = plt.subplots(3, 1, figsize=(9.0, 6.4), sharex=True)
+    for ax, column, label, color in zip(axes, columns, labels, colors):
+        ax.axhline(0.0, color=PALETTE["muted"], linewidth=0.7)
+        ax.plot(frame["date"], frame[column], color=color, linewidth=0.9)
+        ax.text(0.01, 0.88, label, transform=ax.transAxes, ha="left", va="top", fontsize=9.4)
+        style_axis(ax, ylabel="标准差")
+    finish_figure(
+        fig,
+        title="问题一：递归SVAR结构冲击序列",
+        subtitle="供给残差已变号，因此正值表示不利供给收缩；三类冲击均按各自样本标准化。",
+        source="来源：results/q1_structural_shocks.csv；由 code/problem1/run_q1.py 生成。",
+        rect=(0.08, 0.08, 0.98, 0.90),
+    )
+    save_figure(fig, FIGURES_DIR / "q1_structural_shocks")
+    plt.close(fig)
+
+
 def refresh_placebo_pvalues() -> dict[str, Any]:
     placebo_path = RESULTS_DIR / "q1_placebo_distribution.csv"
     effects_path = RESULTS_DIR / "q1_event_effects.csv"
@@ -1272,9 +1360,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.plots_only:
         forecasts = pd.read_csv(RESULTS_DIR / "q1_forecasts.csv")
         counterfactual = pd.read_csv(RESULTS_DIR / "q1_daily_counterfactual.csv")
+        shocks = pd.read_csv(RESULTS_DIR / "q1_structural_shocks.csv")
         plot_forecasts(forecasts)
         plot_counterfactual(counterfactual)
-        print(json.dumps({"status": "PASS", "mode": "plots-only", "figures": 2}, ensure_ascii=False, indent=2))
+        plot_structural_shocks(shocks)
+        print(json.dumps({"status": "PASS", "mode": "plots-only", "figures": 3}, ensure_ascii=False, indent=2))
         return 0
 
     warnings_log: list[dict[str, Any]] = []
@@ -1310,6 +1400,7 @@ def main(argv: list[str] | None = None) -> int:
     robustness = robustness_summary(forecasts, effects, daily, placebos)
     plot_forecasts(forecasts)
     plot_counterfactual(counterfactual)
+    plot_structural_shocks(shocks)
 
     advanced_non_pass = []
     if not metrics.empty and "model_status" in metrics.columns:

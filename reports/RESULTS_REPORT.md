@@ -13,7 +13,7 @@
 
 本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，可以作为论文定稿数字来源。论文仍需保持证据边界：Q2 的宏观增长损失证据为 `INCONCLUSIVE`，Q3 对“我国应对更好”的综合判断为 `PARTIAL`。
 
-当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；问题四使用 FHS–GJR-GARCH 报告尾部概率，将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示，并进一步用 SAPR-CVaR 在现行调价机制约束上优化临时平滑规则。
+当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国中国调价指数代理退出正式价格水平排名，待审计缓冲交互不发布，并输出条件动态政策情景；问题四使用 FHS–GJR-GARCH 报告尾部概率，将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示，并进一步用 SAPR-CVaR 在现行调价机制约束上优化临时平滑规则。
 
 当前阻塞定稿的门禁：
 
@@ -65,9 +65,9 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 | model | stage_id | estimate_log_return | std_error | lower_95 | upper_95 | pvalue | pvalue_empirical | event_observations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| brent_usd_bbl_event_car | E1_CAR_0 | 0.0797 | 0.0195 | 0.0415 | 0.1178 | 0.0000 | 0.0112 | 1.0000 |
-| brent_usd_bbl_event_car | E1_CAR_0_1 | 0.1561 | 0.0275 | 0.1021 | 0.2101 | 0.0000 | 0.0102 | 2.0000 |
-| brent_usd_bbl_event_car | E1_CAR_0_2 | 0.1355 | 0.0337 | 0.0694 | 0.2016 | 0.0001 | 0.0208 | 3.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0 | 0.0797 | 0.0195 | 0.0415 | 0.1178 | 0.0000 | 0.0244 | 1.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0_1 | 0.1561 | 0.0275 | 0.1021 | 0.2101 | 0.0000 | 0.0244 | 2.0000 |
+| brent_usd_bbl_event_car | E1_CAR_0_2 | 0.1355 | 0.0337 | 0.0694 | 0.2016 | 0.0001 | 0.0513 | 3.0000 |
 | brent_usd_bbl_stage_dummy | E1 | 0.0407 |  |  |  |  |  | 3.0000 |
 | brent_usd_bbl_stage_dummy | E2 | 0.0052 | 0.0063 | -0.0072 | 0.0177 | 0.4101 |  | 58.0000 |
 | brent_usd_bbl_stage_dummy | E3 | -0.0154 | 0.0045 | -0.0242 | -0.0066 | 0.0006 |  | 8.0000 |
@@ -93,34 +93,33 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 传导链摘要按冲击—变量输出峰值/谷值、累计响应和证据状态。当前即使部分点估计方向符合直觉，也不自动升级为“增长损失”结论。
 
-| shock | outcome | extremum_type | extremum_response | extremum_month | cumulative_response_0_6 | cumulative_response_0_12 | evidence_status | allows_growth_loss_language |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| aggregate_demand_shock | brent_cny_cost_log_change_pct | peak_abs | 3.1229 | 1.0000 | 5.2937 | 3.4078 | INCONCLUSIVE | 0.0000 |
-| aggregate_demand_shock | china_cpi_yoy_pct | peak_abs | 0.1259 | 9.0000 | 0.4912 | 1.0984 | INCONCLUSIVE | 0.0000 |
-| aggregate_demand_shock | china_fx_log_change_pct | peak_abs | -0.3488 | 6.0000 | -1.2490 | -2.6522 | INCONCLUSIVE | 0.0000 |
-| aggregate_demand_shock | china_iav_yoy_pct | trough | -0.5197 | 6.0000 | -0.7033 | -0.5868 | INCONCLUSIVE | 0.0000 |
-| aggregate_demand_shock | china_ppi_yoy_pct | peak_abs | 0.4601 | 10.0000 | 1.6330 | 3.7647 | INCONCLUSIVE | 0.0000 |
-| oil_specific_risk_shock | brent_cny_cost_log_change_pct | peak_abs | 8.8321 | 0.0000 | 7.4401 | 4.9385 | INCONCLUSIVE | 0.0000 |
-| oil_specific_risk_shock | china_cpi_yoy_pct | peak_abs | 0.2467 | 7.0000 | 0.8767 | 2.1552 | INCONCLUSIVE | 0.0000 |
-| oil_specific_risk_shock | china_fx_log_change_pct | peak_abs | 0.7710 | 12.0000 | 1.6122 | 5.8458 | INCONCLUSIVE | 0.0000 |
-| oil_specific_risk_shock | china_iav_yoy_pct | trough | -0.4272 | 12.0000 | 0.0870 | -0.3402 | INCONCLUSIVE | 0.0000 |
-| oil_specific_risk_shock | china_ppi_yoy_pct | peak_abs | 0.7622 | 10.0000 | 3.6545 | 7.4006 | INCONCLUSIVE | 0.0000 |
-| supply_shock | brent_cny_cost_log_change_pct | peak_abs | 3.9588 | 0.0000 | 4.4243 | 4.7471 | INCONCLUSIVE | 0.0000 |
-| supply_shock | china_cpi_yoy_pct | peak_abs | 0.0861 | 4.0000 | 0.1290 | 0.1041 | INCONCLUSIVE | 0.0000 |
+| shock | outcome | extremum_type | extremum_response | extremum_month | response_curve_area_0_6 | response_curve_area_0_12 | area_unit | evidence_status | allows_growth_loss_language |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| aggregate_demand_shock | brent_cny_cost_log_change_pct | peak_abs | 3.1229 | 1.0000 | 5.2937 | 3.4078 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| aggregate_demand_shock | china_cpi_yoy_pct | peak_abs | 0.1259 | 9.0000 | 0.4912 | 1.0984 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| aggregate_demand_shock | china_fx_log_change_pct | peak_abs | -0.3488 | 6.0000 | -1.2490 | -2.6522 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| aggregate_demand_shock | china_iav_yoy_pct | trough | -0.5197 | 6.0000 |  |  | not_applicable_sparse_horizons | INCONCLUSIVE | 0.0000 |
+| aggregate_demand_shock | china_ppi_yoy_pct | peak_abs | 0.4601 | 10.0000 | 1.6330 | 3.7647 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| oil_specific_risk_shock | brent_cny_cost_log_change_pct | peak_abs | 8.8321 | 0.0000 | 7.4401 | 4.9385 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| oil_specific_risk_shock | china_cpi_yoy_pct | peak_abs | 0.2467 | 7.0000 | 0.8767 | 2.1552 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| oil_specific_risk_shock | china_fx_log_change_pct | peak_abs | 0.7710 | 12.0000 | 1.6122 | 5.8458 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| oil_specific_risk_shock | china_iav_yoy_pct | trough | -0.4272 | 12.0000 |  |  | not_applicable_sparse_horizons | INCONCLUSIVE | 0.0000 |
+| oil_specific_risk_shock | china_ppi_yoy_pct | peak_abs | 0.7622 | 10.0000 | 3.6545 | 7.4006 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| supply_shock | brent_cny_cost_log_change_pct | peak_abs | 3.9588 | 0.0000 | 4.4243 | 4.7471 | percentage_point_month | INCONCLUSIVE | 0.0000 |
+| supply_shock | china_cpi_yoy_pct | peak_abs | 0.0861 | 4.0000 | 0.1290 | 0.1041 | percentage_point_month | INCONCLUSIVE | 0.0000 |
 
 季度 GDP 只作低频验证，不插值成月度变量。
 
 | outcome | estimate | lower_95 | upper_95 | pvalue | n | sample_start | sample_end |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| china_real_gdp_yoy_pct | 0.7482 | 0.0095 | 1.4869 | 0.0471 | 65.0000 | 2010-Q2 | 2026-Q2 |
+| china_real_gdp_yoy_pct |  |  |  |  | 0.0000 |  |  |
 
 ## 4. 问题三：政策缓冲与跨国比较
 
-跨国燃油主排名只纳入覆盖充分的观测或官方受管制零售汽油价格。中国 Brent-CNY 代理值只保留为附录敏感性材料；正式政策情景已改用官方零售价层。
+跨国燃油主排名只纳入覆盖充分且价格层可解释的观测零售汽油价格。中国历史路径是受管制汽油调价指数代理，只保留为敏感性材料；2026政策公告差额单独核验。
 
 | country | horizon | response | lower_95 | upper_95 | price_measure_type | included_in_main_comparison |
 | --- | --- | --- | --- | --- | --- | --- |
-| CHN | 6.0000 | 0.3734 | 0.2433 | 0.5035 | official_regulated_standard_gasoline_cap | 1.0000 |
 | DEU | 6.0000 | 0.2367 | 0.1358 | 0.3376 | observed_retail_gasoline | 1.0000 |
 | ESP | 6.0000 | 0.2482 | 0.1629 | 0.3334 | observed_retail_gasoline | 1.0000 |
 | FRA | 6.0000 | 0.1979 | 0.0689 | 0.3269 | observed_retail_gasoline | 1.0000 |
@@ -132,32 +131,30 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 | dimension | metric | horizon | china_value | control_median | china_vs_control_median_diff | diff_lower_95 | diff_upper_95 | judgement | overall_china_resilience_judgement |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| fuel_pass_through | fuel_1m_cumulative_pass_through | 1.0000 | 0.3335 | 0.2401 | -0.0933 | -0.2413 | 0.0547 | NOT_SUPPORTED | PARTIAL |
-| fuel_pass_through | fuel_3m_cumulative_pass_through | 3.0000 | 0.3700 | 0.2323 | -0.1377 | -0.2596 | -0.0158 | NOT_SUPPORTED | PARTIAL |
-| fuel_pass_through | fuel_6m_cumulative_pass_through | 6.0000 | 0.3734 | 0.2268 | -0.1466 | -0.2767 | -0.0164 | NOT_SUPPORTED | PARTIAL |
-| cpi_peak_response | cpi_relative_to_china | 5.0000 | 0.0000 | 0.2451 | 0.2451 | -0.0549 | 0.5451 | PARTIAL | PARTIAL |
-| industrial_activity_trough | ip_relative_to_china | 12.0000 | 0.0000 | -0.5438 | -0.5438 | -1.6868 | 0.6975 | PARTIAL | PARTIAL |
-| policy_counterfactual_macro | china_cpi_yoy_pct | 6.0000 | 0.8185 |  |  | 0.2423 | 1.3948 | POLICY_SCENARIO | PARTIAL |
-| policy_counterfactual_macro | china_iav_yoy_pct | 6.0000 | -2.0935 |  |  | -4.1639 | -0.0230 | POLICY_SCENARIO | PARTIAL |
-| policy_counterfactual_macro | china_ppi_yoy_pct | 6.0000 | 3.3701 |  |  | 1.5673 | 5.1729 | POLICY_SCENARIO | PARTIAL |
+| fuel_price | six_month_pass_through_proxy_sensitivity | 6.0000 | 0.3734 | 0.2268 |  |  |  | CONDITIONAL_PROXY | INCONCLUSIVE |
+| consumer_prices | control_minus_china_cpi_relative_response | 5.0000 |  | 0.2451 | 0.2451 |  |  | INCONCLUSIVE | INCONCLUSIVE |
+| industrial_activity | control_minus_china_ip_relative_response | 1.0000 |  | 2.4328 | 2.4328 |  |  | INCONCLUSIVE | INCONCLUSIVE |
+| policy_counterfactual_macro | china_cpi_yoy_pct | 3.0000 | 0.5242 |  |  | 0.1538 | 0.9929 | POLICY_SCENARIO | INCONCLUSIVE |
+| policy_counterfactual_macro | china_iav_yoy_pct | 3.0000 | -1.1109 |  |  | -1.9996 | -0.0661 | POLICY_SCENARIO | INCONCLUSIVE |
+| policy_counterfactual_macro | china_ppi_yoy_pct | 4.0000 | 2.5956 |  |  | 1.4527 | 3.6329 | POLICY_SCENARIO | INCONCLUSIVE |
 
 中国政策图与数据表已区分新增差额和累计差额，2026-04 的累计差额为 1425 元/吨，4月新增为 380 元/吨。
 
 | period | policy_adjusted_official_cny_t | no_temporary_control_official_cny_t | incremental_gasoline_gap_cny_t | cumulative_gasoline_gap_cny_t | cpi_counterfactual_gap_pctpt | price_layer_status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-02 | 7878.0357 | 7878.0357 | 0.0000 | 0.0000 | 0.0000 | official_regulated_finished_fuel_price_layer |
-| 2026-03 | 8842.5806 | 9887.5806 | 1045.0000 | 1045.0000 | 0.6545 | official_regulated_finished_fuel_price_layer |
-| 2026-04 | 10060.5000 | 11485.5000 | 380.0000 | 1425.0000 | 0.7761 | official_regulated_finished_fuel_price_layer |
-| 2026-05 | 10031.6129 | 11456.6129 | 0.0000 | 1425.0000 | 0.7782 | official_regulated_finished_fuel_price_layer |
-| 2026-06 | 9504.0000 | 10929.0000 | 0.0000 | 1425.0000 | 0.8185 | official_regulated_finished_fuel_price_layer |
+| 2026-02 | 7878.0357 | 7878.0357 | 0.0000 | 0.0000 | 0.0000 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps |
+| 2026-03 | 8842.5806 | 9887.5806 | 1045.0000 | 1045.0000 | 0.3738 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps |
+| 2026-04 | 10060.5000 | 11485.5000 | 380.0000 | 1425.0000 | 0.4038 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps |
+| 2026-05 | 10031.6129 | 11456.6129 | 0.0000 | 1425.0000 | 0.5242 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps |
+| 2026-06 | 9504.0000 | 10929.0000 | 0.0000 | 1425.0000 | 0.4139 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps |
 
-政策关闭宏观反事实已在官方受管制成品油价格层上将临时调控缺口传播到 PPI、CPI 与 IAV，区间来自同一参数不确定性传播。
+政策关闭宏观情景在明确标注的调价指数代理层上，将2026临时调控收益差通过0—6阶核和结果变量递归传播到PPI、CPI与IAV；区间来自三方程共同时间块重采样。
 
 | period | outcome_label | macro_counterfactual_gap_pctpt | lower_95 | upper_95 | price_layer_status | evidence_status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-06 | CPI | 0.8185 | 0.2423 | 1.3948 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
-| 2026-06 | IAV | -2.0935 | -4.1639 | -0.0230 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
-| 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
+| 2026-06 | CPI | 0.4139 | 0.1993 | 1.0878 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps | CONDITIONAL_DYNAMIC_PROXY_SCENARIO |
+| 2026-06 | IAV | -0.4691 | -1.6898 | 0.6724 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps | CONDITIONAL_DYNAMIC_PROXY_SCENARIO |
+| 2026-06 | PPI | 2.5956 | 1.4527 | 3.6329 | regulated_gasoline_adjustment_index_proxy_with_2026_notice_gaps | CONDITIONAL_DYNAMIC_PROXY_SCENARIO |
 
 ## 5. 问题四：极端油价尾部风险、政策压力测试与自适应调价规则优化
 
@@ -166,8 +163,8 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 | model | horizon_months | median_price | p05_price | p95_price | terminal_prob_above_hist_p90 | terminal_prob_above_hist_p95 | path_prob_cross_hist_p95 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | FHS_GJR_GARCH | 1.0000 | 70.9531 | 53.4109 | 89.8229 | 0.0041 | 0.0027 | 0.0037 |
-| FHS_GJR_GARCH | 3.0000 | 71.4556 | 44.1523 | 103.4080 | 0.0294 | 0.0227 | 0.0376 |
-| FHS_GJR_GARCH | 6.0000 | 71.7560 | 37.1529 | 117.8998 | 0.0683 | 0.0556 | 0.0964 |
+| FHS_GJR_GARCH | 3.0000 | 71.4556 | 44.1523 | 103.4081 | 0.0294 | 0.0227 | 0.0376 |
+| FHS_GJR_GARCH | 6.0000 | 71.7560 | 37.1529 | 117.8999 | 0.0683 | 0.0556 | 0.0964 |
 | Gaussian_random_walk | 1.0000 | 70.3095 | 56.9037 | 87.1069 | 0.0003 | 0.0001 | 0.0001 |
 | Gaussian_random_walk | 3.0000 | 69.9413 | 48.6115 | 101.0162 | 0.0186 | 0.0121 | 0.0199 |
 | Gaussian_random_walk | 6.0000 | 69.5814 | 41.5863 | 116.1625 | 0.0670 | 0.0516 | 0.0951 |
@@ -176,12 +173,12 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 | model | horizon_months | origins | mean_pinball_loss | median_absolute_error | coverage_80 | coverage_90 | mean_width_90 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| FHS_GJR_GARCH | 1.0000 | 15.0000 | 1.6390 | 4.8211 | 0.6667 | 0.9333 | 28.6802 |
-| Gaussian_random_walk | 1.0000 | 15.0000 | 1.6237 | 4.4784 | 0.9333 | 0.9333 | 35.8286 |
-| FHS_GJR_GARCH | 3.0000 | 15.0000 | 2.3025 | 7.5792 | 0.8667 | 1.0000 | 50.9345 |
-| Gaussian_random_walk | 3.0000 | 15.0000 | 2.4829 | 6.5916 | 1.0000 | 1.0000 | 62.8624 |
-| FHS_GJR_GARCH | 6.0000 | 15.0000 | 3.8876 | 6.4994 | 0.8667 | 0.9333 | 73.0948 |
-| Gaussian_random_walk | 6.0000 | 15.0000 | 3.8135 | 6.0388 | 0.9333 | 0.9333 | 90.9725 |
+| FHS_GJR_GARCH | 1.0000 | 47.0000 | 1.5647 | 4.8945 | 0.8085 | 0.9362 | 26.4542 |
+| Gaussian_random_walk | 1.0000 | 47.0000 | 1.6288 | 4.3907 | 0.9362 | 0.9574 | 35.5231 |
+| FHS_GJR_GARCH | 3.0000 | 47.0000 | 2.3667 | 7.9488 | 0.8723 | 0.9574 | 47.4366 |
+| Gaussian_random_walk | 3.0000 | 47.0000 | 2.5615 | 6.9626 | 0.9574 | 0.9787 | 62.5604 |
+| FHS_GJR_GARCH | 6.0000 | 47.0000 | 3.5192 | 8.6212 | 0.8936 | 0.9362 | 69.0469 |
+| Gaussian_random_walk | 6.0000 | 47.0000 | 3.6894 | 7.1355 | 0.9362 | 0.9574 | 90.6974 |
 
 宏观压力层使用 Q1 油价特定风险冲击的历史正向分位数缩放 Q2 IRF。下表只展示 95%分位冲击的 6、12 月条件响应；联合区间跨零时继续标记为 `INCONCLUSIVE`。
 
@@ -198,40 +195,41 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 | period | outcome_label | policy_buffer_benefit_pctpt | benefit_lower_95 | benefit_upper_95 | evidence_status |
 | --- | --- | --- | --- | --- | --- |
-| 2026-06 | CPI | 0.8185 | 0.2423 | 1.3948 | SUPPORTED_95 |
-| 2026-06 | 工业增加值 | 2.0935 | 0.0230 | 4.1639 | SUPPORTED_95 |
-| 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | SUPPORTED_95 |
+| 2026-06 | CPI | 0.4139 | 0.1993 | 1.0878 | SUPPORTED_95 |
+| 2026-06 | 工业增加值 | 0.4691 | -0.6724 | 1.6898 | INCONCLUSIVE |
+| 2026-06 | PPI | 2.5956 | 1.4527 | 3.6329 | SUPPORTED_95 |
 
 SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则，2022-01—2026-06 完全作为隔离检验样本；2026 年战争冲击只用于检验和展示，不参与规则选择。三档传导率满足 `普通 ≥ 压力 ≥ 极端`，目标函数同时考虑宏观损失、95% CVaR、累计未调价负担和国内调价波动。
 
-| rule_id | rho_normal | rho_stress | rho_extreme | stress_threshold_75_cny_t | stress_threshold_95_cny_t | J1_macro_loss | J2_cvar95_macro_loss | J3_gap_burden | J4_adjustment_volatility |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R0023 | 0.2000 | 0.0500 | 0.0500 | 435.9727 | 702.4907 | 0.0925 | 0.3733 | 0.2201 | 0.0317 |
+| rule_id | rho_normal | rho_stress | rho_extreme | stress_threshold_75_cny_t | stress_threshold_95_cny_t | J1_macro_loss | J2_cvar95_macro_loss | J3_avg_gap_month_burden | J4_adjustment_volatility | max_gap_ratio | max_recovery_terminal_gap_ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R0062 | 0.3000 | 0.1000 | 0.1000 | 435.9727 | 702.4907 | 0.1315 | 0.5225 | 0.0245 | 0.0332 | 0.1567 | 0.0184 |
 
 隔离检验样本与 2026 实际冲击情景的策略比较如下。若 SAPR 在检验样本被预注册基线支配，论文必须报告负结果；当前证据状态以 `q4_sapr_summary.json` 为准。
 
-| sample_split | strategy | rho_normal | rho_stress | rho_extreme | J1_macro_loss | J2_cvar95_macro_loss | J3_gap_burden | J4_adjustment_volatility |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| holdout | SAPR_CVaR_knee | 0.2000 | 0.0500 | 0.0500 | 0.0908 | 0.5580 | 0.2394 | 0.0255 |
-| holdout | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 0.3155 | 1.9571 | 0.0000 | 0.0503 |
-| holdout | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 0.2941 | 1.7681 | 0.0221 | 0.0426 |
-| holdout | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 0.2812 | 1.7916 | 0.0370 | 0.0438 |
-| war_2026 | SAPR_CVaR_knee | 0.2000 | 0.0500 | 0.0500 | 0.7944 | 0.7944 | 1.4436 | 0.0300 |
-| war_2026 | actual_2026_event_path |  |  |  | 1.6477 | 1.6477 | 0.7097 | 0.0856 |
-| war_2026 | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 2.4129 | 2.4129 | 0.0000 | 0.1148 |
-| war_2026 | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 2.2346 | 2.2346 | 0.1746 | 0.0821 |
-| war_2026 | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 2.2364 | 2.2364 | 0.1595 | 0.0921 |
+| sample_split | strategy | rho_normal | rho_stress | rho_extreme | J1_macro_loss | J2_cvar95_macro_loss | J3_avg_gap_month_burden | J4_adjustment_volatility | max_gap_ratio | max_recovery_terminal_gap_ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| holdout | SAPR_CVaR_knee | 0.3000 | 0.1000 | 0.1000 | 0.1650 | 1.1979 | 0.0222 | 0.0351 | 0.2000 | 0.0235 |
+| holdout | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 0.3155 | 1.9571 | 0.0000 | 0.0503 | 0.0000 | 0.0000 |
+| holdout | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 0.2941 | 1.7681 | 0.0031 | 0.0426 | 0.1746 | 0.0000 |
+| holdout | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 0.2812 | 1.7916 | 0.0052 | 0.0438 | 0.0953 | 0.0000 |
+| war_2026 | SAPR_CVaR_knee | 0.3000 | 0.1000 | 0.1000 | 1.7116 | 1.7116 | 0.0971 | 0.0678 | 0.2000 | 0.0029 |
+| war_2026 | actual_2026_event_path |  |  |  | 1.6477 | 1.6477 | 0.0933 | 0.0856 | 0.1499 | 0.1499 |
+| war_2026 | full_mechanism | 1.0000 | 1.0000 | 1.0000 | 2.4129 | 2.4129 | 0.0000 | 0.1148 | 0.0000 | 0.0000 |
+| war_2026 | temporary_2026_approx | 1.0000 | 1.0000 | 0.5258 | 2.2346 | 2.2346 | 0.0291 | 0.0821 | 0.1746 | 0.0000 |
+| war_2026 | uniform_75_smoothing | 0.7500 | 0.7500 | 0.7500 | 2.2364 | 2.2364 | 0.0266 | 0.0921 | 0.0953 | 0.0000 |
 
 敏感性检验固定改变阈值、bootstrap 块长和 CPI/IAV 权重，不为追求结论改动样本或目标函数。
 
 | variant | rho_normal | rho_stress | rho_extreme | pareto_rule_count | holdout_non_dominated_probability | changed_from_default |
 | --- | --- | --- | --- | --- | --- | --- |
-| threshold_70_90 | 0.2000 | 0.1000 | 0.0000 | 1197.0000 | 1.0000 | 1.0000 |
-| threshold_80_975 | 0.1500 | 0.0500 | 0.0500 | 962.0000 | 1.0000 | 1.0000 |
-| cpi_weight_plus20 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
-| iav_weight_plus20 | 0.2000 | 0.0500 | 0.0500 | 860.0000 | 1.0000 | 0.0000 |
-| bootstrap_block_3 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
-| bootstrap_block_6 | 0.2000 | 0.0500 | 0.0500 | 855.0000 | 1.0000 | 0.0000 |
+| threshold_70_90 | 0.3000 | 0.1500 | 0.1000 | 82.0000 | 1.0000 | 1.0000 |
+| threshold_80_975 | 0.3000 | 0.1000 | 0.1000 | 209.0000 | 1.0000 | 0.0000 |
+| cpi_weight_plus20 | 0.3000 | 0.1000 | 0.1000 | 121.0000 | 1.0000 | 0.0000 |
+| iav_weight_plus20 | 0.3000 | 0.1000 | 0.1000 | 116.0000 | 1.0000 | 0.0000 |
+| bootstrap_block_3 | 0.3000 | 0.1000 | 0.1000 | 119.0000 | 1.0000 | 0.0000 |
+| bootstrap_block_6 | 0.3000 | 0.1000 | 0.1000 | 119.0000 | 1.0000 | 0.0000 |
+| bootstrap_block_12 | 0.3000 | 0.1000 | 0.1000 | 119.0000 | 1.0000 | 0.0000 |
 
 ## 6. 图表与冻结文件
 
@@ -260,7 +258,13 @@ SAPR-CVaR 优化层只在 2013-03—2021-12 开发样本上确定阈值和规则
 - `missing_raw_snapshot`：ndrc_fuel_control_20260323 raw snapshot is absent
 - `manifest_status`：ndrc_fuel_control_20260407 status=REMOTE_ONLY
 - `missing_raw_snapshot`：ndrc_fuel_control_20260407 raw snapshot is absent
-- `nbs_gdp_yoy_manual_supplement`：OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.
+- `oecd_gdp_fetch_failed`：china_real_gdp_yoy_pct: HTTPSConnectionPool(host='sdmx.oecd.org', port=443): Max retries exceeded with url: /public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......GY.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile (Caused by ProxyError('Cannot connect to proxy.', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x000002162DAA6510>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))
+- `oecd_gdp_fetch_failed`：china_real_gdp_qoq_pct: HTTPSConnectionPool(host='sdmx.oecd.org', port=443): Max retries exceeded with url: /public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......G1.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile (Caused by ProxyError('Cannot connect to proxy.', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x000002162DB1C910>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))
+- `china_fuel_price_proxy_only`：China historical fuel series is a reconstructed adjustment-index proxy and is excluded from the formal cross-country price-level ranking.
+- `q2_gdp_validation_limited`：Too few GDP validation observations after lags.
+- `q3_buffer_quantitative_results_withheld`：Continuous buffer interactions were withheld because the country-year table is an unaudited proxy.
+- `q3_policy_joint_bootstrap`：Accepted 2000 joint three-equation moving-block draws from 2197 attempts.
+- `q3_fuel_panel_leave_one_withheld`：Fuel panel leave-one-country inference is withheld because China is a proxy and excluded from the formal price-level panel.
 
 ## 8. 论文使用建议
 

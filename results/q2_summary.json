@@ -21,7 +21,12 @@
   ],
   "shock_identification": "LP main interface estimates supply, aggregate-demand and oil-specific-risk shocks from the historical recursive VAR when available; OilShock remains a reduced-form robustness shock.",
   "conclusion_guardrail": "Current estimates do not support a clear aggregate growth-loss statement unless negative responses jointly exclude zero.",
-  "warnings": [],
+  "warnings": [
+    {
+      "code": "q2_gdp_validation_limited",
+      "message": "Too few GDP validation observations after lags."
+    }
+  ],
   "rows": {
     "q2_ardl_baseline.csv": 15,
     "q2_irf.csv": 224,

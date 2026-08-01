@@ -50,6 +50,14 @@ OUTCOME_SPECS = {
     "brent_cny_cost_log_change_pct": "人民币原油成本月度对数变化，百分点",
 }
 
+OUTCOME_RESPONSE_CONTRACT = {
+    "china_iav_yoy_pct": ("future_yoy_level", "percentage_point"),
+    "china_ppi_yoy_pct": ("future_yoy_level", "percentage_point"),
+    "china_cpi_yoy_pct": ("future_yoy_level", "percentage_point"),
+    "china_fx_log_change_pct": ("cumulative_log_change_from_t_minus_1", "log_percentage_point"),
+    "brent_cny_cost_log_change_pct": ("future_monthly_log_change_level", "log_percentage_point"),
+}
+
 
 def ensure_dirs() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -281,6 +289,27 @@ def full_rank_regressors(usable: pd.DataFrame, regressors: list[str], required_t
     raise np.linalg.LinAlgError("LP design remains rank deficient after dropping non-core controls.")
 
 
+def lp_target(frame: pd.DataFrame, outcome: str, horizon: int) -> pd.Series:
+    """Return the preregistered Q2 estimand for one outcome and horizon."""
+    if outcome == "china_fx_log_change_pct":
+        return frame["fx_level_pct"].shift(-horizon) - frame["fx_level_pct"].shift(1)
+    return frame[outcome].shift(-horizon)
+
+
+def validate_lp_target_contract(frame: pd.DataFrame, outcome: str, horizon: int, target_col: str) -> None:
+    expected = lp_target(frame, outcome, horizon)
+    observed = frame[target_col]
+    mask = expected.notna() | observed.notna()
+    if not np.allclose(
+        expected.loc[mask].to_numpy(dtype=float),
+        observed.loc[mask].to_numpy(dtype=float),
+        equal_nan=True,
+        atol=1e-12,
+        rtol=1e-12,
+    ):
+        raise AssertionError(f"Q2 LP target contract failed for {outcome}, h={horizon}.")
+
+
 def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     base = add_month_dummies(monthly)
@@ -299,10 +328,8 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
             for horizon in horizons:
                 target_col = f"target_h{horizon}"
                 target_cols.append(target_col)
-                if outcome == "china_fx_log_change_pct":
-                    frame[target_col] = frame["fx_level_pct"].shift(-horizon) - frame["fx_level_pct"].shift(1)
-                else:
-                    frame[target_col] = frame[outcome].shift(-horizon)
+                frame[target_col] = lp_target(frame, outcome, horizon)
+                validate_lp_target_contract(frame, outcome, horizon, target_col)
             regressors = [
                 shock_col,
                 f"{outcome}_lag1",
@@ -371,6 +398,8 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
                             "specification": "horizon-specific LP samples with moving-block bootstrap and Bonferroni 95% simultaneous intervals; lagged outcome, lagged shock, USD, GPR, month and COVID controls",
                             "inference_band": "bonferroni_95_horizon_specific_samples",
                             "shock_identification": SHOCK_SPECS[shock_col],
+                            "response_definition": OUTCOME_RESPONSE_CONTRACT[outcome][0],
+                            "response_unit": OUTCOME_RESPONSE_CONTRACT[outcome][1],
                             "sample_start": usable_h["period"].iloc[0],
                             "sample_end": usable_h["period"].iloc[-1],
                             "n": int(len(usable_h)),
@@ -423,6 +452,8 @@ def local_projection(monthly: pd.DataFrame, outcomes: list[str], warnings_log: l
                         "specification": "joint h=0..12 LP with one moving-block bootstrap sample source; lagged outcome, lagged shock, USD, GPR, month and COVID controls",
                         "inference_band": "moving_block_bootstrap_sup_t_95",
                         "shock_identification": SHOCK_SPECS[shock_col],
+                        "response_definition": OUTCOME_RESPONSE_CONTRACT[outcome][0],
+                        "response_unit": OUTCOME_RESPONSE_CONTRACT[outcome][1],
                         "sample_start": usable["period"].iloc[0],
                         "sample_end": usable["period"].iloc[-1],
                         "n": int(len(usable)),
@@ -639,8 +670,9 @@ def build_transmission_metrics(irf: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataF
                 idx = values.abs().idxmax()
                 extremum_type = "peak_abs"
             extreme = frame.loc[idx]
-            h6 = frame.loc[frame["horizon"].le(6), "response"].sum()
-            h12 = frame.loc[frame["horizon"].le(12), "response"].sum()
+            complete_monthly_path = set(frame["horizon"].astype(int)) >= set(range(13))
+            area_h6 = frame.loc[frame["horizon"].le(6), "response"].sum() if complete_monthly_path else np.nan
+            area_h12 = frame.loc[frame["horizon"].le(12), "response"].sum() if complete_monthly_path else np.nan
             recovery = frame.loc[
                 frame["horizon"].ge(int(extreme["horizon"])) & frame["lower_95"].le(0) & frame["upper_95"].ge(0),
                 "horizon",
@@ -662,8 +694,10 @@ def build_transmission_metrics(irf: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataF
                     "extremum_upper_95": float(extreme["upper_95"]),
                     "extremum_joint_lower_95": float(extreme["joint_lower_95"]),
                     "extremum_joint_upper_95": float(extreme["joint_upper_95"]),
-                    "cumulative_response_0_6": float(h6),
-                    "cumulative_response_0_12": float(h12),
+                    "response_curve_area_0_6": float(area_h6) if np.isfinite(area_h6) else np.nan,
+                    "response_curve_area_0_12": float(area_h12) if np.isfinite(area_h12) else np.nan,
+                    "area_unit": "percentage_point_month" if complete_monthly_path else "not_applicable_sparse_horizons",
+                    "available_horizons": "|".join(str(int(value)) for value in sorted(frame["horizon"].unique())),
                     "recovery_month": int(recovery.iloc[0]) if not recovery.empty else np.nan,
                     "evidence_status": evidence,
                     "allows_growth_loss_language": supported_loss,
@@ -685,8 +719,10 @@ def build_transmission_metrics(irf: pd.DataFrame, gdp: pd.DataFrame) -> pd.DataF
                     "extremum_upper_95": row.get("upper_95", np.nan),
                     "extremum_joint_lower_95": row.get("lower_95", np.nan),
                     "extremum_joint_upper_95": row.get("upper_95", np.nan),
-                    "cumulative_response_0_6": np.nan,
-                    "cumulative_response_0_12": np.nan,
+                    "response_curve_area_0_6": np.nan,
+                    "response_curve_area_0_12": np.nan,
+                    "area_unit": "not_applicable_quarterly_validation",
+                    "available_horizons": "",
                     "recovery_month": np.nan,
                     "evidence_status": row.get("evidence_status", "INCONCLUSIVE"),
                     "allows_growth_loss_language": False,
@@ -712,16 +748,27 @@ def plot_irf(irf: pd.DataFrame) -> None:
     for ax, outcome in zip(axes, outcomes, strict=False):
         frame = irf.loc[irf["outcome"].eq(outcome)].sort_values("horizon")
         ax.axhline(0, color=PALETTE["muted"], linewidth=0.8)
-        ax.plot(frame["horizon"], frame["response"], marker="o", color=PALETTE["blue"], label="估计响应")
-        ax.fill_between(
-            frame["horizon"],
-            frame["lower_95"],
-            frame["upper_95"],
-            color=PALETTE["blue_light"],
-            alpha=0.30,
-            linewidth=0,
-            label="95%置信区间",
-        )
+        if outcome == "china_iav_yoy_pct":
+            ax.errorbar(
+                frame["horizon"],
+                frame["response"],
+                yerr=[frame["response"] - frame["lower_95"], frame["upper_95"] - frame["response"]],
+                fmt="o",
+                color=PALETTE["blue"],
+                capsize=3,
+                label="离散期限响应及95%区间",
+            )
+        else:
+            ax.plot(frame["horizon"], frame["response"], marker="o", color=PALETTE["blue"], label="估计响应")
+            ax.fill_between(
+                frame["horizon"],
+                frame["lower_95"],
+                frame["upper_95"],
+                color=PALETTE["blue_light"],
+                alpha=0.30,
+                linewidth=0,
+                label="95%置信区间",
+            )
         label = OUTCOME_SPECS.get(outcome, outcome)
         ax.text(0.0, 0.91, label, transform=ax.transAxes, ha="left", va="top", fontsize=10.2, color=PALETTE["ink"])
         style_axis(ax, ylabel="响应")

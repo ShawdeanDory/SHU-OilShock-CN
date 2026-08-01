@@ -71,9 +71,16 @@
   "stage_warnings": {
     "build_model_panels": [
       {
-        "code": "nbs_gdp_yoy_manual_supplement",
-        "message": "OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.",
-        "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260715_1964121.html"
+        "code": "oecd_gdp_fetch_failed",
+        "message": "china_real_gdp_yoy_pct: HTTPSConnectionPool(host='sdmx.oecd.org', port=443): Max retries exceeded with url: /public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......GY.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile (Caused by ProxyError('Cannot connect to proxy.', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x000002162DAA6510>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
+      },
+      {
+        "code": "oecd_gdp_fetch_failed",
+        "message": "china_real_gdp_qoq_pct: HTTPSConnectionPool(host='sdmx.oecd.org', port=443): Max retries exceeded with url: /public/rest/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD/Q.....B1GQ......G1.?startPeriod=2010-Q1&endPeriod=2026-Q2&dimensionAtObservation=AllDimensions&format=csvfile (Caused by ProxyError('Cannot connect to proxy.', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x000002162DB1C910>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
+      },
+      {
+        "code": "china_fuel_price_proxy_only",
+        "message": "China historical fuel series is a reconstructed adjustment-index proxy and is excluded from the formal cross-country price-level ranking."
       }
     ]
   }

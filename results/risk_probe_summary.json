@@ -8,6 +8,7 @@
     "q1_origin_forecast.csv": true,
     "q1_placebo_distribution.csv": true,
     "q1_robustness.csv": true,
+    "q1_stationarity_diagnostics.csv": true,
     "q1_structural_shocks.csv": true,
     "q1_summary.json": true,
     "q1_svar_diagnostics.csv": true,
@@ -21,10 +22,12 @@
     "q2_summary.csv": true,
     "q2_summary.json": true,
     "q2_transmission_metrics.csv": true,
+    "q3_buffer_data_status.csv": true,
     "q3_buffer_interactions.csv": true,
     "q3_country_pass_through.csv": true,
     "q3_panel_irf.csv": true,
     "q3_policy_counterfactual.csv": true,
+    "q3_policy_macro_bootstrap_draws.csv": true,
     "q3_policy_macro_counterfactual.csv": true,
     "q3_policy_macro_covariance.csv": true,
     "q3_policy_macro_kernel.csv": true,
@@ -37,7 +40,11 @@
     "q4_price_tail_risk.csv": true,
     "q4_risk_backtest.csv": true,
     "q4_risk_backtest_origins.csv": true,
+    "q4_risk_backtest_paired.csv": true,
     "q4_risk_probe.json": true,
+    "q4_sapr_holdout_paired_summary.csv": true,
+    "q4_sapr_holdout_validation.csv": true,
+    "q4_sapr_holdout_validation_summary.json": true,
     "q4_sapr_macro_paths.csv": true,
     "q4_sapr_optimal_rule.csv": true,
     "q4_sapr_policy_grid.csv": true,
@@ -70,7 +77,7 @@
   ],
   "input_hash_count": 28,
   "model_code_hash_count": 21,
-  "output_hash_count": 45,
+  "output_hash_count": 52,
   "overall_status": "PASS",
   "paper_finalize_allowed": true,
   "probes": [
@@ -121,8 +128,8 @@
       ],
       "message": "Matched weekend placebo evidence uses the add-one correction, so a finite pseudo-event sample cannot report an empirical p-value of exactly zero.",
       "metric": {
-        "min_empirical_pvalue": 0.01020408163265306,
-        "placebo_rows": 280
+        "min_empirical_pvalue": 0.024390243902439025,
+        "placebo_rows": 118
       },
       "probe_id": "q1_placebo_distribution_gate",
       "severity": "blocking",
@@ -261,32 +268,31 @@
         "data/processed/model_country_monthly.csv",
         "data/processed/china_regulated_gasoline_monthly.csv"
       ],
-      "message": "Q3 remains conditional until China has enough official regulated fuel-price history to enter the main fuel ranking with the six control countries.",
+      "message": "Q3 reports China only as a proxy sensitivity and does not overstate it as an official retail-price level.",
       "metric": {
-        "china_official_main": true,
         "china_official_price_months": 160,
+        "china_proxy_excluded": true,
         "china_rows": [
           {
             "horizon": 1,
-            "included_in_main_comparison": true,
-            "observed_or_regulated": "regulated_official",
-            "price_measure_type": "official_regulated_standard_gasoline_cap"
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_fixed_product_retail_level",
+            "price_measure_type": "regulated_gasoline_adjustment_index_proxy"
           },
           {
             "horizon": 3,
-            "included_in_main_comparison": true,
-            "observed_or_regulated": "regulated_official",
-            "price_measure_type": "official_regulated_standard_gasoline_cap"
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_fixed_product_retail_level",
+            "price_measure_type": "regulated_gasoline_adjustment_index_proxy"
           },
           {
             "horizon": 6,
-            "included_in_main_comparison": true,
-            "observed_or_regulated": "regulated_official",
-            "price_measure_type": "official_regulated_standard_gasoline_cap"
+            "included_in_main_comparison": false,
+            "observed_or_regulated": "proxy_not_fixed_product_retail_level",
+            "price_measure_type": "regulated_gasoline_adjustment_index_proxy"
           }
         ],
         "main_countries": [
-          "CHN",
           "DEU",
           "ESP",
           "FRA",
@@ -299,7 +305,7 @@
       "probe_id": "q3_china_comparability",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "China official observed/regulated fuel series enters the main comparison and at least six control countries remain comparable"
+      "threshold": "China reconstructed adjustment-index proxy is excluded and at least six comparable control countries remain in the formal ranking"
     },
     {
       "evidence_files": [
@@ -326,21 +332,18 @@
     {
       "evidence_files": [
         "results/q3_buffer_interactions.csv",
+        "results/q3_buffer_data_status.csv",
         "data/processed/country_policy_buffers_annual.csv"
       ],
-      "message": "Q3 has a policy-buffer interaction interface. Current fuel and industrial-activity interactions may be unidentifiable until China fuel/IAV data are official and comparable.",
+      "message": "Q3 fails closed instead of producing interaction estimates from normalized proxy sequences.",
       "metric": {
-        "buffer_rows": 156,
-        "outcomes": [
-          "cpi",
-          "fuel",
-          "ip"
-        ]
+        "buffer_rows": 0,
+        "withheld_status_rows": 4
       },
       "probe_id": "q3_policy_buffer_interaction_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "Panel LP reports Shock×Buffer interactions with country FE and full year-month FE"
+      "threshold": "Unaudited country-year buffer proxies are rejected from the formal quantitative result"
     },
     {
       "evidence_files": [
@@ -363,23 +366,22 @@
         "results/q3_policy_counterfactual.csv",
         "data/processed/china_regulated_gasoline_monthly.csv"
       ],
-      "message": "The policy scenario must be computed on the official regulated finished-fuel price layer, while macro propagation may remain conditional when coverage is short.",
+      "message": "The historical layer cannot be called a fixed-product official retail cap; scenario claims remain conditional.",
       "metric": {
-        "official_price_layer": true,
         "policy_rows": 5,
-        "uses_proxy_price_layer": false
+        "uses_labeled_proxy_price_layer": true
       },
       "probe_id": "q3_policy_counterfactual_price_layer",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "China policy counterfactual is based on official regulated finished-fuel price layer, not Brent-CNY proxy arithmetic"
+      "threshold": "China policy scenario explicitly labels the historical adjustment-index proxy and separately audits 2026 notice gaps"
     },
     {
       "evidence_files": [
         "results/q3_policy_macro_counterfactual.csv",
         "results/q3_policy_counterfactual.csv"
       ],
-      "message": "The policy counterfactual must operate on the finished-fuel price layer and quantify macro paths, not only the fuel-price gap.",
+      "message": "The conditional proxy scenario must use the 0..6 distributed-lag kernel and recursive outcome state, not static elasticity multiplication.",
       "metric": {
         "has_interval_columns": true,
         "outcomes": [
@@ -392,23 +394,19 @@
       "probe_id": "q3_policy_macro_propagation_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "Q3 policy-close counterfactual propagates official fuel-price gaps to PPI, CPI and IAV with intervals"
+      "threshold": "Q3 policy-close scenario dynamically propagates proxy fuel-return gaps to PPI, CPI and IAV with joint time-block intervals"
     },
     {
       "evidence_files": [
         "data/processed/country_policy_buffers_annual.csv",
-        "results/q3_buffer_interactions.csv"
+        "results/q3_buffer_interactions.csv",
+        "results/q3_buffer_data_status.csv"
       ],
-      "message": "The panel cannot claim policy-buffer evidence if the continuous annual buffer variables are empty or overwritten by blanks.",
+      "message": "No quantitative policy-buffer claim is released from normalized or pending-audit inputs.",
       "metric": {
-        "buffer_interaction_rows": 156,
+        "buffer_interaction_rows": 0,
         "buffer_table_rows": 119,
-        "buffers_in_results": [
-          "fuel_price_regulation",
-          "import_source_hhi",
-          "oil_import_dependency",
-          "oil_intensity"
-        ],
+        "buffers_in_results": [],
         "required_buffers": [
           "oil_import_dependency",
           "oil_intensity",
@@ -419,7 +417,7 @@
       "probe_id": "q3_buffer_data_completeness_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "Q3 annual buffer table has nonmissing continuous variables and all four buffers appear in interaction outputs"
+      "threshold": "Q3 detects the unaudited proxy buffer table and withholds all four interaction results"
     },
     {
       "evidence_files": [
@@ -435,7 +433,7 @@
           "JPN",
           "KOR"
         ],
-        "panel_rows": 234,
+        "panel_rows": 156,
         "reference_country_values": [
           "CHN"
         ]
@@ -449,21 +447,21 @@
       "evidence_files": [
         "results/q3_resilience_metrics.csv"
       ],
-      "message": "The third question needs a synthesis metric rather than separate tables with no final judgement.",
+      "message": "The third question must not turn three fuel horizons into three votes or use invalid median confidence intervals.",
       "metric": {
         "dimensions": [
-          "cpi_peak_response",
-          "fuel_pass_through",
-          "industrial_activity_trough",
+          "consumer_prices",
+          "fuel_price",
+          "industrial_activity",
           "policy_counterfactual_macro"
         ],
-        "overall": "PARTIAL",
-        "rows": 8
+        "overall": "INCONCLUSIVE",
+        "rows": 6
       },
       "probe_id": "q3_resilience_output_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "Q3 exports fuel, CPI, industrial-activity and policy-scenario resilience metrics plus an overall China judgement"
+      "threshold": "Q3 exports exactly three economic resilience dimensions plus a separate policy scenario and fails closed overall"
     },
     {
       "evidence_files": [
@@ -485,7 +483,7 @@
           "representative_backtest_complete": true,
           "seed_sensitivity_below_0_15": true
         },
-        "gjr_persistence": 0.9918256159492668,
+        "gjr_persistence": 0.9918256622620849,
         "probe_status": "PASS",
         "seed_probability_max_abs_difference": 0.006
       },
@@ -502,7 +500,7 @@
       ],
       "message": "Q4 probability claims require a comparable baseline, rolling calibration evidence and no future information at any origin.",
       "metric": {
-        "backtest_min_origins": 15,
+        "backtest_min_origins": 47,
         "backtest_no_future_information": true,
         "backtest_rows": 6,
         "distributions_non_degenerate": true,
@@ -571,6 +569,7 @@
       "evidence_files": [
         "results/q3_policy_macro_kernel.csv",
         "results/q3_policy_macro_covariance.csv",
+        "results/q3_policy_macro_bootstrap_draws.csv",
         "results/q4_sapr_summary.json"
       ],
       "message": "SAPR is the policy-optimization layer of Q4 and must reuse Q3 macro kernels rather than choosing a new macro model.",
@@ -585,7 +584,7 @@
           "china_iav_yoy_pct",
           "china_ppi_yoy_pct"
         ],
-        "parameter_sampling": "joint normal draw with Fisher-z reparameterization for AR(1) lag coefficients and delta-method covariance propagation",
+        "parameter_sampling": "joint three-equation circular moving-block bootstrap inherited from Q3; identical time blocks for PPI, CPI and IAV",
         "valid_parameter_draw_count": 2000,
         "valid_parameter_draw_rate": 1.0
       },
@@ -607,7 +606,7 @@
         "official_2026_03_gap": 1045.0,
         "official_2026_04_cumulative_gap": 1425.0,
         "official_2026_04_gap": 380.0,
-        "q3_policy_counterfactual_reproduction_max_abs_error": 2.220446049250313e-15,
+        "q3_policy_counterfactual_reproduction_max_abs_error": 3.9968028886505635e-15,
         "zero_policy_macro_max_abs_response": 0.0,
         "zero_upward_pass_through_terminal_gap": 200.0
       },
@@ -625,21 +624,24 @@
       "metric": {
         "knee_rows": 1,
         "optimal_rows": 1,
-        "pareto_rows": 855,
+        "pareto_rows": 119,
         "rule_rows": 1771
       },
       "probe_id": "q4_sapr_pareto_selection_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "SAPR enumerates 1771 monotone rules, has a nonempty Pareto set and selects exactly one knee rule"
+      "threshold": "SAPR enumerates 1771 monotone rules, enforces gap/recovery/adjustment constraints, and selects one 1%-epsilon Pareto knee"
     },
     {
       "evidence_files": [
         "results/q4_sapr_strategy_comparison.csv",
+        "results/q4_sapr_holdout_paired_summary.csv",
+        "results/q4_sapr_holdout_validation_summary.json",
         "results/q4_sapr_summary.json"
       ],
       "message": "A negative or partial holdout result is acceptable; the gate checks evaluation integrity rather than forcing improvement.",
       "metric": {
+        "block_length": 6,
         "evidence_status": "SUPPORTED",
         "holdout_non_dominated_probability": 1.0,
         "holdout_strategies": [
@@ -647,7 +649,9 @@
           "full_mechanism",
           "temporary_2026_approx",
           "uniform_75_smoothing"
-        ]
+        ],
+        "point_regret_vs_oracle": 0.0,
+        "supported_improvement_count": 9
       },
       "probe_id": "q4_sapr_holdout_validation_gate",
       "severity": "blocking",
@@ -666,7 +670,7 @@
         "comparison_rows": 13,
         "has_interval_columns": true,
         "macro_path_rows": 30,
-        "sensitivity_rows": 6,
+        "sensitivity_rows": 7,
         "valid_parameter_draw_count": 2000
       },
       "probe_id": "q4_sapr_uncertainty_gate",
@@ -683,14 +687,14 @@
         "allowed_claims": [
           "SAPR-CVaR is optimal only within the registered three-regime smoothing family, six-month scenario library and four-objective criterion.",
           "The selected rule can be compared with full pass-through, fixed smoothing and a 2026 temporary-control approximation under the frozen Q3 macro kernel.",
-          "Deferred adjustment gaps are a price-smoothing burden proxy, not a fiscal cost or complete welfare metric."
+          "J3 is the average monthly outstanding adjustment gap divided by the base price; terminal and recovery gaps are separate hard constraints."
         ],
         "evidence_status": "SUPPORTED",
         "execution_status": "PASS",
         "forbidden_claims": [
           "global optimum across all possible Chinese fuel pricing policies",
           "complete welfare gain or fiscal cost estimate",
-          "the deferred gap equals government subsidy spending",
+          "the deferred gap equals government subsidy spending or a complete welfare loss",
           "Q4 uses post-2021 data to select stress thresholds or the optimal rule"
         ]
       },
@@ -782,7 +786,7 @@
       "metric": {
         "input_hash_count": 28,
         "model_code_hash_count": 21,
-        "output_hash_count": 45
+        "output_hash_count": 52
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",

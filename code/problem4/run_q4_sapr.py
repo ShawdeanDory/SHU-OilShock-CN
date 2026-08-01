@@ -43,6 +43,11 @@ BOOTSTRAP_DRAWS = 2000
 DEVELOPMENT_END = "2021-12"
 HOLDOUT_START = "2022-01"
 TEMPORARY_2026_RHO = (1160.0 + 420.0) / (2205.0 + 800.0)
+RECOVERY_MONTHS = 6
+MAX_GAP_RATIO = 0.35
+MAX_TERMINAL_GAP_RATIO = 0.20
+MAX_RECOVERY_TERMINAL_GAP_RATIO = 0.05
+MAX_MONTHLY_ADJUSTMENT_RATIO = 0.25
 
 OUTCOMES = ["china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"]
 OUTCOME_LABELS = {
@@ -173,7 +178,7 @@ def build_policy_months(threshold_quantiles: tuple[float, float] = (0.75, 0.95))
     frame = frame.loc[frame["period"].between("2013-03", "2026-06")].copy()
     frame = frame.dropna(subset=["china_regulated_gasoline_cny_per_ton"]).copy()
     if len(frame) < 48:
-        raise ValueError("Q4 requires at least 48 months of official regulated gasoline prices.")
+        raise ValueError("Q4 requires at least 48 months of the reconstructed regulated-gasoline adjustment proxy.")
     for column in [
         "gasoline_actual_adjustment_cny_t",
         "gasoline_rule_adjustment_cny_t",
@@ -335,6 +340,33 @@ def draw_parameter_sets(
     target_draws: int = BOOTSTRAP_DRAWS,
     minimum_valid_rate: float = 0.95,
 ) -> tuple[list[dict[str, np.ndarray]], float, int]:
+    joint_path = RESULTS_DIR / "q3_policy_macro_bootstrap_draws.csv"
+    if joint_path.exists():
+        joint = pd.read_csv(joint_path)
+        required = {"draw", "outcome", "phi_outcome_lag1"} | {f"beta_fuel_lag{lag}" for lag in range(7)}
+        if not required.issubset(joint.columns):
+            raise ValueError("Q3 joint macro bootstrap file lacks required Q4 kernel columns.")
+        available_draws = sorted(pd.to_numeric(joint["draw"], errors="coerce").dropna().astype(int).unique())
+        if len(available_draws) < target_draws:
+            raise ValueError(f"Q4 requires {target_draws} joint Q3 draws but found {len(available_draws)}.")
+        draws: list[dict[str, np.ndarray]] = []
+        for draw_id in available_draws[:target_draws]:
+            block = joint.loc[pd.to_numeric(joint["draw"], errors="coerce").eq(draw_id)]
+            draw: dict[str, np.ndarray] = {}
+            for outcome in kernel.valid_outcomes:
+                row = block.loc[block["outcome"].eq(outcome)]
+                if len(row) != 1:
+                    raise ValueError(f"Q3 joint draw {draw_id} lacks exactly one row for {outcome}.")
+                values = np.array(
+                    [float(row.iloc[0][f"beta_fuel_lag{lag}"]) for lag in range(7)]
+                    + [float(row.iloc[0]["phi_outcome_lag1"])],
+                    dtype=float,
+                )
+                if not np.isfinite(values).all() or abs(float(values[-1])) >= 1.0:
+                    raise ValueError(f"Q3 joint draw {draw_id} is invalid for {outcome}.")
+                draw[outcome] = values
+            draws.append(draw)
+        return draws, 1.0, len(draws)
     draws: list[dict[str, np.ndarray]] = []
     max_attempts = int(np.floor(target_draws / minimum_valid_rate))
     attempts_used = 0
@@ -417,6 +449,11 @@ def simulate_rule_path(scenario: Scenario, rule: dict[str, float], base_price: f
         if desired > 0:
             adjustment = rho_for_regime(rule, scenario.regimes[t]) * desired
             gap = desired - adjustment
+            gap_cap = MAX_TERMINAL_GAP_RATIO * base_price
+            if gap > gap_cap:
+                catch_up = gap - gap_cap
+                adjustment += catch_up
+                gap = gap_cap
         else:
             adjustment = desired
             gap = 0.0
@@ -444,6 +481,14 @@ def simulate_actual_2026_path(scenario: Scenario, base_price: float) -> tuple[np
         fuel_return[t] = np.log(current_price / previous_price)
         previous_price = current_price
     return price, actual_adjustment, deferred_gap, fuel_return
+
+
+def recovery_terminal_gap(terminal_gap: float, rule: dict[str, float]) -> float:
+    gap = max(float(terminal_gap), 0.0)
+    rho = float(rule["rho_normal"])
+    for _ in range(RECOVERY_MONTHS):
+        gap = (1.0 - rho) * gap
+    return gap
 
 
 def macro_path_from_returns(fuel_return: np.ndarray, coefficients: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -477,7 +522,7 @@ def objective_from_scenario_outputs(
     return {
         "J1_macro_loss": float(np.mean(losses)),
         "J2_cvar95_macro_loss": float(np.mean(tail)),
-        "J3_gap_burden": float(np.mean(gaps)),
+        "J3_avg_gap_month_burden": float(np.mean(gaps)),
         "J4_adjustment_volatility": float(np.std(returns, ddof=0)) if len(returns) else 0.0,
     }
 
@@ -503,6 +548,10 @@ def evaluate_strategy(
     losses: list[float] = []
     gap_burdens: list[float] = []
     returns_all: list[float] = []
+    max_gap_ratios: list[float] = []
+    terminal_gap_ratios: list[float] = []
+    recovery_gap_ratios: list[float] = []
+    max_adjustment_ratios: list[float] = []
     for scenario in candidates:
         if strategy_name == "actual_2026_event_path":
             price, adjustment, gap, fuel_return = simulate_actual_2026_path(scenario, base_price)
@@ -516,10 +565,24 @@ def evaluate_strategy(
         month_loss += weights["china_cpi_yoy_pct"] * np.maximum(macro_paths["china_cpi_yoy_pct"], 0.0) / stds["china_cpi_yoy_pct"]
         month_loss += weights["china_iav_yoy_pct"] * np.maximum(-macro_paths["china_iav_yoy_pct"], 0.0) / stds["china_iav_yoy_pct"]
         losses.append(float(np.mean(month_loss)))
-        gap_burdens.append(float((np.maximum(gap, 0.0).sum() + max(float(gap[-1]), 0.0)) / base_price))
+        gap_burdens.append(float(np.mean(np.maximum(gap, 0.0)) / base_price))
+        max_gap_ratios.append(float(np.max(np.maximum(gap, 0.0)) / base_price))
+        terminal_gap_ratios.append(float(max(float(gap[-1]), 0.0) / base_price))
+        recovery_gap_ratios.append(
+            float(recovery_terminal_gap(float(gap[-1]), rule) / base_price) if rule is not None else float(max(float(gap[-1]), 0.0) / base_price)
+        )
+        max_adjustment_ratios.append(float(np.max(np.abs(adjustment)) / base_price))
         returns_all.extend(fuel_return.tolist())
     result = objective_from_scenario_outputs(losses, gap_burdens, returns_all)
-    result.update({"scenario_count": len(candidates)})
+    result.update(
+        {
+            "scenario_count": len(candidates),
+            "max_gap_ratio": float(max(max_gap_ratios)),
+            "max_terminal_gap_ratio": float(max(terminal_gap_ratios)),
+            "max_recovery_terminal_gap_ratio": float(max(recovery_gap_ratios)),
+            "max_monthly_adjustment_ratio": float(max(max_adjustment_ratios)),
+        }
+    )
     return result
 
 
@@ -542,16 +605,35 @@ def strategy_path_arrays(
     candidates = scenario_candidates(scenarios, split)
     fuel_returns = np.empty((len(candidates), SCENARIO_LENGTH), dtype=float)
     gap_burdens = np.empty(len(candidates), dtype=float)
+    max_gap_ratios = np.empty(len(candidates), dtype=float)
+    terminal_gap_ratios = np.empty(len(candidates), dtype=float)
+    recovery_gap_ratios = np.empty(len(candidates), dtype=float)
+    max_adjustment_ratios = np.empty(len(candidates), dtype=float)
     for index, scenario in enumerate(candidates):
         if strategy_name == "actual_2026_event_path":
-            _, _, gap, fuel_return = simulate_actual_2026_path(scenario, base_price)
+            _, adjustment, gap, fuel_return = simulate_actual_2026_path(scenario, base_price)
         else:
             if rule is None:
                 raise ValueError("A SAPR rule is required for simulated strategies.")
-            _, _, gap, fuel_return = simulate_rule_path(scenario, rule, base_price)
+            _, adjustment, gap, fuel_return = simulate_rule_path(scenario, rule, base_price)
         fuel_returns[index, :] = fuel_return
-        gap_burdens[index] = float((np.maximum(gap, 0.0).sum() + max(float(gap[-1]), 0.0)) / base_price)
-    return {"fuel_returns": fuel_returns, "gap_burdens": gap_burdens}
+        gap_burdens[index] = float(np.mean(np.maximum(gap, 0.0)) / base_price)
+        max_gap_ratios[index] = float(np.max(np.maximum(gap, 0.0)) / base_price)
+        terminal_gap_ratios[index] = float(max(float(gap[-1]), 0.0) / base_price)
+        recovery_gap_ratios[index] = (
+            float(recovery_terminal_gap(float(gap[-1]), rule) / base_price)
+            if rule is not None
+            else terminal_gap_ratios[index]
+        )
+        max_adjustment_ratios[index] = float(np.max(np.abs(adjustment)) / base_price)
+    return {
+        "fuel_returns": fuel_returns,
+        "gap_burdens": gap_burdens,
+        "max_gap_ratios": max_gap_ratios,
+        "terminal_gap_ratios": terminal_gap_ratios,
+        "recovery_gap_ratios": recovery_gap_ratios,
+        "max_adjustment_ratios": max_adjustment_ratios,
+    }
 
 
 def macro_losses_from_returns(
@@ -618,13 +700,44 @@ def pareto_mask(objectives: np.ndarray) -> np.ndarray:
     return mask
 
 
+def epsilon_pareto_mask(objectives: np.ndarray, epsilon_fraction: float = 0.01) -> np.ndarray:
+    """Treat sub-material objective differences as ties to avoid a mechanically wide front."""
+    spans = np.ptp(objectives, axis=0)
+    epsilon = np.maximum(spans * epsilon_fraction, 1e-12)
+    n = objectives.shape[0]
+    mask = np.ones(n, dtype=bool)
+    for i in range(n):
+        candidate = objectives[i]
+        for j in range(n):
+            if i == j:
+                continue
+            challenger = objectives[j]
+            if np.all(challenger <= candidate + epsilon) and np.any(challenger < candidate - epsilon):
+                mask[i] = False
+                break
+    return mask
+
+
 def choose_knee(grid: pd.DataFrame) -> pd.DataFrame:
-    objective_cols = ["J1_macro_loss", "J2_cvar95_macro_loss", "J3_gap_burden", "J4_adjustment_volatility"]
-    values = grid[objective_cols].astype(float).to_numpy()
-    mask = pareto_mask(values)
+    objective_cols = ["J1_macro_loss", "J2_cvar95_macro_loss", "J3_avg_gap_month_burden", "J4_adjustment_volatility"]
     grid = grid.copy()
-    grid["is_pareto"] = mask
+    grid["is_feasible"] = (
+        grid["max_gap_ratio"].le(MAX_GAP_RATIO)
+        & grid["max_terminal_gap_ratio"].le(MAX_TERMINAL_GAP_RATIO)
+        & grid["max_recovery_terminal_gap_ratio"].le(MAX_RECOVERY_TERMINAL_GAP_RATIO)
+        & grid["max_monthly_adjustment_ratio"].le(MAX_MONTHLY_ADJUSTMENT_RATIO)
+    )
+    grid["is_pareto"] = False
     grid["is_knee"] = False
+    feasible = grid.loc[grid["is_feasible"]].copy()
+    if feasible.empty:
+        raise ValueError("Q4 has no feasible rule under the preregistered gap, recovery and adjustment constraints.")
+    feasible_values = feasible[objective_cols].astype(float).to_numpy()
+    exact_mask = pareto_mask(feasible_values)
+    grid["is_pareto_exact"] = False
+    grid.loc[feasible.index, "is_pareto_exact"] = exact_mask
+    mask = epsilon_pareto_mask(feasible_values, epsilon_fraction=0.01)
+    grid.loc[feasible.index, "is_pareto"] = mask
     pareto = grid.loc[grid["is_pareto"]].copy()
     if pareto.empty:
         raise ValueError("Q4 Pareto set is empty.")
@@ -633,7 +746,7 @@ def choose_knee(grid: pd.DataFrame) -> pd.DataFrame:
     denom = (maxs - mins).replace(0.0, 1.0)
     normalized = (pareto[objective_cols] - mins) / denom
     pareto["knee_score"] = np.sqrt((normalized**2).sum(axis=1))
-    pareto = pareto.sort_values(["knee_score", "J3_gap_burden", "rho_normal"], ascending=[True, True, False])
+    pareto = pareto.sort_values(["knee_score", "J3_avg_gap_month_burden", "rho_normal"], ascending=[True, True, False])
     knee_rule_id = pareto.iloc[0]["rule_id"]
     grid.loc[grid["rule_id"].eq(knee_rule_id), "is_knee"] = True
     grid["knee_score"] = np.nan
@@ -697,7 +810,7 @@ def compare_strategies(
     stds: dict[str, float],
     weights: dict[str, float],
     rng: np.random.Generator,
-    block_length: int = 3,
+    block_length: int = 6,
 ) -> tuple[pd.DataFrame, float, bool]:
     point = point_coefficients(kernel)
     strategies = strategy_catalog(knee_rule)
@@ -712,6 +825,14 @@ def compare_strategies(
             point_losses = macro_losses_from_returns(arrays["fuel_returns"], point, stds, weights)
             objectives = objectives_from_arrays(point_losses, arrays["gap_burdens"], arrays["fuel_returns"])
             objectives["scenario_count"] = int(len(point_losses))
+            objectives.update(
+                {
+                    "max_gap_ratio": float(np.max(arrays["max_gap_ratios"])),
+                    "max_terminal_gap_ratio": float(np.max(arrays["terminal_gap_ratios"])),
+                    "max_recovery_terminal_gap_ratio": float(np.max(arrays["recovery_gap_ratios"])),
+                    "max_monthly_adjustment_ratio": float(np.max(arrays["max_adjustment_ratios"])),
+                }
+            )
             row = {
                 "sample_split": split,
                 "strategy": strategy_name,
@@ -774,7 +895,9 @@ def holdout_validation_probability(
     block_length: int,
     point_comparison: pd.DataFrame | None = None,
     point_values: dict[str, np.ndarray] | None = None,
+    save_outputs: bool = True,
 ) -> tuple[float, bool]:
+    objective_cols = ["J1_macro_loss", "J2_cvar95_macro_loss", "J3_avg_gap_month_burden", "J4_adjustment_volatility"]
     strategies = strategy_catalog(knee_rule)
     holdout_strategies = [name for name in strategies if name != "actual_2026_event_path"]
     if point_comparison is None:
@@ -798,10 +921,10 @@ def holdout_validation_probability(
     point_knee = point_holdout.loc[point_holdout["strategy"].eq("SAPR_CVaR_knee")]
     if len(point_knee) != 1:
         raise ValueError("Q4 holdout validation requires exactly one SAPR knee row.")
-    knee_vec = point_knee[["J1_macro_loss", "J2_cvar95_macro_loss", "J3_gap_burden", "J4_adjustment_volatility"]].iloc[0].astype(float).to_numpy()
+    knee_vec = point_knee[objective_cols].iloc[0].astype(float).to_numpy()
     point_non_dominated = True
     for _, row in point_holdout.loc[point_holdout["strategy"].ne("SAPR_CVaR_knee")].iterrows():
-        other_vec = row[["J1_macro_loss", "J2_cvar95_macro_loss", "J3_gap_burden", "J4_adjustment_volatility"]].astype(float).to_numpy()
+        other_vec = row[objective_cols].astype(float).to_numpy()
         if dominates(other_vec, knee_vec):
             point_non_dominated = False
             break
@@ -810,8 +933,15 @@ def holdout_validation_probability(
         strategy_name: strategy_path_arrays(scenarios, strategies[strategy_name]["rule"], strategy_name, "holdout", base_price)
         for strategy_name in holdout_strategies
     }
+    point_matrix = point_holdout.set_index("strategy").loc[holdout_strategies, objective_cols].astype(float).to_numpy()
+    point_mins = point_matrix.min(axis=0)
+    point_denom = np.maximum(point_matrix.max(axis=0) - point_mins, 1e-12)
+    point_distances = np.sqrt((((point_matrix - point_mins) / point_denom) ** 2).sum(axis=1))
+    point_knee_distance = float(point_distances[holdout_strategies.index("SAPR_CVaR_knee")])
+    point_oracle_distance = float(point_distances.min())
+    draw_rows: list[dict[str, Any]] = []
     valid_flags: list[bool] = []
-    for draw in parameter_draws:
+    for draw_id, draw in enumerate(parameter_draws):
         sampled = block_bootstrap_indices(holdout_n, block_length, rng)
         vectors: dict[str, np.ndarray] = {}
         for strategy_name in holdout_strategies:
@@ -819,13 +949,74 @@ def holdout_validation_probability(
             draw_losses = macro_losses_from_returns(arrays["fuel_returns"], draw, stds, weights)
             obj = objectives_from_arrays(draw_losses, arrays["gap_burdens"], arrays["fuel_returns"], sampled)
             vectors[strategy_name] = np.array(
-                [obj["J1_macro_loss"], obj["J2_cvar95_macro_loss"], obj["J3_gap_burden"], obj["J4_adjustment_volatility"]],
+                [obj["J1_macro_loss"], obj["J2_cvar95_macro_loss"], obj["J3_avg_gap_month_burden"], obj["J4_adjustment_volatility"]],
                 dtype=float,
             )
         sampled_knee_vec = vectors["SAPR_CVaR_knee"]
-        valid_flags.append(not any(dominates(vec, sampled_knee_vec) for name, vec in vectors.items() if name != "SAPR_CVaR_knee"))
+        non_dominated = not any(dominates(vec, sampled_knee_vec) for name, vec in vectors.items() if name != "SAPR_CVaR_knee")
+        valid_flags.append(non_dominated)
+        matrix = np.vstack([vectors[name] for name in holdout_strategies])
+        mins = matrix.min(axis=0)
+        denom = np.maximum(matrix.max(axis=0) - mins, 1e-12)
+        distances = np.sqrt((((matrix - mins) / denom) ** 2).sum(axis=1))
+        knee_distance = float(distances[holdout_strategies.index("SAPR_CVaR_knee")])
+        oracle_distance = float(distances.min())
+        for baseline in [name for name in holdout_strategies if name != "SAPR_CVaR_knee"]:
+            delta = sampled_knee_vec - vectors[baseline]
+            draw_rows.append(
+                {
+                    "draw": draw_id,
+                    "block_length": block_length,
+                    "baseline": baseline,
+                    **{f"delta_{column}": float(delta[idx]) for idx, column in enumerate(objective_cols)},
+                    "knee_distance_to_ideal": knee_distance,
+                    "oracle_distance_to_ideal": oracle_distance,
+                    "knee_regret_vs_oracle": knee_distance - oracle_distance,
+                    "knee_non_dominated": non_dominated,
+                }
+            )
     if len(valid_flags) != len(parameter_draws):
         raise ValueError("Q4 holdout validation did not evaluate every valid parameter draw.")
+    validation = pd.DataFrame(draw_rows)
+    if save_outputs:
+        save_csv(validation, "q4_sapr_holdout_validation.csv")
+    paired_summary: list[dict[str, Any]] = []
+    for baseline, group in validation.groupby("baseline"):
+        for column in objective_cols:
+            values = group[f"delta_{column}"].to_numpy(dtype=float)
+            lower, upper = np.quantile(values, [0.025, 0.975])
+            paired_summary.append(
+                {
+                    "baseline": baseline,
+                    "objective": column,
+                    "mean_delta_knee_minus_baseline": float(np.mean(values)),
+                    "lower_95": float(lower),
+                    "upper_95": float(upper),
+                    "supported_improvement": bool(upper < 0.0),
+                }
+            )
+    paired_frame = pd.DataFrame(paired_summary)
+    if save_outputs:
+        save_csv(paired_frame, "q4_sapr_holdout_paired_summary.csv")
+    unique_draws = validation.drop_duplicates("draw")
+    summary_payload = {
+        "block_length": block_length,
+        "draws": int(len(unique_draws)),
+        "point_non_dominated": point_non_dominated,
+        "non_dominated_probability": float(np.mean(valid_flags)),
+        "point_knee_distance_to_ideal": point_knee_distance,
+        "point_oracle_distance_to_ideal": point_oracle_distance,
+        "point_regret_vs_oracle": point_knee_distance - point_oracle_distance,
+        "median_regret_vs_oracle": float(unique_draws["knee_regret_vs_oracle"].median()),
+        "regret_upper_95": float(unique_draws["knee_regret_vs_oracle"].quantile(0.975)),
+        "probability_within_0_10_of_oracle": float(unique_draws["knee_regret_vs_oracle"].le(0.10).mean()),
+        "supported_improvement_count": int(paired_frame["supported_improvement"].sum()),
+    }
+    if save_outputs:
+        (RESULTS_DIR / "q4_sapr_holdout_validation_summary.json").write_text(
+            json.dumps(summary_payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
     return float(np.mean(valid_flags)), point_non_dominated
 
 
@@ -960,11 +1151,19 @@ def policy_identity_checks(scenarios: list[Scenario], base_price: float, kernel:
 def reproduce_q3_policy_counterfactual(kernel: MacroKernel) -> float:
     q3 = read_result("q3_policy_macro_counterfactual.csv")
     max_error = 0.0
-    for _, row in q3.iterrows():
-        outcome = str(row["outcome"])
-        coeff = float(kernel.means[outcome][:7].sum())
-        estimate = coeff * float(row["fuel_log_gap"])
-        max_error = max(max_error, abs(estimate - float(row["macro_counterfactual_gap_pctpt"])))
+    for outcome, group in q3.groupby("outcome"):
+        group = group.sort_values("horizon")
+        fuel = group["fuel_return_gap"].to_numpy(dtype=float)
+        params = kernel.means[str(outcome)]
+        expected = np.zeros(len(group), dtype=float)
+        for t in range(len(group)):
+            for lag in range(7):
+                if t - lag >= 0:
+                    expected[t] += float(params[lag]) * float(fuel[t - lag])
+            if t > 0:
+                expected[t] += float(params[7]) * expected[t - 1]
+        observed = group["macro_counterfactual_gap_pctpt"].to_numpy(dtype=float)
+        max_error = max(max_error, float(np.max(np.abs(expected - observed))))
     return float(max_error)
 
 
@@ -985,6 +1184,7 @@ def run_sensitivity(
         ("iav_weight_plus20", (0.75, 0.95), {"china_ppi_yoy_pct": 1.0, "china_cpi_yoy_pct": 1.0, "china_iav_yoy_pct": 1.2}, 3),
         ("bootstrap_block_3", (0.75, 0.95), {"china_ppi_yoy_pct": 1.0, "china_cpi_yoy_pct": 1.0, "china_iav_yoy_pct": 1.0}, 3),
         ("bootstrap_block_6", (0.75, 0.95), {"china_ppi_yoy_pct": 1.0, "china_cpi_yoy_pct": 1.0, "china_iav_yoy_pct": 1.0}, 6),
+        ("bootstrap_block_12", (0.75, 0.95), {"china_ppi_yoy_pct": 1.0, "china_cpi_yoy_pct": 1.0, "china_iav_yoy_pct": 1.0}, 12),
     ]
     point = point_coefficients(kernel)
     for variant_name, quantiles, weights, block_length in variants:
@@ -1013,6 +1213,7 @@ def run_sensitivity(
             rng,
             block_length=block_length,
             point_values=point,
+            save_outputs=False,
         )
         rows.append(
             {
@@ -1044,26 +1245,28 @@ def plot_pareto(grid: pd.DataFrame) -> None:
     pareto = grid.loc[grid["is_pareto"]].copy()
     if pareto.empty:
         raise ValueError("Q4 Pareto plot requires a non-empty Pareto set.")
+    volatility = pareto["J4_adjustment_volatility"].astype(float)
+    size = 24.0 + 72.0 * (volatility - volatility.min()) / max(float(volatility.max() - volatility.min()), 1e-12)
     sc = ax.scatter(
         pareto["J1_macro_loss"],
-        pareto["J3_gap_burden"],
+        pareto["J3_avg_gap_month_burden"],
         c=pareto["J2_cvar95_macro_loss"],
         cmap="cividis",
-        s=24,
+        s=size,
         alpha=0.82,
     )
     knee = pareto.loc[pareto["is_knee"]]
     if len(knee) != 1:
         raise ValueError("Q4 Pareto plot requires exactly one knee rule.")
-    ax.scatter(knee["J1_macro_loss"], knee["J3_gap_burden"], marker="*", s=180, color=PALETTE["rose"], edgecolor="white", linewidth=0.8, label="膝点规则")
-    style_axis(ax, xlabel="期望宏观损失", ylabel="累计未调价负担")
+    ax.scatter(knee["J1_macro_loss"], knee["J3_avg_gap_month_burden"], marker="*", s=180, color=PALETTE["rose"], edgecolor="white", linewidth=0.8, label="膝点规则")
+    style_axis(ax, xlabel="期望宏观损失", ylabel="平均缺口月负担")
     ax.legend(loc="upper right")
     cbar = fig.colorbar(sc, ax=ax)
     cbar.set_label("CVaR95宏观损失")
     finish_figure(
         fig,
         title="问题四：SAPR-CVaR 四目标Pareto前沿",
-        subtitle="点为非支配调价规则，星形为归一化距理想点最近的膝点。",
+        subtitle="横纵轴为J1/J3，颜色为J2，点大小为J4；仅绘制通过硬约束的1%epsilon-非支配规则，星形为膝点。",
         source="来源：results/q4_sapr_policy_grid.csv；作者计算。",
     )
     save_figure(fig, FIGURES_DIR / "q4_sapr_pareto_front")
@@ -1106,24 +1309,20 @@ def plot_strategy_comparison(comparison: pd.DataFrame) -> None:
         "SAPR_CVaR_knee": "SAPR膝点",
     }
     frame["label"] = frame["strategy"].map(labels).fillna(frame["strategy"])
-    metrics = ["J1_macro_loss", "J2_cvar95_macro_loss", "J3_gap_burden", "J4_adjustment_volatility"]
-    metric_labels = ["宏观损失", "CVaR95", "延期负担", "调价波动"]
-    normalized = frame[metrics].astype(float).copy()
-    normalized = normalized / normalized.max(axis=0).replace(0.0, 1.0)
-    x = np.arange(len(frame))
-    width = 0.18
-    fig, ax = plt.subplots(figsize=(8.2, 4.6))
-    for idx, (metric, label) in enumerate(zip(metrics, metric_labels)):
-        ax.bar(x + (idx - 1.5) * width, normalized[metric], width=width, label=label)
-    ax.set_xticks(x)
-    ax.set_xticklabels(frame["label"])
-    style_axis(ax, ylabel="相对最大值")
-    ax.legend(loc="upper left", ncol=4)
+    metrics = ["J1_macro_loss", "J2_cvar95_macro_loss", "J3_avg_gap_month_burden", "J4_adjustment_volatility"]
+    metric_labels = ["平均宏观损失", "CVaR95宏观损失", "平均缺口月负担", "月度调价波动"]
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 6.4))
+    colors = [PALETTE["slate"], PALETTE["gold"], PALETTE["olive"], PALETTE["blue"]]
+    for ax, metric, label in zip(axes.ravel(), metrics, metric_labels):
+        ax.bar(frame["label"], frame[metric].astype(float), color=colors, width=0.62)
+        ax.tick_params(axis="x", labelrotation=18)
+        style_axis(ax, ylabel=label)
     finish_figure(
         fig,
-        title="问题四：检验期四种策略目标对比",
-        subtitle="四项目标均按检验期最大值归一化，越低表示该目标表现越好。",
+        title="问题四：检验期四种策略原始目标对比",
+        subtitle="四个子图保留各自原始量纲；数值越低表示该目标表现越好，不能跨子图直接比较高度。",
         source="来源：results/q4_sapr_strategy_comparison.csv；作者计算。",
+        rect=(0.08, 0.08, 0.98, 0.90),
     )
     save_figure(fig, FIGURES_DIR / "q4_sapr_strategy_comparison")
     plt.close(fig)
@@ -1181,9 +1380,21 @@ def write_summary(
     holdout_probability: float,
     holdout_point_non_dominated: bool,
 ) -> dict[str, Any]:
-    if holdout_point_non_dominated and holdout_probability >= 0.90:
+    validation_path = RESULTS_DIR / "q4_sapr_holdout_validation_summary.json"
+    validation = json.loads(validation_path.read_text(encoding="utf-8")) if validation_path.exists() else {}
+    knee_rows = comparison.loc[comparison["strategy"].eq("SAPR_CVaR_knee")]
+    knee_feasible_all_splits = bool(
+        not knee_rows.empty
+        and knee_rows["max_gap_ratio"].le(MAX_GAP_RATIO).all()
+        and knee_rows["max_terminal_gap_ratio"].le(MAX_TERMINAL_GAP_RATIO).all()
+        and knee_rows["max_recovery_terminal_gap_ratio"].le(MAX_RECOVERY_TERMINAL_GAP_RATIO).all()
+        and knee_rows["max_monthly_adjustment_ratio"].le(MAX_MONTHLY_ADJUSTMENT_RATIO).all()
+    )
+    supported_improvements = int(validation.get("supported_improvement_count", 0))
+    near_oracle_probability = float(validation.get("probability_within_0_10_of_oracle", 0.0))
+    if knee_feasible_all_splits and supported_improvements >= 1 and near_oracle_probability >= 0.80:
         evidence_status = "SUPPORTED"
-    elif holdout_point_non_dominated:
+    elif knee_feasible_all_splits and holdout_point_non_dominated:
         evidence_status = "PARTIAL"
     else:
         evidence_status = "NOT_SUPPORTED"
@@ -1215,6 +1426,7 @@ def write_summary(
             and identity["negative_adjustment_offsets_gap"]
         ),
         "q4_sapr_pareto_selection_gate": bool(len(grid) == 1771 and int(grid["is_pareto"].sum()) > 0 and int(grid["is_knee"].sum()) == 1),
+        "q4_sapr_policy_feasibility_gate": knee_feasible_all_splits,
         "q4_sapr_holdout_validation_gate": bool(
             comparison["sample_split"].astype(str).eq("holdout").any()
             and "SAPR_CVaR_knee" in set(comparison["strategy"])
@@ -1236,9 +1448,10 @@ def write_summary(
         "bootstrap_total_draw_attempts": total_draw_attempts,
         "valid_parameter_draw_count": valid_draw_count,
         "valid_parameter_draw_rate": valid_draw_rate,
-        "parameter_sampling": "joint normal draw with Fisher-z reparameterization for AR(1) lag coefficients and delta-method covariance propagation",
+        "parameter_sampling": "joint three-equation circular moving-block bootstrap inherited from Q3; identical time blocks for PPI, CPI and IAV",
         "holdout_non_dominated_probability": holdout_probability,
         "holdout_point_non_dominated": holdout_point_non_dominated,
+        "holdout_validation": validation,
         "scenario_counts": scenario_table.groupby("sample_split")["scenario_id"].nunique().to_dict(),
         "rule_count": int(len(grid)),
         "pareto_rule_count": int(grid["is_pareto"].sum()),
@@ -1248,12 +1461,12 @@ def write_summary(
         "allowed_claims": [
             "SAPR-CVaR is optimal only within the registered three-regime smoothing family, six-month scenario library and four-objective criterion.",
             "The selected rule can be compared with full pass-through, fixed smoothing and a 2026 temporary-control approximation under the frozen Q3 macro kernel.",
-            "Deferred adjustment gaps are a price-smoothing burden proxy, not a fiscal cost or complete welfare metric.",
+            "J3 is the average monthly outstanding adjustment gap divided by the base price; terminal and recovery gaps are separate hard constraints.",
         ],
         "forbidden_claims": [
             "global optimum across all possible Chinese fuel pricing policies",
             "complete welfare gain or fiscal cost estimate",
-            "the deferred gap equals government subsidy spending",
+            "the deferred gap equals government subsidy spending or a complete welfare loss",
             "Q4 uses post-2021 data to select stress thresholds or the optimal rule",
         ],
         "sensitivity_rows": int(len(sensitivity)),
@@ -1329,11 +1542,21 @@ def main(argv: list[str] | None = None) -> int:
                 "base_price_2026_06_cny_t": base_price,
                 "J1_macro_loss": knee["J1_macro_loss"],
                 "J2_cvar95_macro_loss": knee["J2_cvar95_macro_loss"],
-                "J3_gap_burden": knee["J3_gap_burden"],
+                "J3_avg_gap_month_burden": knee["J3_avg_gap_month_burden"],
                 "J4_adjustment_volatility": knee["J4_adjustment_volatility"],
+                "max_gap_ratio": knee["max_gap_ratio"],
+                "max_terminal_gap_ratio": knee["max_terminal_gap_ratio"],
+                "max_recovery_terminal_gap_ratio": knee["max_recovery_terminal_gap_ratio"],
+                "max_monthly_adjustment_ratio": knee["max_monthly_adjustment_ratio"],
+                "constraint_max_gap_ratio": MAX_GAP_RATIO,
+                "constraint_max_terminal_gap_ratio": MAX_TERMINAL_GAP_RATIO,
+                "constraint_max_recovery_terminal_gap_ratio": MAX_RECOVERY_TERMINAL_GAP_RATIO,
+                "constraint_max_monthly_adjustment_ratio": MAX_MONTHLY_ADJUSTMENT_RATIO,
+                "recovery_months": RECOVERY_MONTHS,
                 "pareto_rule_count": int(grid["is_pareto"].sum()),
+                "feasible_rule_count": int(grid["is_feasible"].sum()),
                 "candidate_rule_count": int(len(grid)),
-                "selection_rule": "minimum normalized Euclidean distance to the Pareto ideal; ties by smaller terminal gap burden and higher normal pass-through",
+                "selection_rule": "minimum normalized Euclidean distance to the feasible Pareto ideal; ties by smaller average gap-month burden and higher normal pass-through",
             }
         ]
     )
@@ -1347,12 +1570,12 @@ def main(argv: list[str] | None = None) -> int:
         stds,
         weights,
         rng,
-        block_length=3,
+        block_length=6,
     )
     save_csv(comparison, "q4_sapr_strategy_comparison.csv")
     paths = aggregate_macro_paths(scenarios, kernel, parameter_draws, knee_rule, base_price, split="war_2026")
     save_csv(paths, "q4_sapr_macro_paths.csv")
-    sensitivity = run_sensitivity(grid, scenarios, kernel, parameter_draws, meta, stds, rng)
+    sensitivity = run_sensitivity(grid, scenarios, kernel, parameter_draws[:500], meta, stds, rng)
     save_csv(sensitivity, "q4_sapr_sensitivity.csv")
     identity = policy_identity_checks(scenarios, base_price, kernel)
     summary = write_summary(

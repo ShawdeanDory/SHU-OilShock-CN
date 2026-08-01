@@ -1,7 +1,7 @@
 component,rows,status,note
-CountryPassThrough,21,PASS,"main ranking includes China only after the official regulated retail-price series reaches minimum coverage; distributed lag, 1/3/6 month cumulative response"
-PanelLP,234,PASS,fuel LP excludes countries without sufficient official/observed retail-price coverage; country FE and full year-month FE absorb common shocks
-BufferInteractions,156,PASS,"Shock×fuel_price_regulation with country FE and full year-month FE; interprets buffer differences, not absolute China ranking"
-ChinaPolicyCounterfactual,5,PASS,official regulated finished-fuel price layer is used; macro propagation remains conditional until enough official China price history is available
-ResilienceMetrics,8,PASS,"fuel, CPI, industrial-activity and policy-scenario metrics with China-relative judgement"
-Robustness,42,PASS,"leave-one-country, USD Brent and diesel policy-layer checks"
+CountryPassThrough,21,PASS,formal ranking covers six comparable control countries; China adjustment-index proxy is retained only as sensitivity
+PanelLP,156,PASS,CPI and industrial-activity LP coefficients are control-country minus China relative responses with country and full year-month fixed effects
+BufferInteractions,0,WITHHELD_UNAUDITED_PROXY,continuous buffer interactions are not released until the country-year source table is independently auditable
+ChinaPolicyCounterfactual,5,PASS,2026 notice gaps are propagated through a dynamic ARDL kernel on a reconstructed adjustment-index proxy with joint time-block uncertainty
+ResilienceMetrics,6,PASS,exactly three economic dimensions; overall judgement fails closed because the fuel layer is a proxy and joint cross-country intervals are not claimed
+Robustness,11,PASS,USD-Brent sensitivity and diesel policy-layer checks; invalid fuel panel leave-one inference is withheld

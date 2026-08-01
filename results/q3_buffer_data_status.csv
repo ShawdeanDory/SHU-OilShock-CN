@@ -1,0 +1,5 @@
+buffer,data_status,quantitative_result_released,reason,required_replacement
+oil_import_dependency,FAIL_FOR_MAIN_UNAUDITED_PROXY,False,country_policy_buffers_annual.csv is a normalized proxy pending audited official exports,"country-year raw values, formula, official URL/table id, download date and file hash"
+oil_intensity,FAIL_FOR_MAIN_UNAUDITED_PROXY,False,country_policy_buffers_annual.csv is a normalized proxy pending audited official exports,"country-year raw values, formula, official URL/table id, download date and file hash"
+import_source_hhi,FAIL_FOR_MAIN_UNAUDITED_PROXY,False,country_policy_buffers_annual.csv is a normalized proxy pending audited official exports,"country-year raw values, formula, official URL/table id, download date and file hash"
+fuel_price_regulation,FAIL_FOR_MAIN_UNAUDITED_PROXY,False,country_policy_buffers_annual.csv is a normalized proxy pending audited official exports,"country-year raw values, formula, official URL/table id, download date and file hash"

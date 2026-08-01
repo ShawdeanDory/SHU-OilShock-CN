@@ -1,10 +1,8 @@
 \section{问题三：中国政策缓冲与跨国比较}
 
-\subsection{比较口径与分国传导模型}
+\subsection{先锁定可比边界}
 
-跨国燃油传导受到定价制度、税费、汇率和财政空间共同影响\cite{kpodar2017,kpodar2021}。
-本文不预设中国一定表现更好，而先对中国、德国、法国、意大利、西班牙、日本和韩国建立
-同口径分布滞后模型：
+跨国燃油传导受税制、汇率和定价机制共同影响\cite{kpodar2017,kpodar2021}。对每个国家估计
 
 \begin{equation}
   \Delta\ln F_{i,t}=a_i+\varphi_i\Delta\ln F_{i,t-1}
@@ -12,124 +10,122 @@
   \label{eq:fuel-dl}
 \end{equation}
 
-其中 $F_{i,t}$ 为国内汽油价格，国际油价先按本币汇率换算。$H$ 月累计传导率为
-$\Pi_{i,H}=\sum_{j=0}^{H}\beta_{i,j}$，报告 $H=1,3,6$ 及HAC区间。中国只使用官方
-受管制汽油标准品价格层，Brent--CNY代理不进入主排名。
+并以$\Pi_{i,H}=\sum_{j=0}^{H}\beta_{i,j}$表示$H$月传导率。德国、法国、意大利、西班牙、日本
+和韩国有可审计的固定品类零售燃油价格，进入正式排名。中国历史公开调价表只能重建出受管制汽油
+调价指数代理，不是固定标准品零售价格，因此从正式排名剔除，只保留为敏感性和政策路径构造。
 
-\begin{figure}[H]
+\begin{figure}[htbp]
   \centering
   \includegraphics[width=0.91\textwidth]{../figures/q3_pass_through_6m.pdf}
-  \caption{七国国际油价向国内汽油价格的六个月累计传导率}
+  \caption{六国正式零售价格与中国调价指数代理的六个月传导率}
   \label{fig:q3-pass}
 \end{figure}
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \small
-  \caption{七国六个月燃油累计传导率}
+  \caption{六个月燃油传导率及数据角色}
   \label{tab:q3-pass}
-  \begin{tabular}{cccccccc}
+  \begin{tabular}{lccccccc}
     \toprule
     国家 & 中国 & 德国 & 法国 & 意大利 & 西班牙 & 日本 & 韩国 \\
     \midrule
     传导率 & 0.373 & 0.237 & 0.198 & 0.217 & 0.248 & 0.199 & 0.237 \\
+    数据角色 & 代理敏感性 & 正式 & 正式 & 正式 & 正式 & 正式 & 正式 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-中国六个月传导率为0.373，高于六个对照国中位数0.227；1、3个月中国值分别为
-0.334和0.370，也均高于对照国中位数0.240和0.232。因此，``中国成品油价格传导
-更低''并未得到支持。价格机制的优劣不能仅凭一个传导率判断，还需看CPI、工业活动以及
-平滑所积累的延期负担。
+六个正式对照国中位数为0.227。中国代理值0.373较高，但二者并非同类价格层，故不能据此判断
+中国更优或更差。这个“不可比”结论本身是重要的数据审计结果。
 
-\subsection{面板相对响应与缓冲变量}
+\subsection{相对宏观响应与暂缓的机制回归}
 
-为吸收共同国际冲击，面板局部投影加入国家固定效应和完整年月固定效应：
+对CPI和工业活动估计含国家固定效应和完整年月固定效应的面板局部投影：
 
 \begin{equation}
   y_{i,t+h}-y_{i,t-1}=\alpha_{i,h}+\lambda_{t,h}
-  +\delta_{i,h}\bigl(s_t\times I_i\bigr)
-  +\boldsymbol{\Gamma}_h^{\mathsf T}Z_{i,t-1}+u_{i,t+h}.
+  +\delta_{i,h}(s_tI_i)+\Gamma_h^{\mathsf T}Z_{i,t-1}+u_{i,t+h}.
   \label{eq:panel-lp}
 \end{equation}
 
-中国为参照组，$\delta_{i,h}$ 表示各对照国相对中国的响应差，而非中国绝对响应。在机制
-解释中，再将国别虚拟变量替换为滞后一期的价格监管、石油进口依赖度、石油强度和进口
-来源HHI：
+中国是参照组，$\delta_{i,h}$只表示对照国相对中国的响应差，不能把中国绝对响应人为设为零。
+对照国减中国的CPI相对响应点估计中位数为0.245个百分点，工业活动为2.433个百分点；但当前
+程序没有形成联合国别--时间bootstrap区间，因此两项均判为“结论不充分”。价格监管、进口依赖、
+石油强度和进口来源集中度年度表均为未经审计代理，四类连续缓冲交互回归全部执行失败关闭，不提供
+系数、显著性或政策排序。三维核心韧性判据见表\ref{tab:q3-resilience}。
 
-\begin{equation}
-  y_{i,t+h}-y_{i,t-1}=\alpha_{i,h}+\lambda_{t,h}
-  +\psi_h(s_t\times Buffer_{i,t-1})+\boldsymbol{\Gamma}_h^{\mathsf T}Z_{i,t-1}+u_{i,t+h}.
-  \label{eq:buffer}
-\end{equation}
-
-由于强价格监管处理主要集中在中国，监管交互只作机制证据，不提升为一般因果效应。
-综合韧性判据见表\ref{tab:q3-resilience}。燃油传导三个期限均不支持中国更优；对照国
-CPI峰值响应相对中国的中位数为0.245个百分点，对照国工业活动谷值相对中国的中位数
-为 $-0.544$ 个百分点，但区间包含零，故两项均为部分支持。
-
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \small
-  \caption{中国相对对照国的核心韧性判据}
+  \caption{中国相对韧性的核心判据}
   \label{tab:q3-resilience}
-  \begin{tabularx}{0.96\textwidth}{Xcccc}
+  \begin{tabularx}{0.96\textwidth}{p{0.23\textwidth}Xp{0.22\textwidth}}
     \toprule
-    指标 & 中国值 & 对照国中位数 & 中国优势差额 & 判断 \\
+    维度 & 当前证据 & 判断 \\
     \midrule
-    1月燃油累计传导率 & 0.334 & 0.240 & $-0.093$ & 不支持 \\
-    3月燃油累计传导率 & 0.370 & 0.232 & $-0.138$ & 不支持 \\
-    6月燃油累计传导率 & 0.373 & 0.227 & $-0.147$ & 不支持 \\
-    CPI相对响应 & 0 & 0.245 & 0.245 & 部分支持 \\
-    工业活动相对响应 & 0 & $-0.544$ & $-0.544$ & 部分支持 \\
+    燃油价格 & 中国仅有调价指数代理，不能与六国固定品类零售价正式排名 & 条件代理 \\
+    消费价格 & 对照国减中国点估计中位数0.245，缺联合差异区间 & 结论不充分 \\
+    工业活动 & 对照国减中国点估计中位数2.433，缺联合差异区间 & 结论不充分 \\
+    \midrule
+    总体 & 任一核心维度均不足以形成稳健“更好”判断 & 结论不充分 \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\subsection{关闭临时调控的反事实}
+\subsection{关闭2026年临时调控的动态反事实}
 
-根据《石油价格管理办法》\cite{ndrc2016}，国内成品油价格与国际原油挂钩，但特殊情形下
-可以采取临时调控。令机制应调与实际调价之差为
+依据《石油价格管理办法》\cite{ndrc2016}和2026公告核验，3月汽油机制应调2205元/吨、实调
+1160元/吨，新增缺口1045元/吨；4月机制应调800元/吨、实调420元/吨，新增380元/吨，累计
+缺口1425元/吨。令$P_t^{no}$和$P_t^{act}$分别为无临时调控与实际代理价格路径，输入模型的不是
+静态价格水平差，而是逐月收益差
 
 \begin{equation}
-  Gap_t=\Delta F_t^{rule}-\Delta F_t^{actual},\qquad
-  F_t^{cf}=F_t^{actual}+\sum_{\tau\le t}Gap_\tau.
-  \label{eq:policycf}
+  \Delta f_t=100\left[\ln\frac{P_t^{no}}{P_{t-1}^{no}}
+  -\ln\frac{P_t^{act}}{P_{t-1}^{act}}\right].
+  \label{eq:fuel-return-gap}
 \end{equation}
 
-2026年3月汽油应调2205元/吨、实调1160元/吨，新增差额1045元/吨；4月应调
-800元/吨、实调420元/吨，新增差额380元/吨，累计差额达到1425元/吨。之后将
-无临时调控价格路径的对数收益输入国内PPI、CPI和IAV的0--6阶分布滞后方程，并
-联合传播参数不确定性。价格平滑可以降低当期传导，但国际经验指出其同时会带来财政、
-企业负担与价格信号扭曲的权衡\cite{coady2013,coady2018}。
+对$y\in\{PPI,CPI,IAV\}$，用0至6阶动态核和结果变量AR(1)递推：
 
-\begin{figure}[H]
+\begin{equation}
+  B_{y,t}=\sum_{\ell=0}^{6}\beta_{y,\ell}\Delta f_{t-\ell}
+  +\phi_yB_{y,t-1}.
+  \label{eq:policy-dynamic}
+\end{equation}
+
+三条方程使用同一组长度为6的循环时间块联合抽样，共接受2000组参数抽样，从而保留PPI、CPI和
+IAV估计误差的同期相关。
+
+\begin{figure}[htbp]
   \centering
   \includegraphics[width=0.91\textwidth]{../figures/q3_policy_macro_counterfactual.pdf}
-  \caption{关闭2026年临时调控后的PPI、CPI与工业增加值情景差额}
+  \caption{关闭临时调控后的动态宏观情景差额}
   \label{fig:q3-policy-macro}
 \end{figure}
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \small
-  \caption{2026年6月无临时调控相对实际路径的宏观差额}
+  \caption{2026年6月无临时调控减实际路径的宏观差额}
   \label{tab:q3-policy}
-  \begin{tabular}{cccc}
+  \begin{tabular}{lccc}
     \toprule
-    变量 & 情景差额/百分点 & 95\% 区间 & 含义 \\
+    变量 & 情景差额/百分点 & 95\%区间 & 情景证据 \\
     \midrule
-    PPI & 3.370 & $[1.567,\,5.173]$ & 无调控时上行更多 \\
-    CPI & 0.819 & $[0.242,\,1.395]$ & 无调控时上行更多 \\
-    IAV & $-2.093$ & $[-4.164,\,-0.023]$ & 无调控时工业活动更弱 \\
+    PPI & 2.596 & $[1.453,3.633]$ & 区间不跨零 \\
+    CPI & 0.414 & $[0.199,1.088]$ & 区间不跨零 \\
+    IAV & $-0.469$ & $[-1.690,0.672]$ & 结论不充分 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
+结果说明，在维持动态核与局部环境不变的条件下，临时调控可能降低了2026年6月PPI和CPI压力；
+IAV方向符合缓冲解释但区间跨零。该结论依赖调价指数代理，不能外推为全面福利改善，也不改变跨国
+总体韧性“结论不充分”的判断。
+
 \subsection{问题三小结}
 
-中国燃油价格的短中期传导率并不低于对照国中位数，不能据此宣称全面优于其他进口国；
-但CPI、工业活动的相对响应点估计以及政策关闭反事实表明，临时调控在2026年冲击期
-对物价与工业活动形成了可量化的局部缓冲。综合结论因此为``部分支持''。这一结果同时
-提醒：被推迟的1425元/吨累计差额必须在后续下降周期、财政安排或企业经营中消化，
-价格平滑不是无成本政策。
+正式零售价格、相对宏观响应和政策反事实属于三类不同证据。当前数据不能证明中国在三维韧性上
+全面优于对照国；较强的结论只限于2026年条件情景中PPI与CPI的局部缓冲，同时必须显式记录
+1425元/吨延期缺口及其后续消化责任。

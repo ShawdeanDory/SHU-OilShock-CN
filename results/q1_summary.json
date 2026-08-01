@@ -43,61 +43,61 @@
     {
       "model": "ARIMA",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1136961428,
+      "relative_RMSE_vs_no_change": 1.1136961427,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.1586595504,
+      "relative_RMSE_vs_no_change": 1.1586595433,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.2148708436,
+      "relative_RMSE_vs_no_change": 1.2148708347,
       "model_status": "FAIL"
     },
     {
       "model": "ETS",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.2697060242,
+      "relative_RMSE_vs_no_change": 1.2697060115,
       "model_status": "FAIL"
     },
     {
       "model": "EqualWeight",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.0285679769,
+      "relative_RMSE_vs_no_change": 1.0285674525,
       "model_status": "CONDITIONAL"
     },
     {
       "model": "EqualWeight",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.0770345218,
+      "relative_RMSE_vs_no_change": 1.0770338815,
       "model_status": "FAIL"
     },
     {
       "model": "EqualWeight",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.082625536,
+      "relative_RMSE_vs_no_change": 1.0826250354,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 1,
-      "relative_RMSE_vs_no_change": 1.024748029,
+      "relative_RMSE_vs_no_change": 1.0247459695,
       "model_status": "CONDITIONAL"
     },
     {
       "model": "SARIMAX",
       "horizon": 3,
-      "relative_RMSE_vs_no_change": 1.1044238842,
+      "relative_RMSE_vs_no_change": 1.104421116,
       "model_status": "FAIL"
     },
     {
       "model": "SARIMAX",
       "horizon": 6,
-      "relative_RMSE_vs_no_change": 1.1013714942,
+      "relative_RMSE_vs_no_change": 1.1013692761,
       "model_status": "FAIL"
     },
     {
@@ -119,12 +119,12 @@
       "model_status": "CONDITIONAL"
     }
   ],
-  "placebo_min_empirical_pvalue": 0.01020408163265306,
+  "placebo_min_empirical_pvalue": 0.024390243902439025,
   "forecast_rows": 1404,
   "origin_forecast_rows": 3,
   "metric_rows": 18,
   "event_effect_rows": 12,
-  "placebo_rows": 280,
+  "placebo_rows": 118,
   "shock_rows": 198,
   "volatility_rows": 615,
   "volatility_summary_rows": 4,

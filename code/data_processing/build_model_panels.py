@@ -649,13 +649,13 @@ def build_china_regulated_gasoline_monthly(monthly_q1: pd.DataFrame, warnings: l
         result["no_temporary_control_gasoline_cny_per_ton"] = np.nan
         result["china_regulated_gasoline_index"] = np.nan
         result["coverage_status"] = "missing_official_price_anchor"
-        result["measure_type"] = "official_regulated_retail_cap"
+        result["measure_type"] = "regulated_gasoline_adjustment_index_proxy"
         result["source_url"] = ""
         save_processed(result, "china_regulated_gasoline_monthly.csv")
         warnings.append(
             {
                 "code": "china_official_fuel_anchor_missing",
-                "message": "No Beijing 92 official price anchor is available; China cannot enter the main Q3 fuel comparison.",
+                "message": "No auditable fixed-product official price anchor is available; China cannot enter the main Q3 fuel comparison.",
             }
         )
         return result
@@ -713,18 +713,18 @@ def build_china_regulated_gasoline_monthly(monthly_q1: pd.DataFrame, warnings: l
     nonmissing = int(result["china_regulated_gasoline_cny_per_ton"].notna().sum())
     result["coverage_status"] = np.where(
         result["china_regulated_gasoline_cny_per_ton"].notna(),
-        "regulated_standard_price_reconstructed",
+        "public_adjustment_series_reconstructed_proxy",
         "missing_before_official_anchor",
     )
-    result["measure_type"] = "official_regulated_standard_gasoline_cap"
+    result["measure_type"] = "regulated_gasoline_adjustment_index_proxy"
     result["coverage_months_nonmissing"] = nonmissing
-    result["main_comparison_ready"] = nonmissing >= CHINA_MAIN_FUEL_MIN_MONTHS
+    result["main_comparison_ready"] = False
     save_processed(result, "china_regulated_gasoline_monthly.csv")
     if nonmissing < CHINA_MAIN_FUEL_MIN_MONTHS:
         warnings.append(
             {
                 "code": "china_official_fuel_coverage_limited",
-                "message": f"China official regulated gasoline series has {nonmissing} nonmissing months; at least {CHINA_MAIN_FUEL_MIN_MONTHS} are required for the main Q3 fuel comparison.",
+                "message": f"China reconstructed regulated-gasoline adjustment proxy has {nonmissing} nonmissing months but is excluded from the main price-level comparison because the historical source is not a fixed-product official retail-cap series.",
             }
         )
     return result
@@ -852,14 +852,20 @@ def build_country_monthly(monthly_q1: pd.DataFrame, monthly_cn: pd.DataFrame, wa
     else:
         china_panel_fuel = official_china_fuel
         china_fuel_column = "china_regulated_gasoline_cny_per_ton"
-        china_fuel_unit = "CNY/tonne"
-        china_fuel_source = "regulated standard gasoline maximum retail cap; 2026 Beijing 92-octane anchors retained for policy notes"
-        china_price_measure_type = "official_regulated_standard_gasoline_cap"
-        china_observed_or_regulated = "regulated_official"
-        china_included = china_official_ready
+        china_fuel_unit = "CNY/tonne index proxy"
+        china_fuel_source = "public adjustment-series reconstruction; 2026 official notices are audited separately"
+        china_price_measure_type = "regulated_gasoline_adjustment_index_proxy"
+        china_observed_or_regulated = "proxy_not_fixed_product_retail_level"
+        china_included = False
         china_note = (
-            f"China uses the regulated standard gasoline maximum retail price path; "
-            f"{official_months} nonmissing months are available and at least {CHINA_MAIN_FUEL_MIN_MONTHS} are required for main ranking."
+            f"China uses a reconstructed regulated-gasoline adjustment index proxy with {official_months} nonmissing months; "
+            "it is retained for sensitivity and policy-path construction but excluded from the formal cross-country retail-price ranking."
+        )
+        warnings.append(
+            {
+                "code": "china_fuel_price_proxy_only",
+                "message": "China historical fuel series is a reconstructed adjustment-index proxy and is excluded from the formal cross-country price-level ranking.",
+            }
         )
 
     rows = [

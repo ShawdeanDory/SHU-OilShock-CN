@@ -1,27 +1,40 @@
 {
-  "status": "PASS",
+  "status": "CONDITIONAL",
   "execution_status": "PASS",
-  "evidence_status": "PARTIAL",
+  "evidence_status": "INCONCLUSIVE",
   "allowed_claims": [
-    "China enters the main fuel comparison only through an official regulated fuel-price layer",
+    "China historical fuel pass-through is a proxy sensitivity and is excluded from the formal retail-price ranking",
     "Panel LP coefficients are relative to China under full year-month fixed effects",
-    "Policy counterfactuals remove 2026 temporary-control gaps on the regulated finished-fuel price layer and propagate to PPI/CPI/IAV"
+    "The 2026 conditional policy scenario propagates proxy fuel-return gaps dynamically through PPI/CPI/IAV kernels with a common time-block bootstrap"
   ],
   "forbidden_claims": [
     "China is better solely because Brent-CNY proxy pass-through is lower",
     "fuel price smoothing is welfare-improving without considering cumulative policy gap costs",
-    "fuel_price_regulation interaction is a general causal effect when China is the single strong treatment country"
+    "unaudited structural-buffer proxies support quantitative policy-interaction effects"
   ],
   "random_seed": 20260730,
-  "comparability_guardrail": "China uses the official regulated fuel-price layer when available, but it enters the main cross-country fuel ranking only after the official series has sufficient history.",
-  "warnings": [],
+  "comparability_guardrail": "China uses a reconstructed regulated-gasoline adjustment-index proxy and is excluded from the formal cross-country retail-price ranking; 2026 policy notices are audited separately.",
+  "warnings": [
+    {
+      "code": "q3_buffer_quantitative_results_withheld",
+      "message": "Continuous buffer interactions were withheld because the country-year table is an unaudited proxy."
+    },
+    {
+      "code": "q3_policy_joint_bootstrap",
+      "message": "Accepted 2000 joint three-equation moving-block draws from 2197 attempts."
+    },
+    {
+      "code": "q3_fuel_panel_leave_one_withheld",
+      "message": "Fuel panel leave-one-country inference is withheld because China is a proxy and excluded from the formal price-level panel."
+    }
+  ],
   "rows": {
     "q3_country_pass_through.csv": 21,
-    "q3_panel_irf.csv": 234,
-    "q3_buffer_interactions.csv": 156,
+    "q3_panel_irf.csv": 156,
+    "q3_buffer_interactions.csv": 0,
     "q3_policy_counterfactual.csv": 5,
     "q3_policy_macro_counterfactual.csv": 15,
-    "q3_resilience_metrics.csv": 8,
-    "q3_robustness.csv": 42
+    "q3_resilience_metrics.csv": 6,
+    "q3_robustness.csv": 11
   }
 }

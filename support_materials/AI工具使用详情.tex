@@ -1,0 +1,47 @@
+% !TEX program = xelatex
+\documentclass[12pt,a4paper]{ctexart}
+\usepackage[top=25mm,bottom=25mm,left=25mm,right=25mm]{geometry}
+\usepackage{longtable,booktabs,array,url}
+\setlength{\parindent}{2em}
+\begin{document}
+\begin{center}
+  {\zihao{2}\bfseries AI工具使用详情}
+\end{center}
+
+\section*{一、已核验工具}
+
+\begin{longtable}{p{0.17\textwidth}p{0.18\textwidth}p{0.20\textwidth}p{0.28\textwidth}}
+\toprule
+工具 & 版本/型号 & 开发机构与日期 & 使用目的和环节 \\
+\midrule
+OpenAI Codex & GPT-5（Codex） & OpenAI；2026-07-29至2026-08-01 & 公开数据检索提示、Python程序调试、模型风险探针、LaTeX排版、结果与正文一致性检查 \\
+\bottomrule
+\end{longtable}
+
+\section*{二、关键交互与采纳情况}
+
+\begin{enumerate}
+  \item 提示要求区分油价预测、事件识别和结构归因。参赛队采纳证据分层，但保留no-change作为
+  样本外胜出基线，没有因模型复杂度替换结果。
+  \item 提示检查Q2公式和程序定义。参赛队逐变量核对被解释量，将PPI、CPI、IAV和原油成本改为
+  未来水平响应，汇率保留累计对数变化；删除IAV伪累计量。
+  \item 提示审计Q3跨国可比性。参赛队核验后将中国历史燃油序列降级为调价指数代理，排除出正式
+  零售价格排名；未经审计缓冲变量定量回归执行失败关闭。
+  \item 提示把政策反事实改为动态传播。参赛队采用0至6阶核、结果AR(1)和三方程共同时间块抽样，
+  并以程序恒等式复核动态传播。
+  \item 提示重构Q4延期负担。参赛队将平均缺口月负担与最大、期末、恢复期末缺口分开，加入自动
+  追补和样本外配对检验。
+\end{enumerate}
+
+\section*{三、人工核验和责任}
+
+AI输出未被直接视为事实或模型结论。参赛队对题面解释、数据来源、变量口径、代码执行、图表、
+冻结数值、文献条目和最终表述逐项核验，并对作品的原创性、真实性和准确性承担全部责任。
+
+\section*{四、待参赛队从账号历史补录}
+
+赛前讨论曾参考Grok和Google Gemini给出的方案建议。请在提交前根据实际账号记录补录两者的
+精确版本/型号、开发机构、使用日期、关键提示词与采纳情况；在补录完成前，本文件不得视为最终
+合规版本。
+
+\end{document}

@@ -5,25 +5,24 @@ Q1,origin_2026_02_forecast_h1,70.887,美元/桶,论文正文保留2到3位有效
 Q1,origin_2026_02_forecast_h3,70.887,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_origin_forecast.csv,2026-05 的 no-change 预测价格,不得把未到期的2026-08预测写成有实际误差
 Q1,origin_2026_02_forecast_h6,70.887,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_origin_forecast.csv,2026-08 的 no-change 预测价格,不得把未到期的2026-08预测写成有实际误差
 Q1,E1_CAR_0_estimate,0.079666,log return,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,交易日CAR与经验placebo可作为事件相关异常证据,不得解释为严格战争净因果贡献
-Q1,E1_CAR_0_empirical_p,0.011236,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
+Q1,E1_CAR_0_empirical_p,0.02439,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
 Q1,E1_CAR_0_1_estimate,0.156103,log return,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,交易日CAR与经验placebo可作为事件相关异常证据,不得解释为严格战争净因果贡献
-Q1,E1_CAR_0_1_empirical_p,0.010204,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
+Q1,E1_CAR_0_1_empirical_p,0.02439,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
 Q1,E1_CAR_0_2_estimate,0.135494,log return,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,交易日CAR与经验placebo可作为事件相关异常证据,不得解释为严格战争净因果贡献
-Q1,E1_CAR_0_2_empirical_p,0.020833,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
+Q1,E1_CAR_0_2_empirical_p,0.051282,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_event_effects.csv,经验p值使用有限样本add-one修正,不得报告0或只引用常规HAC显著性
 Q1,structural_shock_nonmissing_months_min,186,months,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_structural_shocks.csv,三类SVAR结构冲击满足不少于120个月覆盖,不得再使用52期STEO残差作为主结构识别
 Q1,vol_multiple_prewar,1.0,倍,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_volatility_summary.csv,条件波动率可描述战争阶段油价波动变化,不得解释为福利损失或实体经济损失
 Q1,vol_multiple_E1_immediate_window,1.587,倍,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_volatility_summary.csv,条件波动率可描述战争阶段油价波动变化,不得解释为福利损失或实体经济损失
 Q1,vol_multiple_E2_disruption,2.214,倍,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_volatility_summary.csv,条件波动率可描述战争阶段油价波动变化,不得解释为福利损失或实体经济损失
 Q1,vol_multiple_E3_easing,1.566,倍,论文正文保留2到3位有效数字；表格按来源文件精度,results/q1_volatility_summary.csv,条件波动率可描述战争阶段油价波动变化,不得解释为福利损失或实体经济损失
 Q2,oil_specific_brent_cny_cost_log_change_pct_extremum,8.832146,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,人民币原油成本 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
-Q2,oil_specific_brent_cny_cost_log_change_pct_cum0_12,4.938521,累计百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,人民币原油成本 的0到12月累计响应可报告为估计量级,不得挑选单一期限替代完整区间报告
+Q2,oil_specific_brent_cny_cost_log_change_pct_area0_12,4.938521,百分点·月,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,人民币原油成本 的0到12月响应曲线面积可报告为描述性量级,不得称为累计百分点、累计产出损失或累计增长损失
 Q2,oil_specific_china_cpi_yoy_pct_extremum,0.246717,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,CPI 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
-Q2,oil_specific_china_cpi_yoy_pct_cum0_12,2.155175,累计百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,CPI 的0到12月累计响应可报告为估计量级,不得挑选单一期限替代完整区间报告
+Q2,oil_specific_china_cpi_yoy_pct_area0_12,2.155175,百分点·月,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,CPI 的0到12月响应曲线面积可报告为描述性量级,不得称为累计百分点、累计产出损失或累计增长损失
 Q2,oil_specific_china_iav_yoy_pct_extremum,-0.427224,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,工业增加值 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
-Q2,oil_specific_china_iav_yoy_pct_cum0_12,-0.340181,累计百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,工业增加值 的0到12月累计响应可报告为估计量级,不得挑选单一期限替代完整区间报告
 Q2,oil_specific_china_ppi_yoy_pct_extremum,0.762181,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
-Q2,oil_specific_china_ppi_yoy_pct_cum0_12,7.400609,累计百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的0到12月累计响应可报告为估计量级,不得挑选单一期限替代完整区间报告
-Q2,quarterly_gdp_validation_estimate,0.748182,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_gdp_validation.csv,季度GDP仅作低频验证,不得插值为月度主增长指标
+Q2,oil_specific_china_ppi_yoy_pct_area0_12,7.400609,百分点·月,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的0到12月响应曲线面积可报告为描述性量级,不得称为累计百分点、累计产出损失或累计增长损失
+Q2,quarterly_gdp_validation_estimate,,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_gdp_validation.csv,季度GDP仅作低频验证,不得插值为月度主增长指标
 Q3,fuel_pass_through_h6_CHN,0.373392,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,中国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_DEU,0.236714,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,德国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_ESP,0.248173,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,西班牙 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
@@ -33,42 +32,43 @@ Q3,fuel_pass_through_h6_JPN,0.198899,累计传导率,论文正文保留2到3位�
 Q3,fuel_pass_through_h6_KOR,0.23744,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,韩国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,policy_gap_2026_04_incremental,380.0,元/吨,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_counterfactual.csv,4月新增调控差额可写为380元/吨,不得把新增差额误写成累计差额
 Q3,policy_gap_2026_04_cumulative,1425.0,元/吨,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_counterfactual.csv,4月累计规则缺口可写为1425元/吨,不得把价格平滑解释为无成本福利改善
-Q3,policy_macro_gap_2026_06_china_cpi_yoy_pct,0.818545,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对CPI的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
-Q3,policy_macro_gap_2026_06_china_iav_yoy_pct,-2.093462,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对IAV的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
-Q3,policy_macro_gap_2026_06_china_ppi_yoy_pct,3.370104,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对PPI的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
-Q3,overall_china_resilience_judgement,PARTIAL,categorical,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_resilience_metrics.csv,中国综合韧性当前判断为PARTIAL,不得写成无条件SUPPORTED
-Q4,fhs_median_price_h1,70.95313,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可作为2026-06-30信息集下的条件分布中位数,不得写成确定性油价路径
+Q3,policy_macro_gap_2026_06_china_cpi_yoy_pct,0.413921,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对CPI的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
+Q3,policy_macro_gap_2026_06_china_iav_yoy_pct,-0.469121,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对IAV的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
+Q3,policy_macro_gap_2026_06_china_ppi_yoy_pct,2.595631,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_policy_macro_counterfactual.csv,无临时调控路径对PPI的情景差额可作为政策关闭反事实,不得解释为已发生事实或完整福利评价
+Q3,overall_china_resilience_judgement,INCONCLUSIVE,categorical,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_resilience_metrics.csv,中国综合韧性当前判断为PARTIAL,不得写成无条件SUPPORTED
+Q4,fhs_median_price_h1,70.953131,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可作为2026-06-30信息集下的条件分布中位数,不得写成确定性油价路径
 Q4,fhs_terminal_prob_above_hist_p95_h1,0.00265,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可报告期末价格超过历史95%分位阈值的条件概率,不得解释为事件必然发生概率或因果概率
 Q4,fhs_median_price_h3,71.455552,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可作为2026-06-30信息集下的条件分布中位数,不得写成确定性油价路径
 Q4,fhs_terminal_prob_above_hist_p95_h3,0.02275,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可报告期末价格超过历史95%分位阈值的条件概率,不得解释为事件必然发生概率或因果概率
-Q4,fhs_median_price_h6,71.755959,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可作为2026-06-30信息集下的条件分布中位数,不得写成确定性油价路径
+Q4,fhs_median_price_h6,71.755961,美元/桶,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可作为2026-06-30信息集下的条件分布中位数,不得写成确定性油价路径
 Q4,fhs_terminal_prob_above_hist_p95_h6,0.05555,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_price_tail_risk.csv,可报告期末价格超过历史95%分位阈值的条件概率,不得解释为事件必然发生概率或因果概率
-Q4,backtest_pinball_FHS_GJR_GARCH_h1,1.63902,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
-Q4,backtest_pinball_Gaussian_random_walk_h1,1.623663,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
-Q4,backtest_pinball_FHS_GJR_GARCH_h3,2.302517,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
-Q4,backtest_pinball_Gaussian_random_walk_h3,2.482876,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
-Q4,backtest_pinball_FHS_GJR_GARCH_h6,3.887562,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
-Q4,backtest_pinball_Gaussian_random_walk_h6,3.81355,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_FHS_GJR_GARCH_h1,1.564654,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_Gaussian_random_walk_h1,1.628838,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_FHS_GJR_GARCH_h3,2.366695,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_Gaussian_random_walk_h3,2.561528,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_FHS_GJR_GARCH_h6,3.519167,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
+Q4,backtest_pinball_Gaussian_random_walk_h6,3.689387,美元/桶分位损失,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_risk_backtest.csv,主方法与基线按相同滚动原点和期限比较,不得只报告有利期限或隐藏基线
 Q4,extreme_q95_china_cpi_yoy_pct_h6,0.267168,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
 Q4,extreme_q95_china_cpi_yoy_pct_h12,0.239965,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
 Q4,extreme_q95_china_iav_yoy_pct_h6,-0.435357,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
 Q4,extreme_q95_china_iav_yoy_pct_h12,-0.628391,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
 Q4,extreme_q95_china_ppi_yoy_pct_h6,0.875408,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
 Q4,extreme_q95_china_ppi_yoy_pct_h12,0.493044,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_macro_stress.csv,可作为历史95%分位油价特定风险冲击下的条件响应,联合区间跨零时不得写成确定性宏观损失
-Q4,policy_buffer_benefit_2026_06_china_cpi_yoy_pct,0.818545,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
-Q4,policy_buffer_benefit_2026_06_china_iav_yoy_pct,2.093462,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
-Q4,policy_buffer_benefit_2026_06_china_ppi_yoy_pct,3.370104,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
-Q4,sapr_optimal_rho_normal,0.2,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,普通状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
-Q4,sapr_optimal_rho_stress,0.05,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,压力状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
-Q4,sapr_optimal_rho_extreme,0.05,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,极端状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
-Q4,sapr_optimal_J2_cvar95_macro_loss,0.373312,standardized loss,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,训练样本膝点规则的95%尾部宏观损失,不得写成全局福利最优或不受规则族限制的最优政策
-Q4,sapr_optimal_J3_gap_burden,0.220084,ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,训练样本膝点规则的累计未调价负担比例,不得写成全局福利最优或不受规则族限制的最优政策
-Q4,sapr_holdout_macro_loss_cvar95,0.557993,standardized loss,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_strategy_comparison.csv,可作为2022—2026隔离检验样本下SAPR尾部宏观损失,不得声称2026以后仍必然占优
-Q4,sapr_holdout_gap_burden_ratio,0.23936,ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_strategy_comparison.csv,可作为隔离检验样本下累计未调价负担比例,不得解释为财政支出或完整社会成本
+Q4,policy_buffer_benefit_2026_06_china_cpi_yoy_pct,0.413921,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
+Q4,policy_buffer_benefit_2026_06_china_iav_yoy_pct,0.469121,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
+Q4,policy_buffer_benefit_2026_06_china_ppi_yoy_pct,2.595631,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_policy_stress.csv,可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述,不得外推到Q4模拟油价路径或写成完整福利收益
+Q4,sapr_optimal_rho_normal,0.3,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,普通状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
+Q4,sapr_optimal_rho_stress,0.1,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,压力状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
+Q4,sapr_optimal_rho_extreme,0.1,pass-through ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,极端状态最优传导率,不得写成全局福利最优或不受规则族限制的最优政策
+Q4,sapr_optimal_J2_cvar95_macro_loss,0.52246,standardized loss,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,训练样本膝点规则的95%尾部宏观损失,不得写成全局福利最优或不受规则族限制的最优政策
+Q4,sapr_optimal_J3_avg_gap_month_burden,0.024464,ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_optimal_rule.csv,训练样本膝点规则的平均标准化缺口月负担,不得写成全局福利最优或不受规则族限制的最优政策
+Q4,sapr_holdout_macro_loss_cvar95,1.19787,standardized loss,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_strategy_comparison.csv,可作为2022—2026隔离检验样本下SAPR尾部宏观损失,不得声称2026以后仍必然占优
+Q4,sapr_holdout_gap_burden_ratio,0.022215,ratio,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_strategy_comparison.csv,可作为隔离检验样本下平均标准化缺口月负担,不得解释为财政支出或完整社会成本
 Q4,sapr_holdout_non_dominated_probability,1.0,probability,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_summary.json,可报告训练期选出规则在检验期保持非支配的bootstrap概率,不得改写成真实世界政策成功概率
-Q4,sapr_sensitivity_bootstrap_block_3_rule,"(0.20,0.05,0.05)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
-Q4,sapr_sensitivity_bootstrap_block_6_rule,"(0.20,0.05,0.05)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
-Q4,sapr_sensitivity_cpi_weight_plus20_rule,"(0.20,0.05,0.05)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
-Q4,sapr_sensitivity_iav_weight_plus20_rule,"(0.20,0.05,0.05)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
-Q4,sapr_sensitivity_threshold_70_90_rule,"(0.20,0.10,0.00)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
-Q4,sapr_sensitivity_threshold_80_975_rule,"(0.15,0.05,0.05)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_bootstrap_block_12_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_bootstrap_block_3_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_bootstrap_block_6_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_cpi_weight_plus20_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_iav_weight_plus20_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_threshold_70_90_rule,"(0.30,0.15,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
+Q4,sapr_sensitivity_threshold_80_975_rule,"(0.30,0.10,0.10)",rule tuple,论文正文保留2到3位有效数字；表格按来源文件精度,results/q4_sapr_sensitivity.csv,可用于说明阈值、块长和权重变动下规则是否稳定,不得事后删除不利敏感性结果
