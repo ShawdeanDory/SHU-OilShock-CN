@@ -1,0 +1,53 @@
+% !TEX program = xelatex
+% 电子版默认入口。需要纸质前置页时编译 main-print.tex。
+\ifdefined\paperprint
+  \documentclass[notoc,bwprint]{cumcmthesis}
+\else
+  \documentclass[withoutpreface,notoc,bwprint]{cumcmthesis}
+\fi
+
+\graphicspath{{../figures/}{figures/}}
+
+\title{地缘冲突下国际油价波动预测、宏观传导与中国政策韧性研究}
+\tihao{A}
+\baominghao{请填写报名号}
+\schoolname{请填写学校名称}
+\membera{队员一}
+\memberb{队员二}
+\memberc{队员三}
+\supervisor{指导教师}
+\yearinput{2026}
+\monthinput{8}
+\dayinput{1}
+
+% 写作期提示框；提交前全文搜索并删除所有 \draftnote。
+\newcommand{\draftnote}[1]{%
+  \par\noindent
+  \fcolorbox{gray!55}{gray!7}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{\zihao{-5}\textbf{写作提示：}#1}%
+  }\par
+}
+
+\begin{document}
+
+\maketitle
+\input{sections/abstract}
+
+% 2026 电子提交规范不设置目录。
+\input{sections/1_restatement}
+\input{sections/2_analysis}
+\input{sections/3_assumptions}
+\input{sections/4_symbols}
+\input{sections/5_problem1}
+\input{sections/6_problem2}
+\input{sections/7_problem3}
+\input{sections/8_problem4}
+\input{sections/9_sensitivity}
+\input{sections/10_evaluation}
+\input{sections/11_conclusion}
+
+\input{sections/references}
+
+\input{sections/A_appendix}
+
+\end{document}

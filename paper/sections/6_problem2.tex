@@ -1,0 +1,25 @@
+\section{问题二：油价冲击对中国经济的传导}
+
+\subsection{传导机制与变量构造}
+
+\draftnote{按“结构冲击--人民币原油成本--PPI--CPI/工业增加值--GDP 验证”展开，说明
+月度主频率和季度验证的关系。}
+
+\subsection{局部投影与 ARDL 模型}
+
+以局部投影为例，可将期限 $h$ 的响应写为
+\begin{equation}
+  y_{t+h}-y_{t-1}
+  = \alpha_h + \beta_h s_t^{(k)}
+  + \sum_{j=1}^{p}\Phi_{h,j}\mathbf{x}_{t-j}
+  + \varepsilon_{t+h},
+  \label{eq:lp}
+\end{equation}
+其中，$\beta_h$ 表示第 $k$ 类油价冲击在期限 $h$ 对宏观变量的动态影响。
+
+\draftnote{补充滞后阶数、标准误、样本区间、单位和缺失值处理；不得把不显著或
+INCONCLUSIVE 的结果写成确定因果结论。}
+
+\subsection{结果、稳健性与经济解释}
+
+\draftnote{依次呈现冲击响应、传导指标、非对称性与季度 GDP 验证，并解释置信区间。}

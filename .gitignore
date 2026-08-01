@@ -41,6 +41,8 @@ paper/**/*.xdv
 *.tmp
 *.temp
 ~$*
+tmp/
+output/
 .env
 .env.local
 .env.*.local
