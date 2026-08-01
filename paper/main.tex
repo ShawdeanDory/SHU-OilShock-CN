@@ -6,6 +6,12 @@
   \documentclass[withoutpreface,notoc,bwprint]{cumcmthesis}
 \fi
 
+% 按团队排版约定取消中文与英文、数字之间的自动间距。
+\xeCJKsetup{CJKecglue=\hskip 0pt}
+\DeclareCaptionLabelFormat{cjkcompact}{#1#2}
+\captionsetup[figure]{labelformat=cjkcompact}
+\captionsetup[table]{labelformat=cjkcompact}
+
 \graphicspath{{../figures/}{figures/}}
 
 \title{地缘冲突下国际油价波动预测、宏观传导与中国政策韧性研究}

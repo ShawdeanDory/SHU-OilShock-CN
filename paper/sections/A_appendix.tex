@@ -1,9 +1,49 @@
 \clearpage
 \begin{appendices}
 
-\section{支撑材料列表}
+\section{主要算法流程}
 
-\begin{longtable}{p{0.34\textwidth}p{0.56\textwidth}}
+\subsection{扩展窗口预测与事件CAR}
+
+\begin{enumerate}
+  \item 对每个目标月和期限 $h\in\{1,3,6\}$，将数据截断在预测原点，分别拟合
+  no-change、ARIMA、SARIMAX、ETS和Theta；保存点预测、区间和误差。
+  \item 在相同目标月配对模型误差，计算MAE、RMSE、相对误差和DM--HLN检验，按
+  预注册规则选择主预测。
+  \item 仅用E1前日度数据拟合AR(3)+美元收益模型，递归生成前三个交易日条件期望，
+  计算 $CAR[0]$、$CAR[0,+1]$、$CAR[0,+2]$。
+  \item 对排除真实事件前后七日的周末重复相同步骤，构造经验安慰剂分布。
+\end{enumerate}
+
+\subsection{局部投影与政策反事实}
+
+\begin{enumerate}
+  \item 按递归排序估计历史结构VAR，得到供给、全球需求和石油特定风险冲击。
+  \item 对每个宏观结果与期限估计局部投影；从同一月度样本执行移动块bootstrap，生成
+  逐点区间、联合最大 $t$ 区间和FDR校正量。
+  \item 对七国分别估计本币Brent到国内燃油的分布滞后传导，再估计含国家与年月固定
+  效应的相对中国面板响应。
+  \item 将2026年两次机制应调与实际调价差额累计加回官方价格路径，通过中国国内价格
+  到PPI、CPI、IAV的动态核传播，并联合抽样参数不确定性。
+\end{enumerate}
+
+\subsection{FHS风险模拟与SAPR优化}
+
+\begin{enumerate}
+  \item 在截止日前日收益上估计GJR--GARCH，保存标准化残差；从经验残差中有放回抽样，
+  递归生成1、3、6月共20000条油价路径。
+  \item 用15个季度末原点对FHS与高斯随机游走进行统一回测，比较分位损失、区间覆盖率、
+  区间宽度和中位数绝对误差。
+  \item 仅在2013-03--2021-12开发样本计算状态阈值，枚举满足
+  $\rho_N\ge\rho_S\ge\rho_E$ 的1771条规则，计算四个目标并筛选Pareto集。
+  \item 在Pareto集内归一化四目标，选择距理想点最近的膝点；使用2022-01--2026-06
+  隔离样本、2000次参数抽样和块bootstrap与三类基线比较。
+\end{enumerate}
+
+\section{数据与支撑材料索引}
+
+\footnotesize
+\begin{longtable}{p{0.40\textwidth}p{0.50\textwidth}}
   \caption{论文支撑材料及用途}\label{tab:support-files}\\
   \toprule
   文件或目录 & 功能说明 \\
@@ -13,19 +53,40 @@
   文件或目录 & 功能说明 \\
   \midrule
   \endhead
-  \texttt{code/problem1/} & 问题一预测、事件研究、结构冲击和波动率代码 \\
-  \texttt{code/problem2/} & 问题二中国宏观传导代码 \\
-  \texttt{code/problem3/} & 问题三跨国比较和政策反事实代码 \\
-  \texttt{code/problem4/} & 自拟拓展的尾部风险和压力测试代码 \\
-  \texttt{data/processed/} & 清洗后的建模数据及字段说明 \\
-  \texttt{results/} & 冻结数值、诊断、回测和稳健性结果 \\
-  \texttt{figures/} & 正文引用的 PDF 矢量图及 PNG 预览 \\
+  \url{data/SOURCE_REGISTRY.csv} & 来源网址、下载日期、访问条件、许可和回退口径 \\
+  \url{data/DATA_DICTIONARY.csv} & 变量定义、频率、单位、发布滞后和缺失规则 \\
+  \url{data/event_timeline.csv} & 冲突、航运、国内调控与缓和事件的日期和来源 \\
+  \url{code/problem1/} & 预测、事件CAR、安慰剂、结构冲击与条件波动 \\
+  \url{code/problem2/} & 中国局部投影、ARDL、非对称与季度GDP验证 \\
+  \url{code/problem3/} & 七国传导、缓冲交互和中国政策关闭反事实 \\
+  \url{code/problem4/} & 油价尾部风险、宏观压力与SAPR--CVaR优化 \\
+  \url{results/final_numbers.json} & 正文关键结果的机器可读汇总 \\
+  \url{results/frozen_numbers.json} & 已冻结的论文数值及源文件哈希 \\
+  \url{results/risk_probe_summary.json} & 基线、风险探针、证据等级与声明边界 \\
+  \url{results/reproducibility_manifest.json} & 代码、输入、输出哈希和复现环境 \\
+  \url{reports/paper_numbers.csv} & 正文数字、单位、舍入规则和允许/禁止表述 \\
   \bottomrule
 \end{longtable}
+\normalsize
 
-\section{核心代码说明}
+\section{复现顺序与环境说明}
 
-\draftnote{正式提交时按比赛要求放入完整、可运行代码。若代码过长，正文附录至少给出
-文件索引、入口命令和关键函数；支撑材料压缩包中保留全部代码与数据说明。}
+全部数据处理和模型以随机种子20260730、截止日2026-06-30运行。建议按``数据构建与
+校验---Q1---面板重建---Q2---Q3---Q4风险层---Q4 SAPR---结果冻结---最终验证''顺序
+执行。冻结清单指定Python 3.11.9和精确依赖版本；在其他环境中验证时可能产生环境警告，
+但论文数值必须与冻结哈希一致。完整重跑后，最终门禁应同时满足：风险探针总体状态为
+通过、无阻塞探针、论文定稿许可为真，且冻结源哈希与当前结果一致。
+
+\section{证据解释边界}
+
+\begin{itemize}
+  \item $ARBaselineGap$ 是战前AR规律的描述性差额，不是战争净因果贡献。
+  \item Q2联合区间跨零时，不将点估计写成稳健总体增长损失。
+  \item Q3的总体判断是部分支持；燃油传导维度本身不支持中国全面更优。
+  \item Q4尾部概率是固定信息集下的条件概率；宏观压力与政策反事实不可相加。
+  \item SAPR膝点只在注册的三状态、六个月、四目标规则族内最优；延期差额不是财政支出。
+  \item Polymarket等Innovation Track数据仅作为后续研究储备，未进入原三问及问题四的
+  正式模型、参数估计或结论证据链。
+\end{itemize}
 
 \end{appendices}

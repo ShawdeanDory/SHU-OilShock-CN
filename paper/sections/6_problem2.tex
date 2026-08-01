@@ -2,24 +2,96 @@
 
 \subsection{传导机制与变量构造}
 
-\draftnote{按“结构冲击--人民币原油成本--PPI--CPI/工业增加值--GDP 验证”展开，说明
-月度主频率和季度验证的关系。}
+既有研究表明，国际油价冲击可通过投入成本、通胀、消费投资和政策反应影响中国经济，
+且效应会随冲击来源和时期变化\cite{tang2010,cross2017,chen2020}。本文将问题一的三类
+结构冲击作为主解释变量，并把未分解的约化形式 $OilShock$ 仅作稳健性对照。人民币
+原油基准成本构造为
 
-\subsection{局部投影与 ARDL 模型}
+\begin{equation}
+  C_t^{oil}=P_t^{Brent,USD}\times FX_t^{CNY/USD},\qquad
+  \Delta c_t=100\Delta\ln C_t^{oil}.
+  \label{eq:oilcost}
+\end{equation}
 
-以局部投影为例，可将期限 $h$ 的响应写为
+宏观结果依次为人民币原油成本变化、PPI同比、CPI同比、工业增加值同比和人民币汇率
+变化；季度实际GDP同比只作低频验证。图\ref{fig:q2-mechanism}给出传导方向。油价
+特定风险冲击首先改变进口成本，生产资料价格随后响应，消费价格与工业活动的响应更慢，
+因此仅凭当期GDP或单一月份不能评价全部影响。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{../figures/paper_transmission_mechanism.pdf}
+  \caption{国际油价冲击向中国宏观经济传导的机制}
+  \label{fig:q2-mechanism}
+\end{figure}
+
+\subsection{局部投影模型与区间推断}
+
+局部投影可在不对整条动态路径施加强VAR递推约束的情况下逐期估计脉冲响应
+\cite{jorda2005}。对结果变量 $y$、冲击 $s_t^{(k)}$ 和期限 $h$，估计
+
 \begin{equation}
   y_{t+h}-y_{t-1}
-  = \alpha_h + \beta_h s_t^{(k)}
-  + \sum_{j=1}^{p}\Phi_{h,j}\mathbf{x}_{t-j}
-  + \varepsilon_{t+h},
+  =\alpha_h+\theta_{y,h}^{(k)}s_t^{(k)}
+  +\rho_h y_{t-1}+\eta_h s_{t-1}^{(k)}
+  +\boldsymbol{\Gamma}_h^{\mathsf T}Z_{t-1}+u_{t+h},
   \label{eq:lp}
 \end{equation}
-其中，$\beta_h$ 表示第 $k$ 类油价冲击在期限 $h$ 对宏观变量的动态影响。
 
-\draftnote{补充滞后阶数、标准误、样本区间、单位和缺失值处理；不得把不显著或
-INCONCLUSIVE 的结果写成确定因果结论。}
+其中 $Z_{t-1}$ 包含美元收益、GPR、月份虚拟变量和疫情阶段。除IAV因官方1--2月
+结构性缺失只预注册 $h=0,3,6,12$ 外，其余变量估计 $h=0,\ldots,12$。所有期限使用
+同源移动块bootstrap，并以最大 $t$ 统计量构造95\% 联合置信带；同时报告逐点区间和
+FDR校正结果。累计响应定义为
 
-\subsection{结果、稳健性与经济解释}
+\begin{equation}
+  CR_y(H)=\sum_{h=0}^{H}\widehat\theta_{y,h}.
+  \label{eq:cumirf}
+\end{equation}
 
-\draftnote{依次呈现冲击响应、传导指标、非对称性与季度 GDP 验证，并解释置信区间。}
+作为可用基线，另估计包含冲击0--6阶滞后、结果变量一阶滞后以及相同控制项的ARDL。
+稳健性检验改变冲击滞后阶数、排除疫情期，并对正负约化冲击进行拆分。
+
+\subsection{动态响应结果}
+
+图\ref{fig:q2-irf}展示油价特定风险冲击的主要响应。进口成本在冲击当月快速上升，
+PPI与CPI的点估计随后上行，IAV在较长期限出现负向点估计，符合成本推动与需求挤出
+的传导逻辑；然而大部分宏观响应的联合区间跨越零，必须同时报告不确定性。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.91\textwidth]{../figures/q2_irf.pdf}
+  \caption{油价特定风险冲击下中国主要变量的局部投影响应}
+  \label{fig:q2-irf}
+\end{figure}
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{油价特定风险冲击的传导指标}
+  \label{tab:q2-metrics}
+  \begin{tabularx}{0.96\textwidth}{Xcccc}
+    \toprule
+    结果变量 & 峰值/谷值 & 出现月份 & 0--6月累计 & 0--12月累计 \\
+    \midrule
+    人民币原油成本变化 & 8.832 & 0 & 7.440 & 4.939 \\
+    PPI同比 & 0.762 & 10 & 3.655 & 7.401 \\
+    CPI同比 & 0.247 & 7 & 0.877 & 2.155 \\
+    工业增加值同比 & $-0.427$ & 12 & 0.087 & $-0.340$ \\
+    人民币汇率变化 & 0.771 & 12 & 1.612 & 5.846 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+表\ref{tab:q2-metrics}中单位为百分点或对数百分点。人民币原油成本当期响应
+8.832，联合95\% 区间为 $[6.888,10.776]$，说明成本入口最清晰；CPI的峰值为
+0.247个百分点，IAV的谷值为 $-0.427$ 个百分点，但其联合区间未稳定排除零。季度
+GDP回归使用2010Q2--2026Q2的65个观测，估计值为0.748个百分点，95\% 区间
+$[0.010,1.487]$。该正向点估计提示总需求、出口和政策反应可能抵消成本冲击，也说明
+不能把所有油价上涨机械解释为产出损失。
+
+\subsection{问题二小结}
+
+结构冲击模型揭示了``进口成本快速响应、PPI与CPI滞后上行、工业活动可能承压''的
+传导顺序，但当前样本下总体增长损失证据为结论不充分。本文因此只报告方向、量级、期限
+和区间，不写成``油价冲击显著造成中国经济增长损失''。这一审慎结论也为第三问提供了
+评价准则：政策效果需要同时观察价格与工业活动，不能只看燃油价格被压低多少。
