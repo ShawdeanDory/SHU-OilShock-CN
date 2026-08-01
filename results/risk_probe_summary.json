@@ -817,7 +817,7 @@
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
         "exact_package_pins": 41,
-        "generation_python_version": "3.11.9",
+        "generation_python_version": "3.13.9",
         "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },

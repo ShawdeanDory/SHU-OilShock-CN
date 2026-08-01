@@ -23,7 +23,7 @@ Q2,oil_specific_china_iav_yoy_pct_extremum,-0.427224,百分点或对数百分点
 Q2,oil_specific_china_ppi_yoy_pct_extremum,0.762181,百分点或对数百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的响应方向和量级可报告为估计结果,联合区间未排除零时不得写成稳健增长损失
 Q2,oil_specific_china_ppi_yoy_pct_area0_12,7.400609,百分点·月,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_transmission_metrics.csv,PPI 的0到12月响应曲线面积可报告为描述性量级,不得称为累计百分点、累计产出损失或累计增长损失
 Q2,quarterly_gdp_validation_estimate,,百分点,论文正文保留2到3位有效数字；表格按来源文件精度,results/q2_gdp_validation.csv,季度GDP仅作低频验证,不得插值为月度主增长指标
-Q3,fuel_pass_through_h6_CHN,0.373392,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,中国调价指数仅作代理敏感性和部分识别边界分析,不得混用中国代理值与他国观测零售价正式排名
+Q3,fuel_pass_through_h6_CHN,0.373392,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,中国调价指数仅作代理敏感性和部分识别边界分析,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_DEU,0.236714,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,德国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_ESP,0.248173,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,西班牙 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名
 Q3,fuel_pass_through_h6_FRA,0.197886,累计传导率,论文正文保留2到3位有效数字；表格按来源文件精度,results/q3_country_pass_through.csv,法国 可进入主燃油比较,不得混用中国Brent-CNY代理值与他国观测零售价排名

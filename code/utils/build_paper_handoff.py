@@ -206,13 +206,17 @@ def write_paper_numbers() -> None:
 
     h6 = q3_pass[q3_pass["horizon"].eq(6)]
     for _, row in h6.sort_values("country").iterrows():
+        if row["country"] == "CHN":
+            allowed_claim = "中国调价指数仅作代理敏感性和部分识别边界分析"
+        else:
+            allowed_claim = f"{COUNTRY_LABEL_ZH.get(row['country'], row['country'])} 可进入主燃油比较"
         add(
             "Q3",
             f"fuel_pass_through_h6_{row['country']}",
             round(float(row["response"]), 6),
             "累计传导率",
             "results/q3_country_pass_through.csv",
-            f"{COUNTRY_LABEL_ZH.get(row['country'], row['country'])} 可进入主燃油比较",
+            allowed_claim,
             "不得混用中国Brent-CNY代理值与他国观测零售价排名",
         )
     apr = q3_policy[q3_policy["period"].eq("2026-04")]
@@ -372,6 +376,120 @@ def write_paper_numbers() -> None:
             "可用于说明阈值、块长和权重变动下规则是否稳定",
             "不得事后删除不利敏感性结果",
         )
+
+    extension_q1_path = RESULTS_DIR / "paper_extension_q1_historical_decomposition.csv"
+    if extension_q1_path.exists():
+        extension_q1 = pd.read_csv(extension_q1_path).iloc[0]
+        add(
+            "Q1",
+            "svAR_2026_03_supply_contribution",
+            round(float(extension_q1["supply_contribution"]), 6),
+            "百分点",
+            "results/paper_extension_q1_historical_decomposition.csv",
+            "给定递归SVAR识别下2026年3月不利供给贡献处于历史高分位",
+            "不得解释为战争净因果贡献",
+        )
+        add(
+            "Q1",
+            "svAR_2026_03_total_model_contribution",
+            round(float(extension_q1["total_model_contribution"]), 6),
+            "百分点",
+            "results/paper_extension_q1_historical_decomposition.csv",
+            "SVAR三类结构冲击合计解释2026年3月实际Brent收益的主要变化",
+            "不得扩展到缺失供给观测的2026年4至6月",
+        )
+        add(
+            "Q1",
+            "svAR_2026_03_historical_percentile",
+            round(float(extension_q1["historical_percentile"]), 6),
+            "分位数",
+            "results/paper_extension_q1_historical_decomposition.csv",
+            "2026年3月结构贡献在历史经验分布中位于约98.4%分位",
+            "不得称为正式战争概率",
+        )
+
+    extension_q2_path = RESULTS_DIR / "paper_extension_q2_shock_matrix.csv"
+    if extension_q2_path.exists():
+        extension_q2 = pd.read_csv(extension_q2_path)
+        oil_cost = extension_q2[
+            extension_q2["shock"].eq("oil_specific_risk_shock")
+            & extension_q2["outcome"].eq("brent_cny_cost_log_change_pct")
+        ].iloc[0]
+        demand_iav = extension_q2[
+            extension_q2["shock"].eq("aggregate_demand_shock")
+            & extension_q2["outcome"].eq("china_iav_yoy_pct")
+        ].iloc[0]
+        add(
+            "Q2",
+            "heterogeneous_oil_specific_cost_peak",
+            round(float(oil_cost["extremum_response"]), 6),
+            "百分点",
+            "results/paper_extension_q2_shock_matrix.csv",
+            "石油特定风险冲击对人民币原油成本响应最大且联合区间不跨零",
+            "不得笼统推广为所有油价上涨都会造成增长损失",
+        )
+        add(
+            "Q2",
+            "heterogeneous_iav_aggregate_demand_trough",
+            round(float(demand_iav["extremum_response"]), 6),
+            "百分点",
+            "results/paper_extension_q2_shock_matrix.csv",
+            "全球需求冲击下工业增加值谷值点估计为负但联合区间跨零",
+            "不得写成稳健产出损失",
+        )
+
+    extension_q3_path = RESULTS_DIR / "paper_extension_q3_partial_identification.csv"
+    if extension_q3_path.exists():
+        extension_q3 = pd.read_csv(extension_q3_path)
+        uniform = extension_q3[extension_q3["scenario"].eq("uniform")].iloc[0]
+        add(
+            "Q3",
+            "partial_identification_kappa_point",
+            round(float(uniform["critical_kappa_point"]), 6),
+            "缩放系数",
+            "results/paper_extension_q3_partial_identification.csv",
+            "真实固定品类传导率低于代理约61%时中国才可能低于六国中位数",
+            "不得据此恢复中国正式排名",
+        )
+        add(
+            "Q3",
+            "partial_identification_kappa_bootstrap_lower",
+            round(float(uniform["critical_kappa_lower_95"]), 6),
+            "缩放系数",
+            "results/paper_extension_q3_partial_identification.csv",
+            "时间块bootstrap下临界缩放系数下界可用于说明代理不可比程度",
+            "不得把区间解释为真实政策效果区间",
+        )
+        add(
+            "Q3",
+            "partial_identification_kappa_bootstrap_upper",
+            round(float(uniform["critical_kappa_upper_95"]), 6),
+            "缩放系数",
+            "results/paper_extension_q3_partial_identification.csv",
+            "时间块bootstrap下临界缩放系数上界可用于说明代理不可比程度",
+            "不得把区间解释为真实政策效果区间",
+        )
+
+    paired_path = RESULTS_DIR / "q4_sapr_holdout_paired_summary.csv"
+    if paired_path.exists():
+        paired = pd.read_csv(paired_path)
+        full = paired[paired["baseline"].eq("full_mechanism")].set_index("objective")
+        q4_extension_rows = [
+            ("J1_macro_loss", "sapr_holdout_delta_J1_vs_full", "标准化损失差", "SAPR相对完全传导降低检验期平均宏观损失", "不得忽略同期缺口负担增加"),
+            ("J2_cvar95_macro_loss", "sapr_holdout_delta_J2_vs_full", "标准化损失差", "SAPR相对完全传导降低检验期95%尾部宏观损失", "不得称为全局福利最优"),
+            ("J3_avg_gap_month_burden", "sapr_holdout_delta_J3_vs_full", "缺口负担差", "SAPR相对完全传导增加平均未调价缺口负担", "不得把平滑写成无成本收益"),
+            ("J4_adjustment_volatility", "sapr_holdout_delta_J4_vs_full", "调价波动差", "SAPR相对完全传导降低月度调价波动", "不得替代宏观损失和缺口负担指标"),
+        ]
+        for objective, number_id, unit, allowed, forbidden in q4_extension_rows:
+            add(
+                "Q4",
+                number_id,
+                round(float(full.loc[objective, "mean_delta_knee_minus_baseline"]), 6),
+                unit,
+                "results/q4_sapr_holdout_paired_summary.csv",
+                allowed,
+                forbidden,
+            )
 
     pd.DataFrame(rows).to_csv(REPORTS_DIR / "paper_numbers.csv", index=False, encoding="utf-8-sig")
 
@@ -533,6 +651,10 @@ def save_flow(fig: plt.Figure, stem: str, title: str, subtitle: str) -> None:
 
 
 def plot_route_map() -> None:
+    mermaid_source = FIGURES_DIR / "paper_route_map.mmd"
+    if mermaid_source.exists():
+        print("SKIP paper_route_map: maintained from Mermaid source figures/paper_route_map.mmd")
+        return
     fig, ax = plt.subplots(figsize=(10.2, 3.6))
     ax.set_axis_off()
     boxes = [
