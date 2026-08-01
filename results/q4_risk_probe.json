@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "method": "FHS_GJR_GARCH",
+  "role": "main",
+  "baseline": "Gaussian_random_walk",
+  "data_range": [
+    "2010-01-05",
+    "2026-06-30"
+  ],
+  "random_seed": 20260730,
+  "probe_paths": 500,
+  "representative_backtest_origins": 3,
+  "checks": {
+    "daily_rows_at_least_750": true,
+    "cutoff_exact": true,
+    "gjr_persistence_below_one": true,
+    "fhs_distribution_non_degenerate": true,
+    "baseline_distribution_non_degenerate": true,
+    "fixed_seed_exact_replay": true,
+    "seed_sensitivity_below_0_15": true,
+    "representative_backtest_complete": true,
+    "macro_three_outcomes_present": true,
+    "macro_three_scenarios_present": true,
+    "policy_three_outcomes_present": true
+  },
+  "metrics": {
+    "daily_rows": 4062,
+    "gjr_persistence": 0.9918256622620849,
+    "seed_probability_max_abs_difference": 0.006,
+    "runtime_seconds": 3.761680099996738
+  },
+  "warnings": [],
+  "pass_rule": "all input, stationarity, non-degeneracy, replay, seed-perturbation, backtest and cross-module field checks pass",
+  "failure_action": "fall back to Gaussian random walk for price tails or drop incompatible macro-policy layer"
+}

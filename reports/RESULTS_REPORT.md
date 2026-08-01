@@ -1,4 +1,4 @@
-# 国际油价三问建模封板结果报告
+# 国际油价三问及拓展建模封板结果报告
 
 ## Material Passport
 
@@ -13,7 +13,7 @@
 
 本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，可以作为论文定稿数字来源。论文仍需保持证据边界：Q2 的宏观增长损失证据为 `INCONCLUSIVE`，Q3 对“我国应对更好”的综合判断为 `PARTIAL`。
 
-当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实。
+当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；自拟拓展使用 FHS–GJR-GARCH 报告尾部概率，并将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示。
 
 当前阻塞定稿的门禁：
 
@@ -159,9 +159,52 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 | 2026-06 | IAV | -2.0935 | -4.1639 | -0.0230 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
 | 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | official_regulated_finished_fuel_price_layer | MACRO_PROPAGATED_WITH_PARAMETER_UNCERTAINTY |
 
-## 5. 图表与冻结文件
+## 5. 自拟拓展：油价尾部风险与政策压力测试
 
-核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png。
+该模块不是题面正式编号问题。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
+
+| model | horizon_months | median_price | p05_price | p95_price | terminal_prob_above_hist_p90 | terminal_prob_above_hist_p95 | path_prob_cross_hist_p95 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| FHS_GJR_GARCH | 1.0000 | 70.9531 | 53.4109 | 89.8229 | 0.0041 | 0.0027 | 0.0037 |
+| FHS_GJR_GARCH | 3.0000 | 71.4556 | 44.1523 | 103.4081 | 0.0294 | 0.0227 | 0.0376 |
+| FHS_GJR_GARCH | 6.0000 | 71.7560 | 37.1529 | 117.8999 | 0.0683 | 0.0556 | 0.0964 |
+| Gaussian_random_walk | 1.0000 | 70.3095 | 56.9037 | 87.1069 | 0.0003 | 0.0001 | 0.0001 |
+| Gaussian_random_walk | 3.0000 | 69.9413 | 48.6115 | 101.0162 | 0.0186 | 0.0121 | 0.0199 |
+| Gaussian_random_walk | 6.0000 | 69.5814 | 41.5863 | 116.1625 | 0.0670 | 0.0516 | 0.0951 |
+
+滚动回测在同一原点、期限和评价口径下比较主方法与基线；主方法是否胜出由分位损失和覆盖率共同判断，不因预设方法而更换回测区间。
+
+| model | horizon_months | origins | mean_pinball_loss | median_absolute_error | coverage_80 | coverage_90 | mean_width_90 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| FHS_GJR_GARCH | 1.0000 | 15.0000 | 1.6386 | 4.7788 | 0.6667 | 0.9333 | 28.6661 |
+| Gaussian_random_walk | 1.0000 | 15.0000 | 1.6237 | 4.4784 | 0.9333 | 0.9333 | 35.8286 |
+| FHS_GJR_GARCH | 3.0000 | 15.0000 | 2.3006 | 7.5792 | 0.8667 | 1.0000 | 50.8253 |
+| Gaussian_random_walk | 3.0000 | 15.0000 | 2.4829 | 6.5916 | 1.0000 | 1.0000 | 62.8624 |
+| FHS_GJR_GARCH | 6.0000 | 15.0000 | 3.8860 | 6.8558 | 0.8667 | 0.9333 | 72.8509 |
+| Gaussian_random_walk | 6.0000 | 15.0000 | 3.8135 | 6.0388 | 0.9333 | 0.9333 | 90.9725 |
+
+宏观压力层使用 Q1 油价特定风险冲击的历史正向分位数缩放 Q2 IRF。下表只展示 95%分位冲击的 6、12 月条件响应；联合区间跨零时继续标记为 `INCONCLUSIVE`。
+
+| scenario | outcome_label | horizon | conditional_response_pctpt | joint_lower_95 | joint_upper_95 | row_evidence_status |
+| --- | --- | --- | --- | --- | --- | --- |
+| extreme_q95 | CPI | 6.0000 | 0.2672 | -0.1917 | 0.7260 | INCONCLUSIVE |
+| extreme_q95 | CPI | 12.0000 | 0.2400 | -0.2235 | 0.7034 | INCONCLUSIVE |
+| extreme_q95 | 工业增加值 | 6.0000 | -0.4354 | -1.2394 | 0.3687 | INCONCLUSIVE |
+| extreme_q95 | 工业增加值 | 12.0000 | -0.6284 | -1.4204 | 0.1636 | INCONCLUSIVE |
+| extreme_q95 | PPI | 6.0000 | 0.8754 | -0.2898 | 2.0406 | INCONCLUSIVE |
+| extreme_q95 | PPI | 12.0000 | 0.4930 | -0.8593 | 1.8454 | INCONCLUSIVE |
+
+政策压力层只重述 Q3 已实现的 2026 年临时调控关闭反事实，不外推到模拟油价路径。正的“政策缓冲收益”分别表示避免的 PPI/CPI 增幅或避免的工业活动损失。
+
+| period | outcome_label | policy_buffer_benefit_pctpt | benefit_lower_95 | benefit_upper_95 | evidence_status |
+| --- | --- | --- | --- | --- | --- |
+| 2026-06 | CPI | 0.8185 | 0.2423 | 1.3948 | SUPPORTED_95 |
+| 2026-06 | 工业增加值 | 2.0935 | 0.0230 | 4.1639 | SUPPORTED_95 |
+| 2026-06 | PPI | 3.3701 | 1.5673 | 5.1729 | SUPPORTED_95 |
+
+## 6. 图表与冻结文件
+
+核心 PNG 图表：data_overview_fuel_panel.png, data_overview_oil_gpr.png, q1_forecast_1m.png, q1_structural_shocks.png, q1_war_counterfactual.png, q2_irf.png, q2_transmission_chain.png, q3_panel_irf.png, q3_pass_through_6m.png, q3_policy_counterfactual.png, q3_policy_macro_counterfactual.png, q3_resilience_metrics.png, q4_macro_policy_stress.png, q4_price_tail_risk.png。
 
 冻结文件：
 
@@ -172,7 +215,7 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
-## 6. Warnings
+## 7. Warnings
 
 - `manifest_status`：nbs_cpi_202606_release status=REMOTE_ONLY
 - `missing_raw_snapshot`：nbs_cpi_202606_release raw snapshot is absent
@@ -188,6 +231,6 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 - `missing_raw_snapshot`：ndrc_fuel_control_20260407 raw snapshot is absent
 - `nbs_gdp_yoy_manual_supplement`：OECD GY lacks 2026-Q2; GDP yoy=4.3 added from NBS 2026-07-15 release.
 
-## 7. 论文使用建议
+## 8. 论文使用建议
 
-论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有一般因果优势。
+论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有一般因果优势；拓展问题不得把尾部概率写成确定结果，也不得把 Q2 与 Q3 的不同证据层直接相加。

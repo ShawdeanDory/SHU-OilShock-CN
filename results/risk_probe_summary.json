@@ -29,7 +29,14 @@
     "q3_resilience_metrics.csv": true,
     "q3_robustness.csv": true,
     "q3_summary.csv": true,
-    "q3_summary.json": true
+    "q3_summary.json": true,
+    "q4_macro_stress.csv": true,
+    "q4_policy_stress.csv": true,
+    "q4_price_tail_risk.csv": true,
+    "q4_risk_backtest.csv": true,
+    "q4_risk_backtest_origins.csv": true,
+    "q4_risk_probe.json": true,
+    "q4_summary.json": true
   },
   "cutoff": "2026-06-30",
   "figure_pngs": [
@@ -44,11 +51,13 @@
     "q3_pass_through_6m.png",
     "q3_policy_counterfactual.png",
     "q3_policy_macro_counterfactual.png",
-    "q3_resilience_metrics.png"
+    "q3_resilience_metrics.png",
+    "q4_macro_policy_stress.png",
+    "q4_price_tail_risk.png"
   ],
   "input_hash_count": 28,
-  "model_code_hash_count": 19,
-  "output_hash_count": 29,
+  "model_code_hash_count": 20,
+  "output_hash_count": 36,
   "overall_status": "PASS",
   "paper_finalize_allowed": true,
   "probes": [
@@ -445,10 +454,96 @@
     },
     {
       "evidence_files": [
+        "results/q4_risk_probe.json",
+        "code/problem4/run_q4.py"
+      ],
+      "message": "The self-defined extension may run fully only after its pre-registered low-cost probe passes.",
+      "metric": {
+        "checks": {
+          "baseline_distribution_non_degenerate": true,
+          "cutoff_exact": true,
+          "daily_rows_at_least_750": true,
+          "fhs_distribution_non_degenerate": true,
+          "fixed_seed_exact_replay": true,
+          "gjr_persistence_below_one": true,
+          "macro_three_outcomes_present": true,
+          "macro_three_scenarios_present": true,
+          "policy_three_outcomes_present": true,
+          "representative_backtest_complete": true,
+          "seed_sensitivity_below_0_15": true
+        },
+        "gjr_persistence": 0.9918256622620849,
+        "probe_status": "PASS",
+        "seed_probability_max_abs_difference": 0.006
+      },
+      "probe_id": "q4_method_risk_probe_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q4 main method and Gaussian baseline pass input, stationarity, non-degeneracy, replay, perturbation and interface probes"
+    },
+    {
+      "evidence_files": [
+        "results/q4_price_tail_risk.csv",
+        "results/q4_risk_backtest.csv",
+        "results/q4_risk_backtest_origins.csv"
+      ],
+      "message": "Q4 probability claims require a comparable baseline, rolling calibration evidence and no future information at any origin.",
+      "metric": {
+        "backtest_min_origins": 15,
+        "backtest_no_future_information": true,
+        "backtest_rows": 6,
+        "distributions_non_degenerate": true,
+        "horizons": [
+          1,
+          3,
+          6
+        ],
+        "models": [
+          "FHS_GJR_GARCH",
+          "Gaussian_random_walk"
+        ],
+        "probabilities_finite_and_bounded": true
+      },
+      "probe_id": "q4_probability_calibration_gate",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "FHS and Gaussian baseline each produce 1/3/6-month non-degenerate bounded tail forecasts with at least ten leakage-free backtest origins"
+    },
+    {
+      "evidence_files": [
+        "results/q4_macro_stress.csv",
+        "results/q4_policy_stress.csv",
+        "results/q4_summary.json"
+      ],
+      "message": "The extension cannot turn conditional Q2 responses or Q3 policy scenarios into deterministic losses or one combined causal estimate.",
+      "metric": {
+        "guardrail_present": true,
+        "macro_outcomes": [
+          "china_cpi_yoy_pct",
+          "china_iav_yoy_pct",
+          "china_ppi_yoy_pct"
+        ],
+        "macro_rows": 36,
+        "macro_scenarios": [
+          "extreme_q95",
+          "moderate_q75",
+          "severe_q90"
+        ],
+        "policy_rows": 15,
+        "summary_evidence_status": "CONDITIONAL_STRESS_TEST"
+      },
+      "probe_id": "q4_evidence_layer_guardrail",
+      "severity": "blocking",
+      "status": "PASS",
+      "threshold": "Q4 keeps price probabilities, structural-shock macro scenarios and realized policy counterfactuals as three linked but non-additive evidence layers"
+    },
+    {
+      "evidence_files": [
         "figures",
         "code/problem1/run_q1.py",
         "code/problem2/run_q2.py",
         "code/problem3/run_q3.py",
+        "code/problem4/run_q4.py",
         "code/utils/plot_style.py"
       ],
       "message": "Figure axes and legends are localized to Chinese; large titles are not painted into the figure canvas.",
@@ -465,7 +560,9 @@
           "q3_pass_through_6m.png",
           "q3_policy_counterfactual.png",
           "q3_policy_macro_counterfactual.png",
-          "q3_resilience_metrics.png"
+          "q3_resilience_metrics.png",
+          "q4_macro_policy_stress.png",
+          "q4_price_tail_risk.png"
         ],
         "large_title_painted_inside_figure": false,
         "old_visible_terms": []
@@ -473,7 +570,7 @@
       "probe_id": "figure_localization_gate",
       "severity": "blocking",
       "status": "PASS",
-      "threshold": "eight figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions"
+      "threshold": "at least ten figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions"
     },
     {
       "evidence_files": [
@@ -501,7 +598,7 @@
       "message": "The replay target is pinned independently of the interpreter used only to package and verify artifacts.",
       "metric": {
         "exact_package_pins": 41,
-        "generation_python_version": "3.11.9",
+        "generation_python_version": "3.13.9",
         "requirements_lock_sha256": "576f8e30f99894c433c251498ae94476d22f798985ed91920b1138348dedfe64",
         "target_python_version": "3.11.9"
       },
@@ -518,8 +615,8 @@
       "message": "The reproducibility manifest records model outputs, processed inputs and model code so raw snapshots that cannot be redistributed do not prevent reproducibility checks and later code edits invalidate stale freezes.",
       "metric": {
         "input_hash_count": 28,
-        "model_code_hash_count": 19,
-        "output_hash_count": 29
+        "model_code_hash_count": 20,
+        "output_hash_count": 36
       },
       "probe_id": "freeze_hash_coverage_gate",
       "severity": "blocking",

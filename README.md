@@ -1,6 +1,6 @@
 # SHU-OilShock-CN
 
-上海大学数学建模校赛 A 题协作项目：国际油价预测、战争冲击识别、中国宏观经济传导与政策韧性分析。
+上海大学数学建模校赛 A 题协作项目：国际油价预测、战争冲击识别、中国宏观经济传导、政策韧性与尾部风险压力测试。
 
 ## 项目约定
 
@@ -9,9 +9,9 @@
 - 数据范围：仅使用免费、可公开访问且允许学术使用的数据
 - 主样本观测截止日：2026-06-30（最后一个完整自然月和季度）
 - 比赛提交日：2026-08-01
-- 子问题数量：3
+- 任务结构：3 项题面核心任务 + 1 项自拟拓展
 - 建模方案：B 档平衡方案
-- 当前阶段：三问模型、稳健性、数据图表和数值冻结已完成，风险门禁全部 `PASS`，进入非数据图和论文撰写阶段
+- 当前阶段：三项核心任务与尾部风险拓展的模型、稳健性、数据图表和数值冻结已完成，风险门禁全部 `PASS`，进入论文撰写阶段
 
 题面文件：[A题：国际油价预测建模.docx](./A题：国际油价预测建模.docx)
 
@@ -24,6 +24,7 @@
   -> 月度中国 Local Projection / ARDL
   -> 跨国价格传导比较
   -> 关闭中国临时调控的反事实
+  -> FHS–GJR-GARCH 尾部概率与宏观政策压力测试
 ```
 
 需要特别区分：
@@ -48,6 +49,7 @@
 │   ├── raw/
 │   └── processed/
 ├── code/
+│   ├── problem1/ ... problem4/
 ├── figures/
 ├── results/
 ├── reports/
@@ -69,12 +71,15 @@
 - [战争与政策事件表](./data/event_timeline.csv)
 - [阶段性结果报告](./reports/RESULTS_REPORT.md)
 - [风险探针汇总](./results/risk_probe_summary.json)
+- [Q4 尾部风险结果](./results/q4_price_tail_risk.csv)
+- [Q4 宏观压力结果](./results/q4_macro_stress.csv)
 
 ## 当前门禁与复现
 
 - Q1：no-change 在统一滚动评估中胜出并作为主预测；ARIMA/SARIMAX 保留为未胜基线的解释性对照。
 - Q2：国家统计局工业增加值与 PPI 月度历史已进入处理层；官方春节合并发布空值不插值，Q2 四个结果变量已完成重跑。
 - Q3：中国 Brent-CNY 构造代理值只用于政策情景，不参与跨国燃油传导主排名。
+- Q4：FHS–GJR-GARCH 与高斯随机游走使用统一滚动回测；宏观结构冲击情景与政策关闭反事实分层报告，不作加总。
 - 风险门禁：全部 `PASS`，`paper_finalize_allowed=true`。
 - `results/frozen_numbers.json` 使用 `3coding-visual` 标准数值冻结格式。
 - 风险状态、运行环境以及代码/输入/输出哈希保存在 `results/reproducibility_manifest.json`。

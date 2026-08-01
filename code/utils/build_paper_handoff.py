@@ -75,6 +75,10 @@ def write_paper_numbers() -> None:
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
     q3_resilience = read_csv("q3_resilience_metrics.csv")
+    q4_risk = read_csv("q4_price_tail_risk.csv")
+    q4_backtest = read_csv("q4_risk_backtest.csv")
+    q4_macro = read_csv("q4_macro_stress.csv")
+    q4_policy = read_csv("q4_policy_stress.csv")
 
     rows: list[dict[str, object]] = []
 
@@ -249,6 +253,59 @@ def write_paper_numbers() -> None:
         "不得写成无条件SUPPORTED",
     )
 
+    for _, row in q4_risk[q4_risk["model"].eq("FHS_GJR_GARCH")].sort_values("horizon_months").iterrows():
+        horizon = int(row["horizon_months"])
+        add(
+            "Q4_extension",
+            f"fhs_median_price_h{horizon}",
+            round(float(row["median_price"]), 6),
+            "美元/桶",
+            "results/q4_price_tail_risk.csv",
+            "可作为2026-06-30信息集下的条件分布中位数",
+            "不得写成确定性油价路径",
+        )
+        add(
+            "Q4_extension",
+            f"fhs_terminal_prob_above_hist_p95_h{horizon}",
+            round(float(row["terminal_prob_above_hist_p95"]), 6),
+            "probability",
+            "results/q4_price_tail_risk.csv",
+            "可报告期末价格超过历史95%分位阈值的条件概率",
+            "不得解释为事件必然发生概率或因果概率",
+        )
+    for _, row in q4_backtest.sort_values(["horizon_months", "model"]).iterrows():
+        add(
+            "Q4_extension",
+            f"backtest_pinball_{row['model']}_h{int(row['horizon_months'])}",
+            round(float(row["mean_pinball_loss"]), 6),
+            "美元/桶分位损失",
+            "results/q4_risk_backtest.csv",
+            "主方法与基线按相同滚动原点和期限比较",
+            "不得只报告有利期限或隐藏基线",
+        )
+    for _, row in q4_macro[
+        q4_macro["scenario"].eq("extreme_q95") & q4_macro["horizon"].isin([6, 12])
+    ].sort_values(["outcome", "horizon"]).iterrows():
+        add(
+            "Q4_extension",
+            f"extreme_q95_{row['outcome']}_h{int(row['horizon'])}",
+            round(float(row["conditional_response_pctpt"]), 6),
+            "百分点",
+            "results/q4_macro_stress.csv",
+            "可作为历史95%分位油价特定风险冲击下的条件响应",
+            "联合区间跨零时不得写成确定性宏观损失",
+        )
+    for _, row in q4_policy[q4_policy["period"].eq("2026-06")].sort_values("outcome").iterrows():
+        add(
+            "Q4_extension",
+            f"policy_buffer_benefit_2026_06_{row['outcome']}",
+            round(float(row["policy_buffer_benefit_pctpt"]), 6),
+            "百分点",
+            "results/q4_policy_stress.csv",
+            "可作为Q3已实现临时调控关闭反事实的政策缓冲收益重述",
+            "不得外推到Q4模拟油价路径或写成完整福利收益",
+        )
+
     pd.DataFrame(rows).to_csv(REPORTS_DIR / "paper_numbers.csv", index=False, encoding="utf-8-sig")
 
 
@@ -406,24 +463,26 @@ def save_flow(fig: plt.Figure, stem: str, title: str, subtitle: str) -> None:
 
 
 def plot_route_map() -> None:
-    fig, ax = plt.subplots(figsize=(8.8, 3.6))
+    fig, ax = plt.subplots(figsize=(10.2, 3.6))
     ax.set_axis_off()
     boxes = [
-        ((0.03, 0.55), "问题一\n预测与事件识别"),
-        ((0.27, 0.55), "结构冲击\nSVAR输出"),
-        ((0.51, 0.55), "问题二\n中国宏观传导"),
-        ((0.75, 0.55), "问题三\n跨国韧性与政策情景"),
-        ((0.51, 0.18), "冻结校验\n风险门禁PASS"),
-        ((0.75, 0.18), "论文撰写\n数字台账引用"),
+        ((0.02, 0.55), "问题一\n预测与事件识别"),
+        ((0.21, 0.55), "结构冲击\nSVAR输出"),
+        ((0.40, 0.55), "问题二\n中国宏观传导"),
+        ((0.59, 0.55), "问题三\n跨国韧性与政策情景"),
+        ((0.78, 0.55), "拓展问题\n尾部风险与压力测试"),
+        ((0.40, 0.18), "冻结校验\n风险门禁PASS"),
+        ((0.64, 0.18), "论文撰写\n数字台账引用"),
     ]
     for xy, text in boxes:
-        draw_box(ax, xy, text, color="#f4efe6")
-    arrow(ax, (0.21, 0.63), (0.27, 0.63))
-    arrow(ax, (0.45, 0.63), (0.51, 0.63))
-    arrow(ax, (0.69, 0.63), (0.75, 0.63))
-    arrow(ax, (0.60, 0.55), (0.60, 0.34))
-    arrow(ax, (0.69, 0.26), (0.75, 0.26))
-    save_flow(fig, "paper_route_map", "三问统一技术路线", "模型链由预测与事件识别延伸到宏观传导和政策比较")
+        draw_box(ax, xy, text, width=0.15, color="#f4efe6")
+    arrow(ax, (0.17, 0.63), (0.21, 0.63))
+    arrow(ax, (0.36, 0.63), (0.40, 0.63))
+    arrow(ax, (0.55, 0.63), (0.59, 0.63))
+    arrow(ax, (0.74, 0.63), (0.78, 0.63))
+    arrow(ax, (0.86, 0.55), (0.55, 0.34))
+    arrow(ax, (0.55, 0.26), (0.64, 0.26))
+    save_flow(fig, "paper_route_map", "三问及拓展统一技术路线", "模型链由预测、宏观传导和政策比较延伸到尾部风险压力测试")
 
 
 def plot_event_timeline() -> None:
@@ -486,6 +545,10 @@ def write_handoff_markdown() -> None:
     q2_metrics = read_csv("q2_transmission_metrics.csv")
     q3_resilience = read_csv("q3_resilience_metrics.csv")
     q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
+    q4_risk = read_csv("q4_price_tail_risk.csv")
+    q4_backtest = read_csv("q4_risk_backtest.csv")
+    q4_macro = read_csv("q4_macro_stress.csv")
+    q4_policy = read_csv("q4_policy_stress.csv")
 
     q1_rows = []
     for _, row in q1_origin.sort_values("horizon_months").iterrows():
@@ -513,12 +576,29 @@ def write_handoff_markdown() -> None:
         f"- 2026-06 {row['outcome_label']}：无临时调控相对实际路径差额 {row['macro_counterfactual_gap_pctpt']:.3f} 个百分点，95%区间 [{row['lower_95']:.3f}, {row['upper_95']:.3f}]。"
         for _, row in q3_policy_macro[q3_policy_macro["period"].eq("2026-06")].sort_values("outcome").iterrows()
     ]
+    q4_price_rows = [
+        f"- h={int(row['horizon_months'])}：中位数 {row['median_price']:.2f} 美元/桶，90%区间 [{row['p05_price']:.2f}, {row['p95_price']:.2f}]，期末超过历史95%价格分位的条件概率 {100 * row['terminal_prob_above_hist_p95']:.2f}%。"
+        for _, row in q4_risk[q4_risk["model"].eq("FHS_GJR_GARCH")].sort_values("horizon_months").iterrows()
+    ]
+    q4_backtest_rows = [
+        f"- {row['model']}，h={int(row['horizon_months'])}：平均分位损失 {row['mean_pinball_loss']:.3f}，80%/90%覆盖率 {row['coverage_80']:.3f}/{row['coverage_90']:.3f}。"
+        for _, row in q4_backtest.sort_values(["horizon_months", "model"]).iterrows()
+    ]
+    q4_macro_rows = [
+        f"- {row['outcome_label']}，h={int(row['horizon'])}：95%分位结构冲击条件响应 {row['conditional_response_pctpt']:.3f} 个百分点，联合95%区间 [{row['joint_lower_95']:.3f}, {row['joint_upper_95']:.3f}]，{row['row_evidence_status']}。"
+        for _, row in q4_macro[q4_macro["scenario"].eq("extreme_q95") & q4_macro["horizon"].isin([6, 12])]
+        .sort_values(["outcome", "horizon"]).iterrows()
+    ]
+    q4_policy_rows = [
+        f"- 2026-06 {row['outcome_label']}：政策缓冲收益 {row['policy_buffer_benefit_pctpt']:.3f} 个百分点，95%区间 [{row['benefit_lower_95']:.3f}, {row['benefit_upper_95']:.3f}]。"
+        for _, row in q4_policy[q4_policy["period"].eq("2026-06")].sort_values("outcome").iterrows()
+    ]
 
     text = f"""# 建模到论文移交说明
 
 [PAPER_READY]
 
-三问建模、检验、数值冻结和论文移交材料已完成。当前 `overall_status={risk['overall_status']}`，`paper_finalize_allowed={str(risk['paper_finalize_allowed']).lower()}`，阻塞门禁数为 {len(risk['blocking_probe_ids'])}。
+三项核心任务与一项自拟拓展的建模、检验、数值冻结和论文移交材料已完成。当前 `overall_status={risk['overall_status']}`，`paper_finalize_allowed={str(risk['paper_finalize_allowed']).lower()}`，阻塞门禁数为 {len(risk['blocking_probe_ids'])}。
 
 ## 验证命令
 
@@ -571,10 +651,34 @@ python code\\utils\\verify_freeze.py --require-final
 
 禁止写法：不得仅凭价格传导或中国单一价格监管变量宣称“中国显著更好”；不得把价格平滑写成无成本福利改善。
 
+## 自拟拓展：油价尾部风险与政策压力测试
+
+定位：该部分来自题面“包括且不限于”的开放授权，不是题面正式编号问题。油价概率、Q2 结构冲击宏观情景和 Q3 已实现政策反事实是三个衔接但不可相加的证据层。
+
+FHS–GJR-GARCH 条件尾部预测：
+
+{chr(10).join(q4_price_rows)}
+
+与高斯随机游走的同口径滚动回测：
+
+{chr(10).join(q4_backtest_rows)}
+
+95%分位油价特定风险结构冲击的宏观压力：
+
+{chr(10).join(q4_macro_rows)}
+
+2026年已实现临时调控的政策缓冲重述：
+
+{chr(10).join(q4_policy_rows)}
+
+可用图表：`figures/q4_price_tail_risk.png`、`figures/q4_macro_policy_stress.png`。
+
+禁止写法：不得把尾部概率写成确定结果，不得把宏观情景写成确定性 GDP 损失，不得把 Q2 条件响应与 Q3 政策差额相加为单一因果贡献。
+
 ## 论文接手顺序
 
 1. 先按 `reports/paper_numbers.csv` 抽取数值，填入摘要、问题重述、模型假设和结果表。
-2. 论文正文每问按“目标—数据—公式—估计—结果—检验—解释边界”写。
+2. 三项核心任务按“目标—数据—公式—估计—结果—检验—解释边界”写，自拟拓展单列且不替代核心任务。
 3. 所有图表从 `figures/` 选择 PNG 入文，PDF 留作高清备份。
 4. 写作期间如改动模型代码、输入数据或核心结果，必须重新运行冻结和 `--require-final`。
 """

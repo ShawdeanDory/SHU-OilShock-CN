@@ -1,6 +1,6 @@
 # 待办事项：建模封板后论文接手
 
-当前状态（2026-07-31）：建模、门禁、冻结与最终验证已完成。
+当前状态（2026-08-01）：三项核心任务与一项自拟拓展的建模、门禁和冻结已完成。
 
 - `overall_status=PASS`
 - `paper_finalize_allowed=true`
@@ -23,6 +23,10 @@
 - [x] Q3 面板 LP 已改为对照国相对中国响应差。
 - [x] Q3 四类缓冲变量和交互结果已输出。
 - [x] Q3 政策关闭反事实已传播至 PPI、CPI、IAV。
+- [x] Q4 FHS–GJR-GARCH 与高斯随机游走完成统一滚动回测。
+- [x] Q4 生成 1、3、6 个月尾部概率、历史结构冲击分位宏观压力和政策缓冲表。
+- [x] Q4 风险探针通过，固定种子精确复现，替代种子概率扰动有限。
+- [x] Q4 两张论文数据图已生成，并保持 Q1/Q2/Q3 三层证据不可加总的结论边界。
 - [x] 中文图表已重新生成。
 - [x] `results/final_numbers.json`、`results/frozen_numbers.json`、`results/risk_probe_summary.json`、`results/reproducibility_manifest.json` 已冻结并验证。
 - [x] `reports/paper_numbers.csv` 与 `reports/MODELING_TO_PAPER_HANDOFF.md` 已生成。
@@ -35,7 +39,8 @@
 - [ ] 写问题一：区分预测、事件关联、ARBaselineGap 描述性基准差额和波动检验。
 - [ ] 写问题二：按“人民币原油成本—PPI—CPI/IAV—GDP 验证”组织，不写成显著增长损失。
 - [ ] 写问题三：说明中国燃油传导率并不低于六国中位数，但 CPI/工业活动和政策反事实支持“部分缓冲”。
-- [ ] 插入 8 张现有 PNG/PDF 图，并用论文图注解释证据边界。
+- [ ] 写自拟拓展：说明条件尾部概率、结构冲击压力和已实现政策缓冲，不写成确定性预测。
+- [ ] 从现有 PNG/PDF 中选择约 10 张核心图，并用论文图注解释证据边界。
 - [ ] 引用 `国际油价建模文献与方法路线.md` 和文献矩阵中的正式文献。
 - [ ] 在“模型评价”中说明数据源限制：EastMoney 历史调价表为公开数据中心镜像，2026 临时调控缺口由 NDRC/北京发改委公告核验。
 - [ ] XeLaTeX 编译两遍，检查中文字体、表格溢出、图号和参考文献。
@@ -60,7 +65,7 @@ python code\utils\verify_freeze.py --require-final
 然后检查：
 
 - [ ] 论文正文所有数值均能在 `reports/paper_numbers.csv` 或 `results/final_numbers.json` 找到。
-- [ ] 正文没有“战争净因果贡献”“显著增长损失”“中国全面优于”等过度表述。
+- [ ] 正文没有“战争净因果贡献”“显著增长损失”“中国全面优于”“尾部概率等于确定结果”等过度表述。
 - [ ] 图表标题、坐标轴、图例均为中文；ARIMA、SARIMAX、GPR、CPI、PPI、LP、HAC 等缩写可保留。
 - [ ] 附录说明 Polymarket 等 Innovation Track 未进入原三问主证据链。
 

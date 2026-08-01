@@ -1,6 +1,6 @@
 # SHU-OilShock-CN 建模封板计划
 
-更新日期：2026-07-31
+更新日期：2026-08-01
 
 数据截止日：2026-06-30
 
@@ -39,6 +39,17 @@
 - 政策反事实：在官方受管制燃油价格层移除 2026 年临时调控缺口，输出 PPI、CPI、IAV 宏观传播路径。
 - 综合判断：`results/q3_resilience_metrics.csv` 给出 `PARTIAL`，即部分维度点估计支持中国缓冲，但燃油传导率本身不优于六国中位数。
 
+### 自拟拓展：油价尾部风险与政策压力测试
+
+- 题面依据：“包括且不限于下述问题”；该模块在论文中标记为自拟拓展，不替代前三项核心任务。
+- 主方法：FHS–GJR-GARCH；可用基线：恒定波动高斯随机游走。
+- 概率输出：以 2026-06-30 为信息截止，报告未来 1、3、6 个月价格分布和超过历史 90%/95%价格分位的条件概率。
+- 回测口径：15 个完整季度末原点，主方法与基线使用相同期限、路径数、随机种子策略和分位损失/覆盖率指标。
+- 宏观压力：Q1 油价特定风险结构冲击的 75%/90%/95%分位情景乘以 Q2 IRF，并保留联合置信区间和 `INCONCLUSIVE` 标记。
+- 政策压力：只重述 Q3 已实现的 2026 年临时调控关闭反事实，不外推到模拟油价路径。
+- 主要结果：`results/q4_price_tail_risk.csv`、`results/q4_risk_backtest.csv`、`results/q4_macro_stress.csv`、`results/q4_policy_stress.csv`。
+- 图表：`figures/q4_price_tail_risk.*`、`figures/q4_macro_policy_stress.*`。
+
 ## 2. 当前冻结与验证
 
 固定重跑顺序：
@@ -51,7 +62,10 @@ python code\problem1\run_q1.py
 python code\data_processing\build_model_panels.py
 python code\problem2\run_q2.py
 python code\problem3\run_q3.py
+python code\problem4\run_q4.py --probe
+python code\problem4\run_q4.py
 python code\utils\freeze_results.py
+python code\utils\build_paper_handoff.py
 python code\utils\verify_freeze.py
 python code\utils\verify_freeze.py --require-final
 ```
@@ -69,6 +83,7 @@ python code\utils\verify_freeze.py --require-final
 - Q1：no-change 在固定回测中合法胜出；事件影响以 CAR/placebo 报告；ARBaselineGap 是描述性基准差额。
 - Q2：油价冲击对人民币原油成本和部分价格变量存在响应，但总体增长损失证据不稳健。
 - Q3：中国政策缓冲证据为 `PARTIAL`；官方价格层反事实显示若移除临时调控，PPI/CPI 上行、IAV 下行的代理路径更明显。
+- Q4：可报告固定截止日下的条件尾部概率、历史结构冲击分位压力和已实现政策缓冲；三层证据不可加总。
 
 禁止表述：
 
@@ -77,6 +92,8 @@ python code\utils\verify_freeze.py --require-final
 - Q2 已证明中国增长显著受损。
 - 中国“全面优于”其他国家；当前综合结论只能写为部分支持。
 - 价格平滑无成本；累计未调价差额应解释为政策成本或延期负担代理。
+- Q4 尾部概率是确定性结果，或 Q4 已证明未来必然出现某一油价。
+- 将 Q2 条件宏观响应与 Q3 政策反事实直接相加成单一因果贡献。
 
 ## 4. 建模阶段剩余事项
 
@@ -88,4 +105,4 @@ python code\utils\verify_freeze.py --require-final
 - Polymarket / 预测市场；
 - CGE、DSGE、TFT/LSTM、GNN 等 Innovation Track。
 
-这些内容只可作为附录、自拟问题或赛后扩展，不应再改动当前冻结主线。
+这些内容只可作为附录或赛后扩展，不应再改动当前冻结主线与已完成的 Q4 拓展。

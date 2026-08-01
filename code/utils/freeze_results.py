@@ -70,6 +70,13 @@ CORE_RESULT_FILES = [
     "q3_robustness.csv",
     "q3_summary.csv",
     "q3_summary.json",
+    "q4_risk_probe.json",
+    "q4_price_tail_risk.csv",
+    "q4_risk_backtest_origins.csv",
+    "q4_risk_backtest.csv",
+    "q4_macro_stress.csv",
+    "q4_policy_stress.csv",
+    "q4_summary.json",
 ]
 
 PROCESSED_INPUT_FILES = [
@@ -112,6 +119,7 @@ CODE_FILES = [
     "code/problem1/run_q1.py",
     "code/problem2/run_q2.py",
     "code/problem3/run_q3.py",
+    "code/problem4/run_q4.py",
     "code/schemas/frozen_numbers.schema.json",
     "code/schemas/reproducibility_manifest.schema.json",
     "code/schemas/risk_probe_summary.schema.json",
@@ -736,10 +744,115 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
         )
     )
 
+    q4_probe = load_json("q4_risk_probe.json")
+    q4_probe_checks = q4_probe.get("checks", {})
+    q4_probe_ok = q4_probe.get("status") == "PASS" and bool(q4_probe_checks) and all(q4_probe_checks.values())
+    probes.append(
+        probe(
+            "q4_method_risk_probe_gate",
+            "PASS" if q4_probe_ok else "FAIL",
+            {
+                "probe_status": q4_probe.get("status"),
+                "checks": q4_probe_checks,
+                "gjr_persistence": q4_probe.get("metrics", {}).get("gjr_persistence"),
+                "seed_probability_max_abs_difference": q4_probe.get("metrics", {}).get("seed_probability_max_abs_difference"),
+            },
+            "Q4 main method and Gaussian baseline pass input, stationarity, non-degeneracy, replay, perturbation and interface probes",
+            ["results/q4_risk_probe.json", "code/problem4/run_q4.py"],
+            "The self-defined extension may run fully only after its pre-registered low-cost probe passes.",
+        )
+    )
+
+    q4_risk = read_csv("q4_price_tail_risk.csv")
+    q4_backtest = read_csv("q4_risk_backtest.csv")
+    probability_cols = [
+        "terminal_prob_above_hist_p90",
+        "terminal_prob_above_hist_p95",
+        "path_prob_cross_hist_p90",
+        "path_prob_cross_hist_p95",
+    ]
+    q4_models = set(q4_risk.get("model", pd.Series(dtype=str)).dropna().unique().tolist())
+    q4_horizons = sorted(pd.to_numeric(q4_risk.get("horizon_months", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).unique().tolist())
+    q4_probability_finite = bool(
+        not q4_risk.empty
+        and all(column in q4_risk.columns for column in probability_cols)
+        and np.isfinite(q4_risk[probability_cols].apply(pd.to_numeric, errors="coerce").to_numpy()).all()
+        and ((q4_risk[probability_cols].apply(pd.to_numeric, errors="coerce") >= 0) & (q4_risk[probability_cols].apply(pd.to_numeric, errors="coerce") <= 1)).all().all()
+    )
+    q4_non_degenerate = bool(
+        not q4_risk.empty
+        and {"p05_price", "p95_price"}.issubset(q4_risk.columns)
+        and (pd.to_numeric(q4_risk["p95_price"], errors="coerce") > pd.to_numeric(q4_risk["p05_price"], errors="coerce")).all()
+    )
+    q4_backtest_ok = bool(
+        not q4_backtest.empty
+        and {"origins", "all_no_future_information", "mean_pinball_loss"}.issubset(q4_backtest.columns)
+        and pd.to_numeric(q4_backtest["origins"], errors="coerce").ge(10).all()
+        and bool_series(q4_backtest["all_no_future_information"]).all()
+        and np.isfinite(pd.to_numeric(q4_backtest["mean_pinball_loss"], errors="coerce")).all()
+    )
+    q4_probability_ok = (
+        q4_models == {"FHS_GJR_GARCH", "Gaussian_random_walk"}
+        and q4_horizons == [1, 3, 6]
+        and q4_probability_finite
+        and q4_non_degenerate
+        and q4_backtest_ok
+    )
+    probes.append(
+        probe(
+            "q4_probability_calibration_gate",
+            "PASS" if q4_probability_ok else "FAIL",
+            {
+                "models": sorted(q4_models),
+                "horizons": q4_horizons,
+                "probabilities_finite_and_bounded": q4_probability_finite,
+                "distributions_non_degenerate": q4_non_degenerate,
+                "backtest_rows": int(len(q4_backtest)),
+                "backtest_min_origins": clean_value(pd.to_numeric(q4_backtest.get("origins", pd.Series(dtype=float)), errors="coerce").min()) if not q4_backtest.empty else None,
+                "backtest_no_future_information": bool(q4_backtest_ok),
+            },
+            "FHS and Gaussian baseline each produce 1/3/6-month non-degenerate bounded tail forecasts with at least ten leakage-free backtest origins",
+            ["results/q4_price_tail_risk.csv", "results/q4_risk_backtest.csv", "results/q4_risk_backtest_origins.csv"],
+            "Q4 probability claims require a comparable baseline, rolling calibration evidence and no future information at any origin.",
+        )
+    )
+
+    q4_macro = read_csv("q4_macro_stress.csv")
+    q4_policy = read_csv("q4_policy_stress.csv")
+    q4_summary = load_json("q4_summary.json")
+    q4_layers_ok = bool(
+        not q4_macro.empty
+        and set(q4_macro.get("scenario", pd.Series(dtype=str)).dropna().unique().tolist()) == {"moderate_q75", "severe_q90", "extreme_q95"}
+        and set(q4_macro.get("outcome", pd.Series(dtype=str)).dropna().unique().tolist()) == {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}
+        and "joint_ci95_contains_zero" in q4_macro.columns
+        and not q4_policy.empty
+        and set(q4_policy.get("outcome", pd.Series(dtype=str)).dropna().unique().tolist()) == {"china_ppi_yoy_pct", "china_cpi_yoy_pct", "china_iav_yoy_pct"}
+        and q4_summary.get("evidence_status") == "CONDITIONAL_STRESS_TEST"
+        and bool(q4_summary.get("guardrail"))
+    )
+    probes.append(
+        probe(
+            "q4_evidence_layer_guardrail",
+            "PASS" if q4_layers_ok else "FAIL",
+            {
+                "macro_rows": int(len(q4_macro)),
+                "macro_scenarios": sorted(q4_macro.get("scenario", pd.Series(dtype=str)).dropna().unique().tolist()) if not q4_macro.empty else [],
+                "macro_outcomes": sorted(q4_macro.get("outcome", pd.Series(dtype=str)).dropna().unique().tolist()) if not q4_macro.empty else [],
+                "policy_rows": int(len(q4_policy)),
+                "summary_evidence_status": q4_summary.get("evidence_status"),
+                "guardrail_present": bool(q4_summary.get("guardrail")),
+            },
+            "Q4 keeps price probabilities, structural-shock macro scenarios and realized policy counterfactuals as three linked but non-additive evidence layers",
+            ["results/q4_macro_stress.csv", "results/q4_policy_stress.csv", "results/q4_summary.json"],
+            "The extension cannot turn conditional Q2 responses or Q3 policy scenarios into deterministic losses or one combined causal estimate.",
+        )
+    )
+
     chart_sources = [
         REPO_ROOT / "code" / "problem1" / "run_q1.py",
         REPO_ROOT / "code" / "problem2" / "run_q2.py",
         REPO_ROOT / "code" / "problem3" / "run_q3.py",
+        REPO_ROOT / "code" / "problem4" / "run_q4.py",
     ]
     old_terms = [
         "Actual Brent",
@@ -763,14 +876,14 @@ def build_risk_probe_summary(output_hashes: dict[str, str], input_hashes: dict[s
     probes.append(
         probe(
             "figure_localization_gate",
-            "PASS" if len(figures) >= 8 and not leftovers and not title_painted else "FAIL",
+            "PASS" if len(figures) >= 10 and not leftovers and not title_painted else "FAIL",
             {
                 "figure_pngs": figures,
                 "old_visible_terms": sorted(set(leftovers)),
                 "large_title_painted_inside_figure": title_painted,
             },
-            "eight figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions",
-            ["figures", "code/problem1/run_q1.py", "code/problem2/run_q2.py", "code/problem3/run_q3.py", "code/utils/plot_style.py"],
+            "at least ten figure PNGs exist, visible labels are localized, and large titles are left to LaTeX captions",
+            ["figures", "code/problem1/run_q1.py", "code/problem2/run_q2.py", "code/problem3/run_q3.py", "code/problem4/run_q4.py", "code/utils/plot_style.py"],
             "Figure axes and legends are localized to Chinese; large titles are not painted into the figure canvas.",
         )
     )
@@ -870,9 +983,21 @@ def extract_final_numbers() -> dict[str, Any]:
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
     q3_resilience = read_csv("q3_resilience_metrics.csv")
+    q4_risk = read_csv("q4_price_tail_risk.csv")
+    q4_backtest = read_csv("q4_risk_backtest.csv")
+    q4_macro = read_csv("q4_macro_stress.csv")
+    q4_policy = read_csv("q4_policy_stress.csv")
     q3_robust = read_csv("q3_robustness.csv")
+    q4_summary = load_json("q4_summary.json")
 
-    final: dict[str, Any] = {"cutoff": CUTOFF, "status_note": "stage snapshot; not a paper-final causal freeze unless risk gate passes", "q1": {}, "q2": {}, "q3": {}}
+    final: dict[str, Any] = {
+        "cutoff": CUTOFF,
+        "status_note": "three original tasks plus one self-defined extension; not a paper-final causal freeze unless risk gate passes",
+        "q1": {},
+        "q2": {},
+        "q3": {},
+        "q4_extension": {},
+    }
     if not q1_metrics.empty:
         final["q1"]["selected_forecast_model"] = "no_change"
         final["q1"]["forecast_best_by_rmse"] = records(q1_metrics.sort_values(["RMSE", "MAE"]).head(3))
@@ -936,6 +1061,24 @@ def extract_final_numbers() -> dict[str, Any]:
     if not q3_robust.empty:
         final["q3"]["robustness_rows"] = int(len(q3_robust))
         final["q3"]["robustness_types"] = sorted(q3_robust["robustness_type"].dropna().unique().tolist()) if "robustness_type" in q3_robust else []
+    if not q4_risk.empty:
+        final["q4_extension"]["price_tail_risk"] = records(q4_risk.sort_values(["model", "horizon_months"]))
+    if not q4_backtest.empty:
+        final["q4_extension"]["probabilistic_backtest"] = records(q4_backtest.sort_values(["horizon_months", "model"]))
+    if not q4_macro.empty:
+        final["q4_extension"]["extreme_q95_macro_stress"] = records(
+            q4_macro.loc[q4_macro["scenario"].eq("extreme_q95") & q4_macro["horizon"].isin([6, 12])]
+            .sort_values(["outcome", "horizon"])
+        )
+    if not q4_policy.empty:
+        final["q4_extension"]["policy_buffer_2026_06"] = records(
+            q4_policy.loc[q4_policy["period"].eq("2026-06")].sort_values("outcome")
+        )
+    if q4_summary:
+        final["q4_extension"]["evidence_status"] = q4_summary.get("evidence_status")
+        final["q4_extension"]["extension_status"] = q4_summary.get("extension_status")
+        final["q4_extension"]["backtest_preferred_model_by_mean_pinball"] = q4_summary.get("backtest_preferred_model_by_mean_pinball")
+        final["q4_extension"]["guardrail"] = q4_summary.get("guardrail")
     return final
 
 
@@ -999,7 +1142,7 @@ def build_data_overview_figures() -> None:
 def summarize_warnings() -> list[dict[str, Any]]:
     warnings_list: list[dict[str, Any]] = []
     seen: dict[tuple[str, str], dict[str, Any]] = {}
-    for filename in ["data_warnings.json", "q1_summary.json", "q2_summary.json", "q3_summary.json", "model_panel_summary.json"]:
+    for filename in ["data_warnings.json", "q1_summary.json", "q2_summary.json", "q3_summary.json", "q4_summary.json", "model_panel_summary.json"]:
         payload = load_json(filename)
         for warning in payload.get("warnings", []):
             row = dict(warning)
@@ -1058,6 +1201,10 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
     q3_policy = read_csv("q3_policy_counterfactual.csv")
     q3_policy_macro = read_csv("q3_policy_macro_counterfactual.csv")
     q3_resilience = read_csv("q3_resilience_metrics.csv")
+    q4_risk = read_csv("q4_price_tail_risk.csv")
+    q4_backtest = read_csv("q4_risk_backtest.csv")
+    q4_macro = read_csv("q4_macro_stress.csv")
+    q4_policy = read_csv("q4_policy_stress.csv")
     figures = collect_figures()
     nbs_iav = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_iav_monthly.csv")
     nbs_ppi = pd.read_csv(REPO_ROOT / "data" / "processed" / "nbs_ppi_monthly.csv")
@@ -1075,7 +1222,7 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
         blocker_lines.append("- 无。")
 
     if risk_summary.get("paper_finalize_allowed"):
-        report_title = "国际油价三问建模封板结果报告"
+        report_title = "国际油价三问及拓展建模封板结果报告"
         execution_mode = "paper-ready modeling freeze"
         conclusion_text = (
             "本轮结果已通过风险探针、Schema 校验、哈希冻结与 `--require-final` 验证，"
@@ -1086,16 +1233,17 @@ def build_report(risk_summary: dict[str, Any], final_numbers: dict[str, Any], wa
             "当前可写入论文的主线是：问题一采用 `no_change` 主预测、交易日 CAR/placebo 事件证据、"
             "历史递归 SVAR 三类结构冲击和描述性 `ARBaselineGap`；问题二采用结构冲击主规格与 "
             "约化形式稳健性，报告人民币原油成本—PPI—CPI/工业活动—GDP 传导链；问题三使用中国"
-            "官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实。"
+            "官方受管制成品油价格层进入主比较，并输出缓冲交互、综合韧性指标和政策关闭宏观反事实；"
+            "自拟拓展使用 FHS–GJR-GARCH 报告尾部概率，并将 Q2 结构冲击压力与 Q3 已实现政策反事实分层展示。"
         )
         paper_advice = (
             "论文正文可把当前结果作为封板数值使用，但必须区分预测表现、事件相关异常、结构冲击传导"
             "和政策情景模拟。第一问不得把 `ARBaselineGap` 写成严格战争净贡献；第二问不得在联合区间"
             "未排除零时写“显著增长损失”；第三问不得仅凭价格传导或单一价格监管变量断言中国政策具有"
-            "一般因果优势。"
+            "一般因果优势；拓展问题不得把尾部概率写成确定结果，也不得把 Q2 与 Q3 的不同证据层直接相加。"
         )
     else:
-        report_title = "国际油价三问阶段性建模结果报告"
+        report_title = "国际油价三问及拓展阶段性建模结果报告"
         execution_mode = "staged modeling audit"
         conclusion_text = (
             "本轮结果仍是 `CONDITIONAL` 阶段快照。代码、图表和结果可继续作为建模推进基础，"
@@ -1182,7 +1330,25 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 {markdown_table(q3_policy_macro.loc[q3_policy_macro['period'].eq('2026-06')].sort_values('outcome') if not q3_policy_macro.empty else q3_policy_macro, ['period', 'outcome_label', 'macro_counterfactual_gap_pctpt', 'lower_95', 'upper_95', 'price_layer_status', 'evidence_status'])}
 
-## 5. 图表与冻结文件
+## 5. 自拟拓展：油价尾部风险与政策压力测试
+
+该模块不是题面正式编号问题。油价概率层以 2026-06-30 最后交易日为原点，比较 FHS–GJR-GARCH 与恒定波动高斯随机游走；历史 90%/95%价格分位只作为上行压力阈值。
+
+{markdown_table(q4_risk.sort_values(['model', 'horizon_months']) if not q4_risk.empty else q4_risk, ['model', 'horizon_months', 'median_price', 'p05_price', 'p95_price', 'terminal_prob_above_hist_p90', 'terminal_prob_above_hist_p95', 'path_prob_cross_hist_p95'])}
+
+滚动回测在同一原点、期限和评价口径下比较主方法与基线；主方法是否胜出由分位损失和覆盖率共同判断，不因预设方法而更换回测区间。
+
+{markdown_table(q4_backtest.sort_values(['horizon_months', 'model']) if not q4_backtest.empty else q4_backtest, ['model', 'horizon_months', 'origins', 'mean_pinball_loss', 'median_absolute_error', 'coverage_80', 'coverage_90', 'mean_width_90'])}
+
+宏观压力层使用 Q1 油价特定风险冲击的历史正向分位数缩放 Q2 IRF。下表只展示 95%分位冲击的 6、12 月条件响应；联合区间跨零时继续标记为 `INCONCLUSIVE`。
+
+{markdown_table(q4_macro.loc[q4_macro['scenario'].eq('extreme_q95') & q4_macro['horizon'].isin([6, 12])].sort_values(['outcome', 'horizon']) if not q4_macro.empty else q4_macro, ['scenario', 'outcome_label', 'horizon', 'conditional_response_pctpt', 'joint_lower_95', 'joint_upper_95', 'row_evidence_status'])}
+
+政策压力层只重述 Q3 已实现的 2026 年临时调控关闭反事实，不外推到模拟油价路径。正的“政策缓冲收益”分别表示避免的 PPI/CPI 增幅或避免的工业活动损失。
+
+{markdown_table(q4_policy.loc[q4_policy['period'].eq('2026-06')].sort_values('outcome') if not q4_policy.empty else q4_policy, ['period', 'outcome_label', 'policy_buffer_benefit_pctpt', 'benefit_lower_95', 'benefit_upper_95', 'evidence_status'])}
+
+## 6. 图表与冻结文件
 
 核心 PNG 图表：{', '.join(figures) if figures else '暂无图表'}。
 
@@ -1195,11 +1361,11 @@ E1 已从 2026-02-28 周末映射到 2026-03-02 交易日，同时输出 CAR[0]�
 
 其中 `frozen_numbers.json` 遵循 `3coding-visual` 标准冻结格式；风险门禁以及代码、输入、输出文件哈希保存在独立的 reproducibility manifest 中。数值一致性使用标准 skill 脚本检查，项目级文件与环境检查使用 `python code/utils/verify_freeze.py`。
 
-## 6. Warnings
+## 7. Warnings
 
 {chr(10).join(warning_lines)}
 
-## 7. 论文使用建议
+## 8. 论文使用建议
 
 {paper_advice}
 """
