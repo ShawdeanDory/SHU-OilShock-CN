@@ -1,6 +1,8 @@
 # SHU-OilShock-CN
 
-上海大学数学建模校赛 A 题协作项目：国际油价预测、战争冲击识别、中国宏观经济传导、政策韧性与尾部风险压力测试。
+上海大学 2026 年数学建模校赛 A 题“国际油价预测建模”的完整研究与复现仓库。项目围绕国际油价预测、地缘冲突识别、中国宏观经济传导、政策韧性评估与尾部风险优化，形成“预测与识别—宏观传导—政策反事实—风险优化”的四问闭环。仓库包含免费公开数据的处理流程、Q1—Q4 建模代码、冻结结果、论文图表、LaTeX 源码和最终论文 PDF。
+
+> **项目状态：已完成并归档。** 当前版本作为本项目最终协作版本；量化结论以冻结数值和 [`paper/main.pdf`](./paper/main.pdf) 为准，复现与验收状态见 [`reports/VERIFY_REPORT.md`](./reports/VERIFY_REPORT.md)。
 
 ## 项目约定
 
@@ -11,20 +13,20 @@
 - 比赛提交日：2026-08-01
 - 任务结构：3 项题面核心任务 + 1 项自拟拓展
 - 建模方案：B 档平衡方案
-- 当前阶段：三项核心任务与尾部风险拓展的模型、稳健性、数据图表和数值冻结已完成，风险门禁全部 `PASS`，进入论文撰写阶段
+- 当前阶段：Q1—Q4 建模、稳健性检验、数据图表、数值冻结和论文撰写均已完成，项目进入归档状态
 
 题面文件：[A题：国际油价预测建模.docx](./A题：国际油价预测建模.docx)
 
 ## 已锁定的研究主线
 
 ```text
-月度 Brent no-change 基线预测
-  + ARIMA/SARIMAX 解释性补充
-  + 日度多阶段事件研究和 AR 基准情景差额
-  -> 月度中国 Local Projection / ARDL
-  -> 跨国价格传导比较
-  -> 关闭中国临时调控的反事实
-  -> FHS–GJR-GARCH 尾部概率与宏观政策压力测试
+月度 Brent 扩展窗口预测与 no-change 胜出基线
+  + 日度状态匹配事件研究、CAR 与 GJR-GARCH 条件波动
+  + 月度递归 SVAR 结构冲击分解
+  -> 中国宏观变量 Local Projection 与移动块 bootstrap
+  -> 六国燃油价格传导、部分识别与中国动态政策反事实
+  -> FHS–GJR-GARCH 尾部路径模拟
+  -> SAPR–CVaR 三状态自适应调价与 Pareto 优化
 ```
 
 需要特别区分：
@@ -62,6 +64,8 @@
 
 ## 当前产物
 
+- [最终论文 PDF](./paper/main.pdf)
+- [最终验收报告](./reports/VERIFY_REPORT.md)
 - [题目分析与建模设计](./reports/ANALYSIS_MODELING_REPORT.md)
 - [国际油价建模文献与方法路线](./reports/国际油价建模文献与方法路线.md)
 - [国际油价建模文献矩阵](./reports/国际油价建模文献矩阵.csv)
@@ -69,7 +73,7 @@
 - [B 档执行方案](./plan.md)
 - [阶段待办清单](./todo.md)
 - [战争与政策事件表](./data/event_timeline.csv)
-- [阶段性结果报告](./reports/RESULTS_REPORT.md)
+- [结果报告](./reports/RESULTS_REPORT.md)
 - [风险探针汇总](./results/risk_probe_summary.json)
 - [Q4 尾部风险结果](./results/q4_price_tail_risk.csv)
 - [Q4 宏观压力结果](./results/q4_macro_stress.csv)
@@ -98,7 +102,7 @@ python code/utils/verify_freeze.py
 python "<SKILL_DIR>/scripts/freeze_results.py" check --source results/final_numbers.json --freeze results/frozen_numbers.json
 ```
 
-当前风险门禁已经全部 `PASS`；论文写作必须继续只引用已冻结数值，并在完成后执行最终三重审计。
+当前技术风险门禁已经全部 `PASS`。论文与结果均已归档；后续若修改数据、模型或量化结论，必须重新执行数值冻结校验和三重审计。
 
 ## 免费数据源原则
 
